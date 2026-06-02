@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { canManage, isAdmin, useUserRoles, useCurrentUser } from "@/lib/permissions";
+import { useUserRoles, useModulePerm, useCurrentUser } from "@/lib/permissions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,8 +11,9 @@ import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Plus, Trash2, ArrowUp, ArrowDown, AlertTriangle } from "lucide-react";
+import { Plus, Trash2, ArrowUp, ArrowDown, AlertTriangle, FileDown, FileText } from "lucide-react";
 import { toast } from "sonner";
+import { exportCSV, exportPDF } from "@/lib/exports";
 
 export const Route = createFileRoute("/_authenticated/materiais")({ component: MateriaisPage });
 
@@ -20,8 +21,9 @@ function MateriaisPage() {
   const qc = useQueryClient();
   const { data: user } = useCurrentUser();
   const { data: roles } = useUserRoles();
-  const canCreate = canManage(roles);
-  const canDelete = isAdmin(roles);
+  const perm = useModulePerm("materiais");
+  const canCreate = perm.can_edit;
+  const canDelete = perm.can_delete;
 
   const { data: materiais = [] } = useQuery({
     queryKey: ["materiais"],
@@ -33,13 +35,29 @@ function MateriaisPage() {
   });
   const { data: movs = [] } = useQuery({
     queryKey: ["material-movs"],
-    queryFn: async () => (await supabase.from("material_movimentos").select("*, material:materiais(nome, unidade), obra:obras(nome)").order("data", { ascending: false }).limit(200)).data ?? [],
+    queryFn: async () => (await supabase.from("material_movimentos").select("*, material:materiais(nome, unidade), obra:obras(nome)").order("data", { ascending: false }).limit(500)).data ?? [],
   });
 
   const [openM, setOpenM] = useState(false);
   const [openMv, setOpenMv] = useState(false);
   const [fM, setFM] = useState<any>({ unidade: "un" });
   const [fMv, setFMv] = useState<any>({ tipo: "entrada" });
+
+  // Filters
+  const [filtro, setFiltro] = useState<{ ini: string; fim: string; tipo: string; obra: string; material: string }>({
+    ini: "", fim: "", tipo: "all", obra: "all", material: "all",
+  });
+
+  const movsFiltrados = useMemo(() => {
+    return movs.filter((m: any) => {
+      if (filtro.ini && m.data < filtro.ini) return false;
+      if (filtro.fim && m.data > filtro.fim) return false;
+      if (filtro.tipo !== "all" && m.tipo !== filtro.tipo) return false;
+      if (filtro.obra !== "all" && m.obra_id !== filtro.obra) return false;
+      if (filtro.material !== "all" && m.material_id !== filtro.material) return false;
+      return true;
+    });
+  }, [movs, filtro]);
 
   const createMat = useMutation({
     mutationFn: async () => { const { error } = await supabase.from("materiais").insert(fM); if (error) throw error; },
@@ -58,14 +76,37 @@ function MateriaisPage() {
 
   const consumo = useMemo(() => {
     const map: Record<string, { nome: string; saida: number; entrada: number }> = {};
-    movs.forEach((m: any) => {
+    movsFiltrados.forEach((m: any) => {
       const k = m.material?.nome ?? "—";
       if (!map[k]) map[k] = { nome: k, saida: 0, entrada: 0 };
       if (m.tipo === "saida") map[k].saida += Number(m.quantidade);
       else map[k].entrada += Number(m.quantidade);
     });
-    return Object.values(map).sort((a, b) => b.saida - a.saida).slice(0, 10);
-  }, [movs]);
+    return Object.values(map).sort((a, b) => b.saida - a.saida);
+  }, [movsFiltrados]);
+
+  const exportMovs = (kind: "csv" | "pdf") => {
+    const headers = ["Data", "Material", "Tipo", "Quantidade", "Unidade", "Obra", "Observações"];
+    const rows = movsFiltrados.map((m: any) => [
+      m.data, m.material?.nome ?? "", m.tipo, Number(m.quantidade).toFixed(3),
+      m.material?.unidade ?? "", m.obra?.nome ?? "", m.observacoes ?? "",
+    ]);
+    kind === "csv"
+      ? exportCSV(`movimentos-materiais-${new Date().toISOString().slice(0,10)}`, headers, rows)
+      : exportPDF("Movimentos de materiais", headers, rows);
+  };
+
+  const exportConsumo = (kind: "csv" | "pdf") => {
+    const headers = ["Material", "Entradas", "Saídas", "Saldo período"];
+    const rows = consumo.map((c) => [c.nome, c.entrada.toFixed(2), c.saida.toFixed(2), (c.entrada - c.saida).toFixed(2)]);
+    kind === "csv"
+      ? exportCSV(`consumo-materiais-${new Date().toISOString().slice(0,10)}`, headers, rows)
+      : exportPDF("Relatório de consumo de materiais", headers, rows);
+  };
+
+  if (!perm.can_view) {
+    return <Card className="p-8 text-center text-muted-foreground">Você não tem permissão para visualizar este módulo.</Card>;
+  }
 
   return (
     <div className="space-y-6">
@@ -125,44 +166,89 @@ function MateriaisPage() {
         </TabsContent>
 
         <TabsContent value="mov" className="space-y-3">
-          {canCreate && (
-            <Dialog open={openMv} onOpenChange={setOpenMv}>
-              <DialogTrigger asChild><Button><Plus className="h-4 w-4" /> Novo movimento</Button></DialogTrigger>
-              <DialogContent>
-                <DialogHeader><DialogTitle>Entrada / Saída</DialogTitle></DialogHeader>
-                <form onSubmit={(e) => { e.preventDefault(); createMv.mutate(); }} className="space-y-3">
-                  <div className="space-y-1"><Label>Material *</Label>
-                    <Select value={fMv.material_id ?? ""} onValueChange={(v) => setFMv({ ...fMv, material_id: v })}>
-                      <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                      <SelectContent>{materiais.map((m: any) => <SelectItem key={m.id} value={m.id}>{m.nome}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1"><Label>Tipo</Label>
-                      <Select value={fMv.tipo} onValueChange={(v) => setFMv({ ...fMv, tipo: v })}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="entrada">Entrada</SelectItem>
-                          <SelectItem value="saida">Saída</SelectItem>
-                        </SelectContent>
+          <div className="flex flex-wrap gap-2 items-end justify-between">
+            {canCreate && (
+              <Dialog open={openMv} onOpenChange={setOpenMv}>
+                <DialogTrigger asChild><Button><Plus className="h-4 w-4" /> Novo movimento</Button></DialogTrigger>
+                <DialogContent>
+                  <DialogHeader><DialogTitle>Entrada / Saída</DialogTitle></DialogHeader>
+                  <form onSubmit={(e) => { e.preventDefault(); createMv.mutate(); }} className="space-y-3">
+                    <div className="space-y-1"><Label>Material *</Label>
+                      <Select value={fMv.material_id ?? ""} onValueChange={(v) => setFMv({ ...fMv, material_id: v })}>
+                        <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                        <SelectContent>{materiais.map((m: any) => <SelectItem key={m.id} value={m.id}>{m.nome}</SelectItem>)}</SelectContent>
                       </Select>
                     </div>
-                    <div className="space-y-1"><Label>Quantidade *</Label><Input type="number" step="0.001" required value={fMv.quantidade ?? ""} onChange={(e) => setFMv({ ...fMv, quantidade: e.target.value })} /></div>
-                  </div>
-                  <div className="space-y-1"><Label>Obra</Label>
-                    <Select value={fMv.obra_id ?? ""} onValueChange={(v) => setFMv({ ...fMv, obra_id: v })}>
-                      <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                      <SelectContent>{obras.map((o: any) => <SelectItem key={o.id} value={o.id}>{o.nome}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1"><Label>Observações</Label><Textarea value={fMv.observacoes ?? ""} onChange={(e) => setFMv({ ...fMv, observacoes: e.target.value })} /></div>
-                  <DialogFooter><Button type="submit">Registrar</Button></DialogFooter>
-                </form>
-              </DialogContent>
-            </Dialog>
-          )}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1"><Label>Tipo</Label>
+                        <Select value={fMv.tipo} onValueChange={(v) => setFMv({ ...fMv, tipo: v })}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="entrada">Entrada</SelectItem>
+                            <SelectItem value="saida">Saída</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1"><Label>Quantidade *</Label><Input type="number" step="0.001" required value={fMv.quantidade ?? ""} onChange={(e) => setFMv({ ...fMv, quantidade: e.target.value })} /></div>
+                    </div>
+                    <div className="space-y-1"><Label>Obra</Label>
+                      <Select value={fMv.obra_id ?? ""} onValueChange={(v) => setFMv({ ...fMv, obra_id: v })}>
+                        <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                        <SelectContent>{obras.map((o: any) => <SelectItem key={o.id} value={o.id}>{o.nome}</SelectItem>)}</SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1"><Label>Observações</Label><Textarea value={fMv.observacoes ?? ""} onChange={(e) => setFMv({ ...fMv, observacoes: e.target.value })} /></div>
+                    <DialogFooter><Button type="submit">Registrar</Button></DialogFooter>
+                  </form>
+                </DialogContent>
+              </Dialog>
+            )}
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => exportMovs("csv")}><FileDown className="h-4 w-4" /> CSV</Button>
+              <Button variant="outline" size="sm" onClick={() => exportMovs("pdf")}><FileText className="h-4 w-4" /> PDF</Button>
+            </div>
+          </div>
+
+          <Card className="p-3">
+            <div className="grid gap-2 md:grid-cols-5">
+              <div><Label className="text-xs">De</Label><Input type="date" value={filtro.ini} onChange={(e) => setFiltro({ ...filtro, ini: e.target.value })} /></div>
+              <div><Label className="text-xs">Até</Label><Input type="date" value={filtro.fim} onChange={(e) => setFiltro({ ...filtro, fim: e.target.value })} /></div>
+              <div>
+                <Label className="text-xs">Tipo</Label>
+                <Select value={filtro.tipo} onValueChange={(v) => setFiltro({ ...filtro, tipo: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="entrada">Entrada</SelectItem>
+                    <SelectItem value="saida">Saída</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs">Obra</Label>
+                <Select value={filtro.obra} onValueChange={(v) => setFiltro({ ...filtro, obra: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas</SelectItem>
+                    {obras.map((o: any) => <SelectItem key={o.id} value={o.id}>{o.nome}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs">Material</Label>
+                <Select value={filtro.material} onValueChange={(v) => setFiltro({ ...filtro, material: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    {materiais.map((m: any) => <SelectItem key={m.id} value={m.id}>{m.nome}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </Card>
+
           <div className="grid gap-2">
-            {movs.map((m: any) => (
+            {movsFiltrados.map((m: any) => (
               <Card key={m.id} className="p-3 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   {m.tipo === "entrada" ? <ArrowDown className="h-4 w-4 text-success" /> : <ArrowUp className="h-4 w-4 text-destructive" />}
@@ -173,13 +259,33 @@ function MateriaisPage() {
                 </div>
               </Card>
             ))}
-            {movs.length === 0 && <Card className="p-8 text-center text-muted-foreground">Nenhum movimento.</Card>}
+            {movsFiltrados.length === 0 && <Card className="p-8 text-center text-muted-foreground">Nenhum movimento no filtro.</Card>}
           </div>
         </TabsContent>
 
-        <TabsContent value="rel">
+        <TabsContent value="rel" className="space-y-3">
+          <Card className="p-3">
+            <div className="grid gap-2 md:grid-cols-4">
+              <div><Label className="text-xs">De</Label><Input type="date" value={filtro.ini} onChange={(e) => setFiltro({ ...filtro, ini: e.target.value })} /></div>
+              <div><Label className="text-xs">Até</Label><Input type="date" value={filtro.fim} onChange={(e) => setFiltro({ ...filtro, fim: e.target.value })} /></div>
+              <div>
+                <Label className="text-xs">Obra</Label>
+                <Select value={filtro.obra} onValueChange={(v) => setFiltro({ ...filtro, obra: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas</SelectItem>
+                    {obras.map((o: any) => <SelectItem key={o.id} value={o.id}>{o.nome}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-end gap-2">
+                <Button variant="outline" size="sm" onClick={() => exportConsumo("csv")}><FileDown className="h-4 w-4" /> CSV</Button>
+                <Button variant="outline" size="sm" onClick={() => exportConsumo("pdf")}><FileText className="h-4 w-4" /> PDF</Button>
+              </div>
+            </div>
+          </Card>
           <Card className="p-4">
-            <h3 className="font-medium mb-3">Top 10 itens por consumo (saídas)</h3>
+            <h3 className="font-medium mb-3">Consumo de materiais (período filtrado)</h3>
             <table className="w-full text-sm">
               <thead><tr className="border-b text-left text-muted-foreground"><th className="py-2">Material</th><th>Entradas</th><th>Saídas</th><th>Saldo período</th></tr></thead>
               <tbody>
