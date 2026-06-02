@@ -166,7 +166,7 @@ function TarefasPage() {
                 </div>
                 <div className="flex flex-col gap-2 items-end">
                   {canToggle ? (
-                    <Select value={t.status} onValueChange={(v) => updateStatus.mutate({ id: t.id, status: v })}>
+                    <Select value={t.status} onValueChange={(v) => updateStatus.mutate({ id: t.id, status: v as "pendente" | "em_andamento" | "concluida" })}>
                       <SelectTrigger className="w-40 h-8"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="pendente">Pendente</SelectItem>
