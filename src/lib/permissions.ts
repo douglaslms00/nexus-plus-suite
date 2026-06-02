@@ -57,3 +57,7 @@ export function isAdmin(roles?: AppRole[]) {
 export function canManage(roles?: AppRole[]) {
   return hasAny(roles, "admin", "gestor");
 }
+export function canFinance(roles?: AppRole[]) {
+  return hasAny(roles, "admin", "gestor", "financeiro");
+}
+
