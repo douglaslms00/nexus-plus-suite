@@ -13,9 +13,15 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedTarefasRouteImport } from './routes/_authenticated/tarefas'
+import { Route as AuthenticatedObrasRouteImport } from './routes/_authenticated/obras'
+import { Route as AuthenticatedMateriaisRouteImport } from './routes/_authenticated/materiais'
 import { Route as AuthenticatedFuncionariosRouteImport } from './routes/_authenticated/funcionarios'
+import { Route as AuthenticatedFinanceiroRouteImport } from './routes/_authenticated/financeiro'
+import { Route as AuthenticatedFerramentasRouteImport } from './routes/_authenticated/ferramentas'
 import { Route as AuthenticatedEpisRouteImport } from './routes/_authenticated/epis'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedAtivosRouteImport } from './routes/_authenticated/ativos'
+import { Route as AuthenticatedAcessosRouteImport } from './routes/_authenticated/acessos'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -36,10 +42,31 @@ const AuthenticatedTarefasRoute = AuthenticatedTarefasRouteImport.update({
   path: '/tarefas',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedObrasRoute = AuthenticatedObrasRouteImport.update({
+  id: '/obras',
+  path: '/obras',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedMateriaisRoute = AuthenticatedMateriaisRouteImport.update({
+  id: '/materiais',
+  path: '/materiais',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedFuncionariosRoute =
   AuthenticatedFuncionariosRouteImport.update({
     id: '/funcionarios',
     path: '/funcionarios',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedFinanceiroRoute = AuthenticatedFinanceiroRouteImport.update({
+  id: '/financeiro',
+  path: '/financeiro',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedFerramentasRoute =
+  AuthenticatedFerramentasRouteImport.update({
+    id: '/ferramentas',
+    path: '/ferramentas',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedEpisRoute = AuthenticatedEpisRouteImport.update({
@@ -52,21 +79,43 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedAtivosRoute = AuthenticatedAtivosRouteImport.update({
+  id: '/ativos',
+  path: '/ativos',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedAcessosRoute = AuthenticatedAcessosRouteImport.update({
+  id: '/acessos',
+  path: '/acessos',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/acessos': typeof AuthenticatedAcessosRoute
+  '/ativos': typeof AuthenticatedAtivosRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/epis': typeof AuthenticatedEpisRoute
+  '/ferramentas': typeof AuthenticatedFerramentasRoute
+  '/financeiro': typeof AuthenticatedFinanceiroRoute
   '/funcionarios': typeof AuthenticatedFuncionariosRoute
+  '/materiais': typeof AuthenticatedMateriaisRoute
+  '/obras': typeof AuthenticatedObrasRoute
   '/tarefas': typeof AuthenticatedTarefasRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/acessos': typeof AuthenticatedAcessosRoute
+  '/ativos': typeof AuthenticatedAtivosRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/epis': typeof AuthenticatedEpisRoute
+  '/ferramentas': typeof AuthenticatedFerramentasRoute
+  '/financeiro': typeof AuthenticatedFinanceiroRoute
   '/funcionarios': typeof AuthenticatedFuncionariosRoute
+  '/materiais': typeof AuthenticatedMateriaisRoute
+  '/obras': typeof AuthenticatedObrasRoute
   '/tarefas': typeof AuthenticatedTarefasRoute
 }
 export interface FileRoutesById {
@@ -74,9 +123,15 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/_authenticated/acessos': typeof AuthenticatedAcessosRoute
+  '/_authenticated/ativos': typeof AuthenticatedAtivosRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/epis': typeof AuthenticatedEpisRoute
+  '/_authenticated/ferramentas': typeof AuthenticatedFerramentasRoute
+  '/_authenticated/financeiro': typeof AuthenticatedFinanceiroRoute
   '/_authenticated/funcionarios': typeof AuthenticatedFuncionariosRoute
+  '/_authenticated/materiais': typeof AuthenticatedMateriaisRoute
+  '/_authenticated/obras': typeof AuthenticatedObrasRoute
   '/_authenticated/tarefas': typeof AuthenticatedTarefasRoute
 }
 export interface FileRouteTypes {
@@ -84,20 +139,44 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/acessos'
+    | '/ativos'
     | '/dashboard'
     | '/epis'
+    | '/ferramentas'
+    | '/financeiro'
     | '/funcionarios'
+    | '/materiais'
+    | '/obras'
     | '/tarefas'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/dashboard' | '/epis' | '/funcionarios' | '/tarefas'
+  to:
+    | '/'
+    | '/auth'
+    | '/acessos'
+    | '/ativos'
+    | '/dashboard'
+    | '/epis'
+    | '/ferramentas'
+    | '/financeiro'
+    | '/funcionarios'
+    | '/materiais'
+    | '/obras'
+    | '/tarefas'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
     | '/auth'
+    | '/_authenticated/acessos'
+    | '/_authenticated/ativos'
     | '/_authenticated/dashboard'
     | '/_authenticated/epis'
+    | '/_authenticated/ferramentas'
+    | '/_authenticated/financeiro'
     | '/_authenticated/funcionarios'
+    | '/_authenticated/materiais'
+    | '/_authenticated/obras'
     | '/_authenticated/tarefas'
   fileRoutesById: FileRoutesById
 }
@@ -137,11 +216,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedTarefasRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/obras': {
+      id: '/_authenticated/obras'
+      path: '/obras'
+      fullPath: '/obras'
+      preLoaderRoute: typeof AuthenticatedObrasRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/materiais': {
+      id: '/_authenticated/materiais'
+      path: '/materiais'
+      fullPath: '/materiais'
+      preLoaderRoute: typeof AuthenticatedMateriaisRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/funcionarios': {
       id: '/_authenticated/funcionarios'
       path: '/funcionarios'
       fullPath: '/funcionarios'
       preLoaderRoute: typeof AuthenticatedFuncionariosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/financeiro': {
+      id: '/_authenticated/financeiro'
+      path: '/financeiro'
+      fullPath: '/financeiro'
+      preLoaderRoute: typeof AuthenticatedFinanceiroRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/ferramentas': {
+      id: '/_authenticated/ferramentas'
+      path: '/ferramentas'
+      fullPath: '/ferramentas'
+      preLoaderRoute: typeof AuthenticatedFerramentasRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/epis': {
@@ -158,20 +265,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/ativos': {
+      id: '/_authenticated/ativos'
+      path: '/ativos'
+      fullPath: '/ativos'
+      preLoaderRoute: typeof AuthenticatedAtivosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/acessos': {
+      id: '/_authenticated/acessos'
+      path: '/acessos'
+      fullPath: '/acessos'
+      preLoaderRoute: typeof AuthenticatedAcessosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedAcessosRoute: typeof AuthenticatedAcessosRoute
+  AuthenticatedAtivosRoute: typeof AuthenticatedAtivosRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedEpisRoute: typeof AuthenticatedEpisRoute
+  AuthenticatedFerramentasRoute: typeof AuthenticatedFerramentasRoute
+  AuthenticatedFinanceiroRoute: typeof AuthenticatedFinanceiroRoute
   AuthenticatedFuncionariosRoute: typeof AuthenticatedFuncionariosRoute
+  AuthenticatedMateriaisRoute: typeof AuthenticatedMateriaisRoute
+  AuthenticatedObrasRoute: typeof AuthenticatedObrasRoute
   AuthenticatedTarefasRoute: typeof AuthenticatedTarefasRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedAcessosRoute: AuthenticatedAcessosRoute,
+  AuthenticatedAtivosRoute: AuthenticatedAtivosRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedEpisRoute: AuthenticatedEpisRoute,
+  AuthenticatedFerramentasRoute: AuthenticatedFerramentasRoute,
+  AuthenticatedFinanceiroRoute: AuthenticatedFinanceiroRoute,
   AuthenticatedFuncionariosRoute: AuthenticatedFuncionariosRoute,
+  AuthenticatedMateriaisRoute: AuthenticatedMateriaisRoute,
+  AuthenticatedObrasRoute: AuthenticatedObrasRoute,
   AuthenticatedTarefasRoute: AuthenticatedTarefasRoute,
 }
 
