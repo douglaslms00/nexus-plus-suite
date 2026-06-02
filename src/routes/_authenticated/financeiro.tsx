@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { canFinance, isAdmin, useUserRoles, useCurrentUser } from "@/lib/permissions";
+import { useModulePerm, useCurrentUser } from "@/lib/permissions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,18 +11,19 @@ import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Plus, Trash2, Check, AlertTriangle } from "lucide-react";
+import { Plus, Trash2, Check, AlertTriangle, FileDown, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { differenceInDays, parseISO } from "date-fns";
+import { exportCSV, exportPDF } from "@/lib/exports";
 
 export const Route = createFileRoute("/_authenticated/financeiro")({ component: FinanceiroPage });
 
 function FinanceiroPage() {
   const qc = useQueryClient();
   const { data: user } = useCurrentUser();
-  const { data: roles } = useUserRoles();
-  const canEdit = canFinance(roles);
-  const canDelete = isAdmin(roles);
+  const perm = useModulePerm("financeiro");
+  const canEdit = perm.can_edit;
+  const canDelete = perm.can_delete;
 
   const { data: contas = [] } = useQuery({
     queryKey: ["contas"],
@@ -36,6 +37,18 @@ function FinanceiroPage() {
 
   const [open, setOpen] = useState(false);
   const [f, setF] = useState<any>({ tipo: "pagar", status: "pendente" });
+
+  // Filters
+  const [filtro, setFiltro] = useState({ ini: "", fim: "", tipo: "all", status: "all", categoria: "" });
+
+  const contasFiltradas = useMemo(() => contas.filter((c: any) => {
+    if (filtro.ini && c.data_vencimento < filtro.ini) return false;
+    if (filtro.fim && c.data_vencimento > filtro.fim) return false;
+    if (filtro.tipo !== "all" && c.tipo !== filtro.tipo) return false;
+    if (filtro.status !== "all" && c.status !== filtro.status) return false;
+    if (filtro.categoria && !(c.categoria ?? "").toLowerCase().includes(filtro.categoria.toLowerCase())) return false;
+    return true;
+  }), [contas, filtro]);
 
   const create = useMutation({
     mutationFn: async () => { const { error } = await supabase.from("contas_financeiras").insert({ ...f, created_by: user?.id }); if (error) throw error; },
@@ -51,18 +64,33 @@ function FinanceiroPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["contas"] }),
   });
 
-  const minhasContas = contas.filter((c: any) => c.user_id === user?.id);
-  const pagar = contas.filter((c: any) => c.tipo === "pagar");
-  const receber = contas.filter((c: any) => c.tipo === "receber");
+  const minhasContas = contasFiltradas.filter((c: any) => c.user_id === user?.id);
+  const pagar = contasFiltradas.filter((c: any) => c.tipo === "pagar");
+  const receber = contasFiltradas.filter((c: any) => c.tipo === "receber");
 
   const fluxo = useMemo(() => {
-    const pagas = contas.filter((c: any) => c.status === "pago");
+    const pagas = contasFiltradas.filter((c: any) => c.status === "pago");
     const totalPagar = pagas.filter((c: any) => c.tipo === "pagar").reduce((s: number, c: any) => s + Number(c.valor), 0);
     const totalReceber = pagas.filter((c: any) => c.tipo === "receber").reduce((s: number, c: any) => s + Number(c.valor), 0);
-    const pendPagar = contas.filter((c: any) => c.tipo === "pagar" && c.status !== "pago").reduce((s: number, c: any) => s + Number(c.valor), 0);
-    const pendReceber = contas.filter((c: any) => c.tipo === "receber" && c.status !== "pago").reduce((s: number, c: any) => s + Number(c.valor), 0);
+    const pendPagar = contasFiltradas.filter((c: any) => c.tipo === "pagar" && c.status !== "pago").reduce((s: number, c: any) => s + Number(c.valor), 0);
+    const pendReceber = contasFiltradas.filter((c: any) => c.tipo === "receber" && c.status !== "pago").reduce((s: number, c: any) => s + Number(c.valor), 0);
     return { totalPagar, totalReceber, pendPagar, pendReceber, saldo: totalReceber - totalPagar };
-  }, [contas]);
+  }, [contasFiltradas]);
+
+  const exportContas = (kind: "csv" | "pdf") => {
+    const headers = ["Vencimento", "Tipo", "Descrição", "Categoria", "Valor", "Status", "Pagamento"];
+    const rows = contasFiltradas.map((c: any) => [
+      c.data_vencimento, c.tipo, c.descricao, c.categoria ?? "",
+      Number(c.valor).toFixed(2), c.status, c.data_pagamento ?? "",
+    ]);
+    kind === "csv"
+      ? exportCSV(`fluxo-caixa-${new Date().toISOString().slice(0,10)}`, headers, rows)
+      : exportPDF("Fluxo de caixa", headers, rows);
+  };
+
+  if (!perm.can_view) {
+    return <Card className="p-8 text-center text-muted-foreground">Você não tem permissão para visualizar este módulo.</Card>;
+  }
 
   return (
     <div className="space-y-6">
@@ -77,6 +105,40 @@ function FinanceiroPage() {
         <Card className="p-4"><p className="text-xs text-muted-foreground">Saldo realizado</p><p className="text-2xl font-bold">R$ {fluxo.saldo.toFixed(2)}</p></Card>
         <Card className="p-4"><p className="text-xs text-muted-foreground">Minha carteira</p><p className="text-2xl font-bold">{minhasContas.length}</p></Card>
       </div>
+
+      <Card className="p-3">
+        <div className="grid gap-2 md:grid-cols-6">
+          <div><Label className="text-xs">De</Label><Input type="date" value={filtro.ini} onChange={(e) => setFiltro({ ...filtro, ini: e.target.value })} /></div>
+          <div><Label className="text-xs">Até</Label><Input type="date" value={filtro.fim} onChange={(e) => setFiltro({ ...filtro, fim: e.target.value })} /></div>
+          <div>
+            <Label className="text-xs">Tipo</Label>
+            <Select value={filtro.tipo} onValueChange={(v) => setFiltro({ ...filtro, tipo: v })}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="pagar">A pagar</SelectItem>
+                <SelectItem value="receber">A receber</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-xs">Status</Label>
+            <Select value={filtro.status} onValueChange={(v) => setFiltro({ ...filtro, status: v })}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="pendente">Pendente</SelectItem>
+                <SelectItem value="pago">Pago</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div><Label className="text-xs">Categoria</Label><Input value={filtro.categoria} onChange={(e) => setFiltro({ ...filtro, categoria: e.target.value })} placeholder="filtrar..." /></div>
+          <div className="flex items-end gap-2">
+            <Button variant="outline" size="sm" onClick={() => exportContas("csv")}><FileDown className="h-4 w-4" /> CSV</Button>
+            <Button variant="outline" size="sm" onClick={() => exportContas("pdf")}><FileText className="h-4 w-4" /> PDF</Button>
+          </div>
+        </div>
+      </Card>
 
       {canEdit && (
         <Dialog open={open} onOpenChange={setOpen}>
