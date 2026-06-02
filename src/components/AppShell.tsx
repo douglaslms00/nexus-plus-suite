@@ -1,6 +1,6 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
-import { useProfile, useUserRoles, canFinance, isAdmin } from "@/lib/permissions";
+import { useProfile, useUserRoles, useMyModulePermissions, effectivePerm, type AppModule } from "@/lib/permissions";
 import {
   LayoutDashboard, Users, CheckSquare, HardHat, Building2, LogOut,
   Boxes, Wrench, Package, Wallet, MapPin, ShieldCheck,
@@ -14,24 +14,26 @@ export function AppShell({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const { data: profile } = useProfile();
   const { data: roles } = useUserRoles();
+  const { data: overrides } = useMyModulePermissions();
 
   const logout = async () => {
     await supabase.auth.signOut();
     navigate({ to: "/auth", replace: true });
   };
 
-  const nav: { to: string; label: string; icon: any; show: boolean }[] = [
-    { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, show: true },
-    { to: "/funcionarios", label: "Funcionários", icon: Users, show: true },
-    { to: "/tarefas", label: "Tarefas", icon: CheckSquare, show: true },
-    { to: "/obras", label: "Obras", icon: MapPin, show: true },
-    { to: "/ativos", label: "Ativos", icon: Boxes, show: true },
-    { to: "/ferramentas", label: "Ferramentas", icon: Wrench, show: true },
-    { to: "/materiais", label: "Materiais", icon: Package, show: true },
-    { to: "/epis", label: "EPI / EPC", icon: HardHat, show: true },
-    { to: "/financeiro", label: "Financeiro", icon: Wallet, show: canFinance(roles) || true },
-    { to: "/acessos", label: "Acessos", icon: ShieldCheck, show: isAdmin(roles) },
+  const items: { to: string; label: string; icon: any; module: AppModule }[] = [
+    { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, module: "dashboard" },
+    { to: "/funcionarios", label: "Funcionários", icon: Users, module: "funcionarios" },
+    { to: "/tarefas", label: "Tarefas", icon: CheckSquare, module: "tarefas" },
+    { to: "/obras", label: "Obras", icon: MapPin, module: "obras" },
+    { to: "/ativos", label: "Ativos", icon: Boxes, module: "ativos" },
+    { to: "/ferramentas", label: "Ferramentas", icon: Wrench, module: "ferramentas" },
+    { to: "/materiais", label: "Materiais", icon: Package, module: "materiais" },
+    { to: "/epis", label: "EPI / EPC", icon: HardHat, module: "epis" },
+    { to: "/financeiro", label: "Financeiro", icon: Wallet, module: "financeiro" },
+    { to: "/acessos", label: "Acessos", icon: ShieldCheck, module: "acessos" },
   ];
+  const nav = items.filter((it) => effectivePerm(it.module, roles, overrides).can_view);
 
   return (
     <div className="min-h-screen flex bg-background">
@@ -47,7 +49,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
 
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-          {nav.filter((n) => n.show).map((item) => {
+          {nav.map((item) => {
             const active = location.pathname.startsWith(item.to);
             const Icon = item.icon;
             return (
@@ -58,7 +60,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
                   active
                     ? "bg-sidebar-primary text-sidebar-primary-foreground"
-                    : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                    : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
                 )}
               >
                 <Icon className="h-4 w-4" />
