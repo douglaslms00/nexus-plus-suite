@@ -80,11 +80,11 @@ function DashboardPage() {
   const epiAbaixoMin = epis.filter((e: any) => e.estoque_atual < e.estoque_minimo);
   const alertasAtivos = alertasVencimento.length + epiAbaixoMin.length;
 
-  const indicadores = [
-    { label: "Alertas Ativos", valor: alertasAtivos, icon: AlertTriangle, status: alertasAtivos === 0 ? "verde" : alertasAtivos > 5 ? "vermelho" : "amarelo" as const },
-    { label: "Funcionários Ativos", valor: funcionarios.length, icon: Users, status: "verde" as const },
-    { label: "Tarefas Pendentes", valor: tarefas.length, icon: CheckSquare, status: tarefas.length > 10 ? "vermelho" : tarefas.length > 0 ? "amarelo" : "verde" as const },
-    { label: "EPIs abaixo do mínimo", valor: epiAbaixoMin.length, icon: Package, status: epiAbaixoMin.length === 0 ? "verde" : "vermelho" as const },
+  const indicadores: { label: string; valor: number; icon: typeof AlertTriangle; status: "verde" | "amarelo" | "vermelho" }[] = [
+    { label: "Alertas Ativos", valor: alertasAtivos, icon: AlertTriangle, status: alertasAtivos === 0 ? "verde" : alertasAtivos > 5 ? "vermelho" : "amarelo" },
+    { label: "Funcionários Ativos", valor: funcionarios.length, icon: Users, status: "verde" },
+    { label: "Tarefas Pendentes", valor: tarefas.length, icon: CheckSquare, status: tarefas.length > 10 ? "vermelho" : tarefas.length > 0 ? "amarelo" : "verde" },
+    { label: "EPIs abaixo do mínimo", valor: epiAbaixoMin.length, icon: Package, status: epiAbaixoMin.length === 0 ? "verde" : "vermelho" },
   ];
 
   return (
