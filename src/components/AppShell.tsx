@@ -1,19 +1,13 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
-import { useProfile, useUserRoles } from "@/lib/permissions";
+import { useProfile, useUserRoles, canFinance, isAdmin } from "@/lib/permissions";
 import {
   LayoutDashboard, Users, CheckSquare, HardHat, Building2, LogOut,
+  Boxes, Wrench, Package, Wallet, MapPin, ShieldCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
-
-const nav = [
-  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/funcionarios", label: "Funcionários", icon: Users },
-  { to: "/tarefas", label: "Tarefas", icon: CheckSquare },
-  { to: "/epis", label: "EPI / EPC", icon: HardHat },
-] as const;
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { location } = useRouterState();
@@ -25,6 +19,19 @@ export function AppShell({ children }: { children: ReactNode }) {
     await supabase.auth.signOut();
     navigate({ to: "/auth", replace: true });
   };
+
+  const nav: { to: string; label: string; icon: any; show: boolean }[] = [
+    { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, show: true },
+    { to: "/funcionarios", label: "Funcionários", icon: Users, show: true },
+    { to: "/tarefas", label: "Tarefas", icon: CheckSquare, show: true },
+    { to: "/obras", label: "Obras", icon: MapPin, show: true },
+    { to: "/ativos", label: "Ativos", icon: Boxes, show: true },
+    { to: "/ferramentas", label: "Ferramentas", icon: Wrench, show: true },
+    { to: "/materiais", label: "Materiais", icon: Package, show: true },
+    { to: "/epis", label: "EPI / EPC", icon: HardHat, show: true },
+    { to: "/financeiro", label: "Financeiro", icon: Wallet, show: canFinance(roles) || true },
+    { to: "/acessos", label: "Acessos", icon: ShieldCheck, show: isAdmin(roles) },
+  ];
 
   return (
     <div className="min-h-screen flex bg-background">
@@ -39,8 +46,8 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </div>
 
-        <nav className="flex-1 p-3 space-y-1">
-          {nav.map((item) => {
+        <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
+          {nav.filter((n) => n.show).map((item) => {
             const active = location.pathname.startsWith(item.to);
             const Icon = item.icon;
             return (
