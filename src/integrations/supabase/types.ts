@@ -14,16 +14,280 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      epi_movimentos: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          data_movimento: string
+          data_vencimento: string | null
+          epi_id: string
+          funcionario_id: string | null
+          id: string
+          observacoes: string | null
+          quantidade: number
+          tipo: Database["public"]["Enums"]["epi_movimento_tipo"]
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          data_movimento?: string
+          data_vencimento?: string | null
+          epi_id: string
+          funcionario_id?: string | null
+          id?: string
+          observacoes?: string | null
+          quantidade?: number
+          tipo: Database["public"]["Enums"]["epi_movimento_tipo"]
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          data_movimento?: string
+          data_vencimento?: string | null
+          epi_id?: string
+          funcionario_id?: string | null
+          id?: string
+          observacoes?: string | null
+          quantidade?: number
+          tipo?: Database["public"]["Enums"]["epi_movimento_tipo"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "epi_movimentos_epi_id_fkey"
+            columns: ["epi_id"]
+            isOneToOne: false
+            referencedRelation: "epis"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "epi_movimentos_funcionario_id_fkey"
+            columns: ["funcionario_id"]
+            isOneToOne: false
+            referencedRelation: "funcionarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      epis: {
+        Row: {
+          ativo: boolean
+          ca: string | null
+          created_at: string
+          descricao: string | null
+          estoque_atual: number
+          estoque_minimo: number
+          id: string
+          nome: string
+          tipo: string
+          updated_at: string
+          validade_meses: number | null
+        }
+        Insert: {
+          ativo?: boolean
+          ca?: string | null
+          created_at?: string
+          descricao?: string | null
+          estoque_atual?: number
+          estoque_minimo?: number
+          id?: string
+          nome: string
+          tipo?: string
+          updated_at?: string
+          validade_meses?: number | null
+        }
+        Update: {
+          ativo?: boolean
+          ca?: string | null
+          created_at?: string
+          descricao?: string | null
+          estoque_atual?: number
+          estoque_minimo?: number
+          id?: string
+          nome?: string
+          tipo?: string
+          updated_at?: string
+          validade_meses?: number | null
+        }
+        Relationships: []
+      }
+      funcionarios: {
+        Row: {
+          ativo: boolean
+          cpf: string | null
+          created_at: string
+          created_by: string | null
+          data_admissao: string | null
+          email: string | null
+          experiencia_concluida: boolean
+          funcao: string | null
+          id: string
+          nome: string
+          observacoes: string | null
+          setor: string | null
+          telefone: string | null
+          updated_at: string
+          vencimento_aso: string | null
+          vencimento_ferias: string | null
+          vencimento_ficha_epi: string | null
+          vencimento_folga_campo: string | null
+          vencimento_treinamento: string | null
+        }
+        Insert: {
+          ativo?: boolean
+          cpf?: string | null
+          created_at?: string
+          created_by?: string | null
+          data_admissao?: string | null
+          email?: string | null
+          experiencia_concluida?: boolean
+          funcao?: string | null
+          id?: string
+          nome: string
+          observacoes?: string | null
+          setor?: string | null
+          telefone?: string | null
+          updated_at?: string
+          vencimento_aso?: string | null
+          vencimento_ferias?: string | null
+          vencimento_ficha_epi?: string | null
+          vencimento_folga_campo?: string | null
+          vencimento_treinamento?: string | null
+        }
+        Update: {
+          ativo?: boolean
+          cpf?: string | null
+          created_at?: string
+          created_by?: string | null
+          data_admissao?: string | null
+          email?: string | null
+          experiencia_concluida?: boolean
+          funcao?: string | null
+          id?: string
+          nome?: string
+          observacoes?: string | null
+          setor?: string | null
+          telefone?: string | null
+          updated_at?: string
+          vencimento_aso?: string | null
+          vencimento_ferias?: string | null
+          vencimento_ficha_epi?: string | null
+          vencimento_folga_campo?: string | null
+          vencimento_treinamento?: string | null
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          email: string | null
+          id: string
+          nome: string
+          setor: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          id: string
+          nome: string
+          setor?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          nome?: string
+          setor?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      tarefas: {
+        Row: {
+          concluida: boolean
+          concluida_em: string | null
+          created_at: string
+          created_by: string | null
+          data_vencimento: string | null
+          descricao: string | null
+          id: string
+          prioridade: Database["public"]["Enums"]["task_priority"]
+          responsavel_id: string | null
+          status: Database["public"]["Enums"]["task_status"]
+          titulo: string
+          updated_at: string
+        }
+        Insert: {
+          concluida?: boolean
+          concluida_em?: string | null
+          created_at?: string
+          created_by?: string | null
+          data_vencimento?: string | null
+          descricao?: string | null
+          id?: string
+          prioridade?: Database["public"]["Enums"]["task_priority"]
+          responsavel_id?: string | null
+          status?: Database["public"]["Enums"]["task_status"]
+          titulo: string
+          updated_at?: string
+        }
+        Update: {
+          concluida?: boolean
+          concluida_em?: string | null
+          created_at?: string
+          created_by?: string | null
+          data_vencimento?: string | null
+          descricao?: string | null
+          id?: string
+          prioridade?: Database["public"]["Enums"]["task_priority"]
+          responsavel_id?: string | null
+          status?: Database["public"]["Enums"]["task_status"]
+          titulo?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      is_admin_or_gestor: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "gestor" | "colaborador" | "financeiro"
+      epi_movimento_tipo: "entrada" | "saida" | "devolucao"
+      task_priority: "baixa" | "media" | "alta"
+      task_status: "pendente" | "em_andamento" | "concluida"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +414,11 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "gestor", "colaborador", "financeiro"],
+      epi_movimento_tipo: ["entrada", "saida", "devolucao"],
+      task_priority: ["baixa", "media", "alta"],
+      task_status: ["pendente", "em_andamento", "concluida"],
+    },
   },
 } as const
