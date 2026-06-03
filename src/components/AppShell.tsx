@@ -1,13 +1,16 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile, useUserRoles, useMyModulePermissions, effectivePerm, type AppModule } from "@/lib/permissions";
 import {
   LayoutDashboard, Users, CheckSquare, HardHat, Building2, LogOut,
-  Boxes, Wrench, Package, Wallet, MapPin, ShieldCheck,
+  Boxes, Wrench, Package, Wallet, MapPin, ShieldCheck, Menu, X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
+import { useObraAtual } from "@/lib/obra-context";
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { location } = useRouterState();
@@ -15,6 +18,13 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { data: profile } = useProfile();
   const { data: roles } = useUserRoles();
   const { data: overrides } = useMyModulePermissions();
+  const { obraId, setObraId } = useObraAtual();
+  const [open, setOpen] = useState(false);
+
+  const { data: obras = [] } = useQuery({
+    queryKey: ["obras-selector"],
+    queryFn: async () => (await supabase.from("obras").select("id, nome").order("nome")).data ?? [],
+  });
 
   const logout = async () => {
     await supabase.auth.signOut();
@@ -35,11 +45,11 @@ export function AppShell({ children }: { children: ReactNode }) {
   ];
   const nav = items.filter((it) => effectivePerm(it.module, roles, overrides).can_view);
 
-  return (
-    <div className="min-h-screen flex bg-background">
-      <aside className="w-64 bg-sidebar text-sidebar-foreground flex flex-col border-r border-sidebar-border">
-        <div className="p-6 flex items-center gap-3 border-b border-sidebar-border">
-          <div className="h-10 w-10 rounded-lg bg-sidebar-primary flex items-center justify-center">
+  const Sidebar = (
+    <aside className="w-64 h-full bg-sidebar text-sidebar-foreground flex flex-col border-r border-sidebar-border">
+      <div className="p-4 flex items-center justify-between gap-3 border-b border-sidebar-border">
+        <div className="flex items-center gap-3">
+          <div className="h-9 w-9 rounded-lg bg-sidebar-primary flex items-center justify-center">
             <Building2 className="h-5 w-5 text-sidebar-primary-foreground" />
           </div>
           <div>
@@ -47,49 +57,95 @@ export function AppShell({ children }: { children: ReactNode }) {
             <p className="text-xs opacity-70">Gestão de Obra</p>
           </div>
         </div>
+        <button className="lg:hidden" onClick={() => setOpen(false)} aria-label="Fechar menu">
+          <X className="h-5 w-5" />
+        </button>
+      </div>
 
-        <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-          {nav.map((item) => {
-            const active = location.pathname.startsWith(item.to);
-            const Icon = item.icon;
-            return (
-              <Link
-                key={item.to}
-                to={item.to}
-                className={cn(
-                  "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
-                  active
-                    ? "bg-sidebar-primary text-sidebar-primary-foreground"
-                    : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                )}
-              >
-                <Icon className="h-4 w-4" />
-                {item.label}
-              </Link>
-            );
-          })}
-        </nav>
+      <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
+        {nav.map((item) => {
+          const active = location.pathname.startsWith(item.to);
+          const Icon = item.icon;
+          return (
+            <Link
+              key={item.to}
+              to={item.to}
+              onClick={() => setOpen(false)}
+              className={cn(
+                "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
+                active
+                  ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                  : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+              )}
+            >
+              <Icon className="h-4 w-4" />
+              {item.label}
+            </Link>
+          );
+        })}
+      </nav>
 
-        <div className="p-4 border-t border-sidebar-border space-y-3">
-          <div>
-            <p className="text-sm font-medium truncate">{profile?.nome ?? "Usuário"}</p>
-            <p className="text-xs opacity-70 truncate">{profile?.email}</p>
-            <div className="mt-1 flex flex-wrap gap-1">
-              {(roles ?? []).map((r) => (
-                <span key={r} className="text-[10px] uppercase tracking-wide bg-sidebar-accent text-sidebar-accent-foreground px-2 py-0.5 rounded">
-                  {r}
-                </span>
-              ))}
-            </div>
+      <div className="p-4 border-t border-sidebar-border space-y-3">
+        <div>
+          <p className="text-sm font-medium truncate">{profile?.nome ?? "Usuário"}</p>
+          <p className="text-xs opacity-70 truncate">{profile?.email}</p>
+          <div className="mt-1 flex flex-wrap gap-1">
+            {(roles ?? []).map((r) => (
+              <span key={r} className="text-[10px] uppercase tracking-wide bg-sidebar-accent text-sidebar-accent-foreground px-2 py-0.5 rounded">
+                {r}
+              </span>
+            ))}
           </div>
-          <Button variant="secondary" size="sm" className="w-full" onClick={logout}>
-            <LogOut className="h-4 w-4" /> Sair
-          </Button>
         </div>
-      </aside>
+        <Button variant="secondary" size="sm" className="w-full" onClick={logout}>
+          <LogOut className="h-4 w-4" /> Sair
+        </Button>
+      </div>
+    </aside>
+  );
 
-      <main className="flex-1 overflow-auto">
-        <div className="max-w-7xl mx-auto p-6 lg:p-8">{children}</div>
+  return (
+    <div className="min-h-screen flex bg-background">
+      <div className="hidden lg:flex">{Sidebar}</div>
+
+      {open && (
+        <div className="fixed inset-0 z-50 flex lg:hidden">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setOpen(false)} />
+          <div className="relative z-10">{Sidebar}</div>
+        </div>
+      )}
+
+      <main className="flex-1 overflow-auto flex flex-col">
+        <header className="lg:hidden sticky top-0 z-30 bg-background/95 backdrop-blur border-b flex items-center justify-between px-3 py-2 gap-2">
+          <Button variant="ghost" size="icon" onClick={() => setOpen(true)} aria-label="Abrir menu">
+            <Menu className="h-5 w-5" />
+          </Button>
+          <div className="flex-1 max-w-[220px]">
+            <Select value={obraId ?? "all"} onValueChange={(v) => setObraId(v === "all" ? null : v)}>
+              <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Obra" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas as obras</SelectItem>
+                {obras.map((o: any) => <SelectItem key={o.id} value={o.id}>{o.nome}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+        </header>
+
+        <div className="hidden lg:flex items-center justify-end px-6 lg:px-8 pt-4">
+          <div className="flex items-center gap-2 text-sm">
+            <MapPin className="h-4 w-4 text-muted-foreground" />
+            <span className="text-muted-foreground">Obra:</span>
+            <Select value={obraId ?? "all"} onValueChange={(v) => setObraId(v === "all" ? null : v)}>
+              <SelectTrigger className="h-9 w-[220px]"><SelectValue placeholder="Todas as obras" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas as obras</SelectItem>
+                {obras.map((o: any) => <SelectItem key={o.id} value={o.id}>{o.nome}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <div className="max-w-7xl mx-auto w-full p-4 lg:p-8">{children}</div>
       </main>
     </div>
   );

@@ -82,8 +82,9 @@ function EpisPage() {
         funcionario_id: movForm.funcionario_id || null,
         tipo: movForm.tipo,
         quantidade: qtd,
-        data_vencimento: movForm.data_vencimento || null,
+        data_vencimento: null,
         observacoes: movForm.observacoes || null,
+        motivo_retirada: movForm.motivo_retirada || null,
       });
       if (error) throw error;
       // Atualiza estoque
@@ -151,7 +152,17 @@ function EpisPage() {
                         <SelectContent>{funcionarios.map((f: any) => <SelectItem key={f.id} value={f.id}>{f.nome}</SelectItem>)}</SelectContent>
                       </Select>
                     </div>
-                    <div className="space-y-1"><Label>Validade do uso</Label><Input type="date" value={movForm.data_vencimento ?? ""} onChange={(e) => setMovForm({ ...movForm, data_vencimento: e.target.value })} /></div>
+                    <div className="space-y-1"><Label>Motivo da retirada</Label>
+                      <Select value={movForm.motivo_retirada ?? ""} onValueChange={(v) => setMovForm({ ...movForm, motivo_retirada: v })}>
+                        <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="troca">Troca</SelectItem>
+                          <SelectItem value="aquisicao_novo">Aquisição (novo)</SelectItem>
+                          <SelectItem value="reposicao">Reposição</SelectItem>
+                          <SelectItem value="descarte">Descarte</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                     <div className="space-y-1"><Label>Observações</Label><Input value={movForm.observacoes ?? ""} onChange={(e) => setMovForm({ ...movForm, observacoes: e.target.value })} /></div>
                     <DialogFooter><Button type="submit" disabled={createMov.isPending}>Registrar</Button></DialogFooter>
                   </form>
@@ -240,7 +251,7 @@ function EpisPage() {
                   <TableHead>Tipo</TableHead>
                   <TableHead>Qtd</TableHead>
                   <TableHead>Funcionário</TableHead>
-                  <TableHead>Validade</TableHead>
+                  <TableHead>Motivo</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -260,7 +271,7 @@ function EpisPage() {
                     </TableCell>
                     <TableCell>{m.quantidade}</TableCell>
                     <TableCell>{m.funcionarios?.nome ?? "—"}</TableCell>
-                    <TableCell className="text-sm">{m.data_vencimento ?? "—"}</TableCell>
+                    <TableCell className="text-sm">{m.motivo_retirada ?? "—"}</TableCell>
                   </TableRow>
                 ))}
                 {movs.length === 0 && <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Nenhuma movimentação registrada.</TableCell></TableRow>}

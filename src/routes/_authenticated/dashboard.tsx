@@ -1,13 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Users, CheckSquare, HardHat, AlertTriangle, Package, CalendarClock, Wallet, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { differenceInDays, parseISO } from "date-fns";
 import { isAdmin, useUserRoles } from "@/lib/permissions";
-import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({ component: DashboardPage });
 
@@ -31,7 +29,6 @@ function StatusDot({ status }: { status: "verde" | "amarelo" | "vermelho" }) {
 }
 
 function DashboardPage() {
-  const qc = useQueryClient();
   const { data: roles } = useUserRoles();
 
   const { data: funcionarios = [] } = useQuery({ queryKey: ["dash-funcionarios"], queryFn: async () => (await supabase.from("funcionarios").select("*").eq("ativo", true)).data ?? [] });
@@ -39,23 +36,7 @@ function DashboardPage() {
   const { data: epis = [] } = useQuery({ queryKey: ["dash-epis"], queryFn: async () => (await supabase.from("epis").select("*").eq("ativo", true)).data ?? [] });
   const { data: materiais = [] } = useQuery({ queryKey: ["dash-mat"], queryFn: async () => (await supabase.from("materiais").select("*").eq("ativo", true)).data ?? [] });
   const { data: contas = [] } = useQuery({ queryKey: ["dash-contas"], queryFn: async () => (await supabase.from("contas_financeiras").select("*").neq("status", "pago")).data ?? [] });
-  const { data: adminCount } = useQuery({
-    queryKey: ["admin-count"],
-    queryFn: async () => {
-      const { count } = await supabase.from("user_roles").select("*", { count: "exact", head: true }).eq("role", "admin");
-      return count ?? 0;
-    },
-  });
 
-  const promote = useMutation({
-    mutationFn: async () => {
-      const { data, error } = await supabase.rpc("promote_to_admin_if_no_admin");
-      if (error) throw error;
-      return data as string;
-    },
-    onSuccess: (msg) => { toast.success(msg); qc.invalidateQueries(); },
-    onError: (e: any) => toast.error(e.message),
-  });
 
   const alertasVencimento = funcionarios.flatMap((f: any) =>
     FIELDS.flatMap(({ key, label }) => {
@@ -80,8 +61,6 @@ function DashboardPage() {
     { label: "Materiais abaixo do mín.", valor: matAbaixoMin.length, icon: Package, status: matAbaixoMin.length === 0 ? "verde" : "vermelho" },
   ] as const;
 
-  const semAdmin = (adminCount ?? 0) === 0;
-
   return (
     <div className="space-y-6">
       <div>
@@ -89,18 +68,7 @@ function DashboardPage() {
         <p className="text-muted-foreground">Visão geral da operação em tempo real.</p>
       </div>
 
-      {semAdmin && !isAdmin(roles) && (
-        <Card className="p-4 border-warning bg-warning/5 flex items-center justify-between flex-wrap gap-3">
-          <div className="flex items-center gap-3">
-            <ShieldCheck className="h-5 w-5 text-warning" />
-            <div>
-              <p className="font-medium">Nenhum administrador configurado</p>
-              <p className="text-sm text-muted-foreground">Como o sistema ainda não tem um admin, você pode se promover agora para gerenciar acessos.</p>
-            </div>
-          </div>
-          <Button onClick={() => promote.mutate()} disabled={promote.isPending}>Tornar-me Admin</Button>
-        </Card>
-      )}
+
       {isAdmin(roles) && (
         <Card className="p-3 flex items-center justify-between bg-primary/5 border-primary/30">
           <div className="flex items-center gap-2 text-sm"><ShieldCheck className="h-4 w-4 text-primary" /> Você é administrador.</div>
