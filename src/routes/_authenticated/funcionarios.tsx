@@ -66,6 +66,29 @@ function FuncionariosPage() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Funcionario | null>(null);
   const [form, setForm] = useState<any>({});
+  const [busca, setBusca] = useState("");
+  const [fStatus, setFStatus] = useState<"todos" | "ativos" | "inativos">("todos");
+  const [fExp, setFExp] = useState<"todos" | "concluida" | "em_curso">("todos");
+  const [fVenc, setFVenc] = useState<"todos" | "vencidos" | "proximos">("todos");
+
+  const filtered = useMemo(() => {
+    return funcionarios.filter((f: any) => {
+      if (busca && !`${f.nome ?? ""} ${f.funcao ?? ""} ${f.setor ?? ""} ${f.cpf ?? ""}`.toLowerCase().includes(busca.toLowerCase())) return false;
+      if (fStatus === "ativos" && !f.ativo) return false;
+      if (fStatus === "inativos" && f.ativo) return false;
+      if (fExp === "concluida" && !f.experiencia_concluida) return false;
+      if (fExp === "em_curso" && f.experiencia_concluida) return false;
+      if (fVenc !== "todos") {
+        const dates = VENC.map(([k]) => f[k]).filter(Boolean) as string[];
+        const hasOverdue = dates.some((d) => differenceInDays(parseISO(d), new Date()) < 0);
+        const hasSoon = dates.some((d) => { const x = differenceInDays(parseISO(d), new Date()); return x >= 0 && x <= 30; });
+        if (fVenc === "vencidos" && !hasOverdue) return false;
+        if (fVenc === "proximos" && !hasSoon) return false;
+      }
+      return true;
+    });
+  }, [funcionarios, busca, fStatus, fExp, fVenc]);
+  const [form, setForm] = useState<any>({});
 
   const openNew = () => { setEditing(null); setForm({ ativo: true, experiencia_concluida: false }); setOpen(true); };
   const openEdit = (f: Funcionario) => { setEditing(f); setForm({ ...f }); setOpen(true); };
