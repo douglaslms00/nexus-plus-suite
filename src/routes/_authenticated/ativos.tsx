@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { canManage, isAdmin, useUserRoles, useCurrentUser } from "@/lib/permissions";
+import { useObraAtual } from "@/lib/obra-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,9 +24,14 @@ function AtivosPage() {
   const canCreate = canManage(roles);
   const canDelete = isAdmin(roles);
 
+  const { obraId } = useObraAtual();
   const { data: ativos = [] } = useQuery({
-    queryKey: ["ativos"],
-    queryFn: async () => (await supabase.from("ativos").select("*, obra:obras(nome)").order("created_at", { ascending: false })).data ?? [],
+    queryKey: ["ativos", obraId],
+    queryFn: async () => {
+      let q = supabase.from("ativos").select("*, obra:obras(nome)").order("created_at", { ascending: false });
+      if (obraId) q = q.eq("obra_id", obraId);
+      return (await q).data ?? [];
+    },
   });
   const { data: obras = [] } = useQuery({
     queryKey: ["obras-min"],

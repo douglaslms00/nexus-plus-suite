@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, MapPin } from "lucide-react";
+import { Plus, Trash2, MapPin, Pencil } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/obras")({ component: ObrasPage });
@@ -31,14 +31,24 @@ function ObrasPage() {
   });
 
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<any>(null);
   const [form, setForm] = useState<any>({ status: "ativa" });
 
-  const create = useMutation({
+  const openNew = () => { setEditing(null); setForm({ status: "ativa" }); setOpen(true); };
+  const openEdit = (o: any) => { setEditing(o); setForm({ ...o }); setOpen(true); };
+
+  const save = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from("obras").insert(form);
-      if (error) throw error;
+      const payload = { nome: form.nome, endereco: form.endereco || null, status: form.status, observacoes: form.observacoes || null };
+      if (editing) {
+        const { error } = await supabase.from("obras").update(payload).eq("id", editing.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("obras").insert(payload);
+        if (error) throw error;
+      }
     },
-    onSuccess: () => { toast.success("Obra criada"); qc.invalidateQueries({ queryKey: ["obras"] }); setOpen(false); setForm({ status: "ativa" }); },
+    onSuccess: () => { toast.success(editing ? "Obra atualizada" : "Obra criada"); qc.invalidateQueries({ queryKey: ["obras"] }); setOpen(false); setForm({ status: "ativa" }); setEditing(null); },
     onError: (e: any) => toast.error(e.message),
   });
 
@@ -56,11 +66,11 @@ function ObrasPage() {
           <p className="text-muted-foreground">Centros de custo e localizações das operações.</p>
         </div>
         {canCreate && (
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild><Button><Plus className="h-4 w-4" /> Nova obra</Button></DialogTrigger>
+          <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setEditing(null); }}>
+            <DialogTrigger asChild><Button onClick={openNew}><Plus className="h-4 w-4" /> Nova obra</Button></DialogTrigger>
             <DialogContent>
-              <DialogHeader><DialogTitle>Nova obra</DialogTitle></DialogHeader>
-              <form onSubmit={(e) => { e.preventDefault(); create.mutate(); }} className="space-y-3">
+              <DialogHeader><DialogTitle>{editing ? "Editar obra" : "Nova obra"}</DialogTitle></DialogHeader>
+              <form onSubmit={(e) => { e.preventDefault(); save.mutate(); }} className="space-y-3">
                 <div className="space-y-1"><Label>Nome *</Label><Input required value={form.nome ?? ""} onChange={(e) => setForm({ ...form, nome: e.target.value })} /></div>
                 <div className="space-y-1"><Label>Endereço</Label><Input value={form.endereco ?? ""} onChange={(e) => setForm({ ...form, endereco: e.target.value })} /></div>
                 <div className="space-y-1">
@@ -75,7 +85,7 @@ function ObrasPage() {
                   </Select>
                 </div>
                 <div className="space-y-1"><Label>Observações</Label><Textarea value={form.observacoes ?? ""} onChange={(e) => setForm({ ...form, observacoes: e.target.value })} /></div>
-                <DialogFooter><Button type="submit" disabled={create.isPending}>Criar</Button></DialogFooter>
+                <DialogFooter><Button type="submit" disabled={save.isPending}>{editing ? "Salvar" : "Criar"}</Button></DialogFooter>
               </form>
             </DialogContent>
           </Dialog>
@@ -89,9 +99,13 @@ function ObrasPage() {
               <div>
                 <div className="flex items-center gap-2"><MapPin className="h-4 w-4 text-primary" /><h3 className="font-medium">{o.nome}</h3></div>
                 {o.endereco && <p className="text-sm text-muted-foreground mt-1">{o.endereco}</p>}
+                {o.observacoes && <p className="text-xs text-muted-foreground mt-1">{o.observacoes}</p>}
                 <span className="text-[10px] uppercase tracking-wide px-2 py-0.5 rounded bg-muted mt-2 inline-block">{o.status}</span>
               </div>
-              {canDelete && <Button size="icon" variant="ghost" onClick={() => confirm("Excluir?") && remove.mutate(o.id)}><Trash2 className="h-4 w-4" /></Button>}
+              <div className="flex gap-1">
+                {canCreate && <Button size="icon" variant="ghost" onClick={() => openEdit(o)}><Pencil className="h-4 w-4" /></Button>}
+                {canDelete && <Button size="icon" variant="ghost" onClick={() => confirm("Excluir?") && remove.mutate(o.id)}><Trash2 className="h-4 w-4" /></Button>}
+              </div>
             </div>
           </Card>
         ))}

@@ -1,8 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserRoles, useModulePerm, useCurrentUser } from "@/lib/permissions";
+import { useObraAtual } from "@/lib/obra-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,7 +12,7 @@ import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Plus, Trash2, ArrowUp, ArrowDown, AlertTriangle, FileDown, FileText } from "lucide-react";
+import { Plus, Trash2, ArrowUp, ArrowDown, AlertTriangle, FileDown, FileText, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { exportCSV, exportPDF } from "@/lib/exports";
 
@@ -19,8 +20,9 @@ export const Route = createFileRoute("/_authenticated/materiais")({ component: M
 
 function MateriaisPage() {
   const qc = useQueryClient();
+  const { obraId } = useObraAtual();
   const { data: user } = useCurrentUser();
-  const { data: roles } = useUserRoles();
+  useUserRoles();
   const perm = useModulePerm("materiais");
   const canCreate = perm.can_edit;
   const canDelete = perm.can_delete;
@@ -34,14 +36,26 @@ function MateriaisPage() {
     queryFn: async () => (await supabase.from("obras").select("id, nome").order("nome")).data ?? [],
   });
   const { data: movs = [] } = useQuery({
-    queryKey: ["material-movs"],
-    queryFn: async () => (await supabase.from("material_movimentos").select("*, material:materiais(nome, unidade), obra:obras(nome)").order("data", { ascending: false }).limit(500)).data ?? [],
+    queryKey: ["material-movs", obraId],
+    queryFn: async () => {
+      let q = supabase.from("material_movimentos").select("*, material:materiais(nome, unidade), obra:obras(nome)").order("data", { ascending: false }).limit(500);
+      if (obraId) q = q.eq("obra_id", obraId);
+      return (await q).data ?? [];
+    },
   });
 
   const [openM, setOpenM] = useState(false);
+  const [editingM, setEditingM] = useState<any>(null);
   const [openMv, setOpenMv] = useState(false);
   const [fM, setFM] = useState<any>({ unidade: "un" });
   const [fMv, setFMv] = useState<any>({ tipo: "entrada" });
+
+  useEffect(() => {
+    if (obraId) setFMv((p: any) => ({ ...p, obra_id: p.obra_id ?? obraId }));
+  }, [obraId]);
+
+  const openNewM = () => { setEditingM(null); setFM({ unidade: "un" }); setOpenM(true); };
+  const openEditM = (m: any) => { setEditingM(m); setFM({ ...m }); setOpenM(true); };
 
   // Filters
   const [filtro, setFiltro] = useState<{ ini: string; fim: string; tipo: string; obra: string; material: string }>({
@@ -59,9 +73,20 @@ function MateriaisPage() {
     });
   }, [movs, filtro]);
 
-  const createMat = useMutation({
-    mutationFn: async () => { const { error } = await supabase.from("materiais").insert(fM); if (error) throw error; },
-    onSuccess: () => { toast.success("Material criado"); qc.invalidateQueries({ queryKey: ["materiais"] }); setOpenM(false); setFM({ unidade: "un" }); },
+  const saveMat = useMutation({
+    mutationFn: async () => {
+      const payload: any = { ...fM };
+      delete payload.created_at; delete payload.updated_at; delete payload.id; delete payload.estoque_atual;
+      Object.keys(payload).forEach((k) => { if (payload[k] === "") payload[k] = null; });
+      if (editingM) {
+        const { error } = await supabase.from("materiais").update(payload).eq("id", editingM.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("materiais").insert(payload);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => { toast.success(editingM ? "Material atualizado" : "Material criado"); qc.invalidateQueries({ queryKey: ["materiais"] }); setOpenM(false); setEditingM(null); setFM({ unidade: "un" }); },
     onError: (e: any) => toast.error(e.message),
   });
   const removeMat = useMutation({
@@ -124,20 +149,20 @@ function MateriaisPage() {
 
         <TabsContent value="cat" className="space-y-3">
           {canCreate && (
-            <Dialog open={openM} onOpenChange={setOpenM}>
-              <DialogTrigger asChild><Button><Plus className="h-4 w-4" /> Novo material</Button></DialogTrigger>
+            <Dialog open={openM} onOpenChange={(v) => { setOpenM(v); if (!v) setEditingM(null); }}>
+              <DialogTrigger asChild><Button onClick={openNewM}><Plus className="h-4 w-4" /> Novo material</Button></DialogTrigger>
               <DialogContent>
-                <DialogHeader><DialogTitle>Novo material</DialogTitle></DialogHeader>
-                <form onSubmit={(e) => { e.preventDefault(); createMat.mutate(); }} className="space-y-3">
+                <DialogHeader><DialogTitle>{editingM ? "Editar material" : "Novo material"}</DialogTitle></DialogHeader>
+                <form onSubmit={(e) => { e.preventDefault(); saveMat.mutate(); }} className="space-y-3">
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1"><Label>Nome *</Label><Input required value={fM.nome ?? ""} onChange={(e) => setFM({ ...fM, nome: e.target.value })} /></div>
                     <div className="space-y-1"><Label>Código</Label><Input value={fM.codigo ?? ""} onChange={(e) => setFM({ ...fM, codigo: e.target.value })} /></div>
-                    <div className="space-y-1"><Label>Unidade</Label><Input value={fM.unidade} onChange={(e) => setFM({ ...fM, unidade: e.target.value })} /></div>
+                    <div className="space-y-1"><Label>Unidade</Label><Input value={fM.unidade ?? "un"} onChange={(e) => setFM({ ...fM, unidade: e.target.value })} /></div>
                     <div className="space-y-1"><Label>Estoque mínimo</Label><Input type="number" step="0.001" value={fM.estoque_minimo ?? ""} onChange={(e) => setFM({ ...fM, estoque_minimo: e.target.value })} /></div>
                     <div className="space-y-1"><Label>Preço médio</Label><Input type="number" step="0.01" value={fM.preco_medio ?? ""} onChange={(e) => setFM({ ...fM, preco_medio: e.target.value })} /></div>
                   </div>
                   <div className="space-y-1"><Label>Descrição</Label><Textarea value={fM.descricao ?? ""} onChange={(e) => setFM({ ...fM, descricao: e.target.value })} /></div>
-                  <DialogFooter><Button type="submit">Criar</Button></DialogFooter>
+                  <DialogFooter><Button type="submit" disabled={saveMat.isPending}>{editingM ? "Salvar" : "Criar"}</Button></DialogFooter>
                 </form>
               </DialogContent>
             </Dialog>
@@ -156,7 +181,10 @@ function MateriaisPage() {
                       </p>
                       {baixo && <p className="text-xs text-destructive flex items-center gap-1 mt-1"><AlertTriangle className="h-3 w-3" /> Abaixo do mínimo</p>}
                     </div>
-                    {canDelete && <Button size="icon" variant="ghost" onClick={() => confirm("Excluir?") && removeMat.mutate(m.id)}><Trash2 className="h-4 w-4" /></Button>}
+                    <div className="flex gap-1">
+                      {canCreate && <Button size="icon" variant="ghost" onClick={() => openEditM(m)}><Pencil className="h-4 w-4" /></Button>}
+                      {canDelete && <Button size="icon" variant="ghost" onClick={() => confirm("Excluir?") && removeMat.mutate(m.id)}><Trash2 className="h-4 w-4" /></Button>}
+                    </div>
                   </div>
                 </Card>
               );

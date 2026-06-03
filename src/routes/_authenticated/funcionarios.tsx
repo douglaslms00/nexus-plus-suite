@@ -3,28 +3,30 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { canManage, isAdmin, useUserRoles } from "@/lib/permissions";
+import { useObraAtual } from "@/lib/obra-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Plus, Trash2, Pencil } from "lucide-react";
 import { toast } from "sonner";
-import { differenceInDays, parseISO, format } from "date-fns";
+import { differenceInDays, parseISO, format, addMonths } from "date-fns";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/funcionarios")({
   component: FuncionariosPage,
 });
 
-const VENC = [
-  ["vencimento_aso", "ASO"],
-  ["vencimento_treinamento", "Treinamento"],
-  ["vencimento_folga_campo", "Folga Campo"],
-  ["vencimento_ferias", "Férias"],
-  ["vencimento_ficha_epi", "Ficha EPI"],
+const VENC: ReadonlyArray<readonly [string, string, string | null]> = [
+  ["vencimento_aso", "ASO", "validade_meses_aso"],
+  ["vencimento_ficha_epi", "Ficha EPI", "validade_meses_ficha_epi"],
+  ["vencimento_folga_campo", "Folga Campo", "validade_meses_folga_campo"],
+  ["vencimento_ferias", "Férias", "validade_meses_ferias"],
+  ["vencimento_treinamento", "Treinamento", null],
 ] as const;
 
 type Funcionario = any;
@@ -40,17 +42,26 @@ function vencColor(date?: string | null) {
 function FuncionariosPage() {
   const qc = useQueryClient();
   const { data: roles } = useUserRoles();
+  const { obraId } = useObraAtual();
   const canEdit = canManage(roles);
   const canDelete = isAdmin(roles);
 
   const { data: funcionarios = [], isLoading } = useQuery({
-    queryKey: ["funcionarios"],
+    queryKey: ["funcionarios", obraId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("funcionarios").select("*").order("nome");
+      let q = supabase.from("funcionarios").select("*").order("nome");
+      if (obraId) q = q.eq("obra_id", obraId);
+      const { data, error } = await q;
       if (error) throw error;
-      return data as Funcionario[];
+      return data as any[];
     },
   });
+
+  const { data: obras = [] } = useQuery({
+    queryKey: ["obras-min-func"],
+    queryFn: async () => (await supabase.from("obras").select("id, nome").order("nome")).data ?? [],
+  });
+
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Funcionario | null>(null);
@@ -122,15 +133,39 @@ function FuncionariosPage() {
                 <div className="space-y-1"><Label>Setor</Label><Input value={form.setor ?? ""} onChange={(e) => setForm({ ...form, setor: e.target.value })} /></div>
                 <div className="space-y-1"><Label>E-mail</Label><Input type="email" value={form.email ?? ""} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
                 <div className="space-y-1"><Label>Data admissão</Label><Input type="date" value={form.data_admissao ?? ""} onChange={(e) => setForm({ ...form, data_admissao: e.target.value })} /></div>
-
-                <div className="col-span-2 grid grid-cols-2 sm:grid-cols-3 gap-3 pt-2 border-t">
-                  {VENC.map(([key, label]) => (
-                    <div key={key} className="space-y-1">
-                      <Label>Vence: {label}</Label>
-                      <Input type="date" value={form[key] ?? ""} onChange={(e) => setForm({ ...form, [key]: e.target.value })} />
-                    </div>
-                  ))}
+                <div className="space-y-1">
+                  <Label>Obra</Label>
+                  <Select value={form.obra_id ?? ""} onValueChange={(v) => setForm({ ...form, obra_id: v })}>
+                    <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                    <SelectContent>{obras.map((o: any) => <SelectItem key={o.id} value={o.id}>{o.nome}</SelectItem>)}</SelectContent>
+                  </Select>
                 </div>
+
+                <div className="col-span-2 pt-2 border-t">
+                  <p className="text-sm font-medium mb-2">Validades</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    {VENC.map(([key, label, mesesKey]) => {
+                      const meses = mesesKey ? (form[mesesKey] ?? "") : "";
+                      const onMeses = (v: string) => {
+                        if (!mesesKey) return;
+                        const next: any = { ...form, [mesesKey]: v ? Number(v) : null };
+                        const base = form.data_admissao ? parseISO(form.data_admissao) : new Date();
+                        if (v) next[key] = format(addMonths(base, Number(v)), "yyyy-MM-dd");
+                        setForm(next);
+                      };
+                      return (
+                        <div key={key} className="rounded border p-2 space-y-1">
+                          <Label className="text-xs">{label}</Label>
+                          {mesesKey && (
+                            <Input type="number" min={1} placeholder="meses" value={meses} onChange={(e) => onMeses(e.target.value)} />
+                          )}
+                          <Input type="date" value={form[key] ?? ""} onChange={(e) => setForm({ ...form, [key]: e.target.value })} />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
 
                 <div className="col-span-2 flex items-center gap-6 pt-2">
                   <label className="flex items-center gap-2 text-sm">

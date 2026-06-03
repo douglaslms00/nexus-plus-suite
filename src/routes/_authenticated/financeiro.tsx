@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useModulePerm, useCurrentUser } from "@/lib/permissions";
+import { useObraAtual } from "@/lib/obra-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,13 +22,18 @@ export const Route = createFileRoute("/_authenticated/financeiro")({ component: 
 function FinanceiroPage() {
   const qc = useQueryClient();
   const { data: user } = useCurrentUser();
+  const { obraId } = useObraAtual();
   const perm = useModulePerm("financeiro");
   const canEdit = perm.can_edit;
   const canDelete = perm.can_delete;
 
   const { data: contas = [] } = useQuery({
-    queryKey: ["contas"],
-    queryFn: async () => (await supabase.from("contas_financeiras").select("*").order("data_vencimento")).data ?? [],
+    queryKey: ["contas", obraId],
+    queryFn: async () => {
+      let q = supabase.from("contas_financeiras").select("*").order("data_vencimento");
+      if (obraId) q = q.eq("obra_id", obraId);
+      return (await q).data ?? [];
+    },
   });
   const { data: profiles = [] } = useQuery({
     queryKey: ["profiles-fin"],
