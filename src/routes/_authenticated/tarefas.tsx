@@ -352,7 +352,7 @@ function TarefaDetailDialog({ tarefa, onClose, canEdit, pessoas }: { tarefa: any
             </div>
 
             {canEdit && (
-              <execForm onSubmit={(e) => { e.preventDefault(); save.mutate(); }} className="grid gap-2 sm:grid-cols-2 p-3 rounded border mb-3">
+              <form onSubmit={(e) => { e.preventDefault(); save.mutate(); }} className="grid gap-2 sm:grid-cols-2 p-3 rounded border mb-3">
                 <div className="space-y-1 sm:col-span-1">
                   <Label className="text-xs">Executor</Label>
                   <Select value={execForm.executor_id ?? ""} onValueChange={(v) => setExecForm({ ...execForm, executor_id: v })}>
@@ -374,7 +374,7 @@ function TarefaDetailDialog({ tarefa, onClose, canEdit, pessoas }: { tarefa: any
                   {editing && <Button type="button" variant="ghost" onClick={() => { setEditing(null); setExecForm({}); }}>Cancelar</Button>}
                   <Button type="submit" disabled={save.isPending}>{editing ? "Atualizar" : "Registrar"}</Button>
                 </div>
-              </execForm>
+              </form>
             )}
 
             <div className="space-y-2">
