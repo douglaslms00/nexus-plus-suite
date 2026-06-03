@@ -26,7 +26,8 @@ const VENC: ReadonlyArray<readonly [string, string, string | null]> = [
   ["vencimento_ficha_epi", "Ficha EPI", "validade_meses_ficha_epi"],
   ["vencimento_folga_campo", "Folga Campo", "validade_meses_folga_campo"],
   ["vencimento_ferias", "Férias", "validade_meses_ferias"],
-  ["vencimento_treinamento", "Treinamento", null],
+  ["vencimento_treinamento", "Treinamento", "validade_meses_treinamento"],
+  ["vencimento_experiencia", "Experiência", "validade_meses_experiencia"],
 ] as const;
 
 type Funcionario = any;
