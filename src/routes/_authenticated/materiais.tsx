@@ -149,20 +149,20 @@ function MateriaisPage() {
 
         <TabsContent value="cat" className="space-y-3">
           {canCreate && (
-            <Dialog open={openM} onOpenChange={setOpenM}>
-              <DialogTrigger asChild><Button><Plus className="h-4 w-4" /> Novo material</Button></DialogTrigger>
+            <Dialog open={openM} onOpenChange={(v) => { setOpenM(v); if (!v) setEditingM(null); }}>
+              <DialogTrigger asChild><Button onClick={openNewM}><Plus className="h-4 w-4" /> Novo material</Button></DialogTrigger>
               <DialogContent>
-                <DialogHeader><DialogTitle>Novo material</DialogTitle></DialogHeader>
-                <form onSubmit={(e) => { e.preventDefault(); createMat.mutate(); }} className="space-y-3">
+                <DialogHeader><DialogTitle>{editingM ? "Editar material" : "Novo material"}</DialogTitle></DialogHeader>
+                <form onSubmit={(e) => { e.preventDefault(); saveMat.mutate(); }} className="space-y-3">
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1"><Label>Nome *</Label><Input required value={fM.nome ?? ""} onChange={(e) => setFM({ ...fM, nome: e.target.value })} /></div>
                     <div className="space-y-1"><Label>Código</Label><Input value={fM.codigo ?? ""} onChange={(e) => setFM({ ...fM, codigo: e.target.value })} /></div>
-                    <div className="space-y-1"><Label>Unidade</Label><Input value={fM.unidade} onChange={(e) => setFM({ ...fM, unidade: e.target.value })} /></div>
+                    <div className="space-y-1"><Label>Unidade</Label><Input value={fM.unidade ?? "un"} onChange={(e) => setFM({ ...fM, unidade: e.target.value })} /></div>
                     <div className="space-y-1"><Label>Estoque mínimo</Label><Input type="number" step="0.001" value={fM.estoque_minimo ?? ""} onChange={(e) => setFM({ ...fM, estoque_minimo: e.target.value })} /></div>
                     <div className="space-y-1"><Label>Preço médio</Label><Input type="number" step="0.01" value={fM.preco_medio ?? ""} onChange={(e) => setFM({ ...fM, preco_medio: e.target.value })} /></div>
                   </div>
                   <div className="space-y-1"><Label>Descrição</Label><Textarea value={fM.descricao ?? ""} onChange={(e) => setFM({ ...fM, descricao: e.target.value })} /></div>
-                  <DialogFooter><Button type="submit">Criar</Button></DialogFooter>
+                  <DialogFooter><Button type="submit" disabled={saveMat.isPending}>{editingM ? "Salvar" : "Criar"}</Button></DialogFooter>
                 </form>
               </DialogContent>
             </Dialog>
