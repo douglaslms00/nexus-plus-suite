@@ -15,6 +15,7 @@ const FIELDS = [
   { key: "vencimento_folga_campo", label: "Folga de Campo" },
   { key: "vencimento_ferias", label: "Férias" },
   { key: "vencimento_ficha_epi", label: "Ficha EPI" },
+  { key: "vencimento_experiencia", label: "Experiência" },
 ] as const;
 
 function statusFromDays(days: number): "verde" | "amarelo" | "vermelho" {
