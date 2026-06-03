@@ -73,9 +73,20 @@ function MateriaisPage() {
     });
   }, [movs, filtro]);
 
-  const createMat = useMutation({
-    mutationFn: async () => { const { error } = await supabase.from("materiais").insert(fM); if (error) throw error; },
-    onSuccess: () => { toast.success("Material criado"); qc.invalidateQueries({ queryKey: ["materiais"] }); setOpenM(false); setFM({ unidade: "un" }); },
+  const saveMat = useMutation({
+    mutationFn: async () => {
+      const payload: any = { ...fM };
+      delete payload.created_at; delete payload.updated_at; delete payload.id; delete payload.estoque_atual;
+      Object.keys(payload).forEach((k) => { if (payload[k] === "") payload[k] = null; });
+      if (editingM) {
+        const { error } = await supabase.from("materiais").update(payload).eq("id", editingM.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("materiais").insert(payload);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => { toast.success(editingM ? "Material atualizado" : "Material criado"); qc.invalidateQueries({ queryKey: ["materiais"] }); setOpenM(false); setEditingM(null); setFM({ unidade: "un" }); },
     onError: (e: any) => toast.error(e.message),
   });
   const removeMat = useMutation({
