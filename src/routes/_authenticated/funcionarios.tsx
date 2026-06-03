@@ -133,15 +133,39 @@ function FuncionariosPage() {
                 <div className="space-y-1"><Label>Setor</Label><Input value={form.setor ?? ""} onChange={(e) => setForm({ ...form, setor: e.target.value })} /></div>
                 <div className="space-y-1"><Label>E-mail</Label><Input type="email" value={form.email ?? ""} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
                 <div className="space-y-1"><Label>Data admissão</Label><Input type="date" value={form.data_admissao ?? ""} onChange={(e) => setForm({ ...form, data_admissao: e.target.value })} /></div>
-
-                <div className="col-span-2 grid grid-cols-2 sm:grid-cols-3 gap-3 pt-2 border-t">
-                  {VENC.map(([key, label]) => (
-                    <div key={key} className="space-y-1">
-                      <Label>Vence: {label}</Label>
-                      <Input type="date" value={form[key] ?? ""} onChange={(e) => setForm({ ...form, [key]: e.target.value })} />
-                    </div>
-                  ))}
+                <div className="space-y-1">
+                  <Label>Obra</Label>
+                  <Select value={form.obra_id ?? ""} onValueChange={(v) => setForm({ ...form, obra_id: v })}>
+                    <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                    <SelectContent>{obras.map((o: any) => <SelectItem key={o.id} value={o.id}>{o.nome}</SelectItem>)}</SelectContent>
+                  </Select>
                 </div>
+
+                <div className="col-span-2 pt-2 border-t">
+                  <p className="text-sm font-medium mb-2">Validades</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    {VENC.map(([key, label, mesesKey]) => {
+                      const meses = mesesKey ? (form[mesesKey] ?? "") : "";
+                      const onMeses = (v: string) => {
+                        if (!mesesKey) return;
+                        const next: any = { ...form, [mesesKey]: v ? Number(v) : null };
+                        const base = form.data_admissao ? parseISO(form.data_admissao) : new Date();
+                        if (v) next[key] = format(addMonths(base, Number(v)), "yyyy-MM-dd");
+                        setForm(next);
+                      };
+                      return (
+                        <div key={key} className="rounded border p-2 space-y-1">
+                          <Label className="text-xs">{label}</Label>
+                          {mesesKey && (
+                            <Input type="number" min={1} placeholder="meses" value={meses} onChange={(e) => onMeses(e.target.value)} />
+                          )}
+                          <Input type="date" value={form[key] ?? ""} onChange={(e) => setForm({ ...form, [key]: e.target.value })} />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
 
                 <div className="col-span-2 flex items-center gap-6 pt-2">
                   <label className="flex items-center gap-2 text-sm">
