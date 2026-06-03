@@ -5,11 +5,13 @@ import { useProfile, useUserRoles, useMyModulePermissions, effectivePerm, type A
 import {
   LayoutDashboard, Users, CheckSquare, HardHat, Building2, LogOut,
   Boxes, Wrench, Package, Wallet, MapPin, ShieldCheck, Menu, X,
+  PanelLeftClose, PanelLeftOpen,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useObraAtual } from "@/lib/obra-context";
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -19,7 +21,17 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { data: roles } = useUserRoles();
   const { data: overrides } = useMyModulePermissions();
   const { obraId, setObraId } = useObraAtual();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(false); // mobile drawer
+  const [collapsed, setCollapsed] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem("sidebar-collapsed") === "1";
+  });
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("sidebar-collapsed", collapsed ? "1" : "0");
+    }
+  }, [collapsed]);
 
   const { data: obras = [] } = useQuery({
     queryKey: ["obras-selector"],
@@ -45,60 +57,88 @@ export function AppShell({ children }: { children: ReactNode }) {
   ];
   const nav = items.filter((it) => effectivePerm(it.module, roles, overrides).can_view);
 
-  const Sidebar = (
-    <aside className="w-64 h-full bg-sidebar text-sidebar-foreground flex flex-col border-r border-sidebar-border">
-      <div className="p-4 flex items-center justify-between gap-3 border-b border-sidebar-border">
-        <div className="flex items-center gap-3">
-          <div className="h-9 w-9 rounded-lg bg-sidebar-primary flex items-center justify-center">
-            <Building2 className="h-5 w-5 text-sidebar-primary-foreground" />
-          </div>
-          <div>
-            <p className="font-semibold leading-tight">GestãoPro</p>
-            <p className="text-xs opacity-70">Gestão de Obra</p>
-          </div>
+  const renderSidebar = (mini: boolean) => (
+    <aside
+      className={cn(
+        "h-full bg-sidebar text-sidebar-foreground flex flex-col border-r border-sidebar-border transition-[width] duration-200",
+        mini ? "w-16" : "w-64",
+      )}
+    >
+      <div className={cn("flex items-center gap-3 border-b border-sidebar-border p-4", mini && "justify-center p-3")}>
+        <div className="h-9 w-9 rounded-lg bg-sidebar-primary flex items-center justify-center shrink-0">
+          <Building2 className="h-5 w-5 text-sidebar-primary-foreground" />
         </div>
-        <button className="lg:hidden" onClick={() => setOpen(false)} aria-label="Fechar menu">
-          <X className="h-5 w-5" />
-        </button>
+        {!mini && (
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold leading-tight truncate">GestãoPro</p>
+            <p className="text-xs opacity-70 truncate">Gestão de Obra</p>
+          </div>
+        )}
+        {!mini && (
+          <button className="lg:hidden" onClick={() => setOpen(false)} aria-label="Fechar menu">
+            <X className="h-5 w-5" />
+          </button>
+        )}
       </div>
 
-      <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-        {nav.map((item) => {
-          const active = location.pathname.startsWith(item.to);
-          const Icon = item.icon;
-          return (
-            <Link
-              key={item.to}
-              to={item.to}
-              onClick={() => setOpen(false)}
-              className={cn(
-                "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
-                active
-                  ? "bg-sidebar-primary text-sidebar-primary-foreground"
-                  : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-              )}
-            >
-              <Icon className="h-4 w-4" />
-              {item.label}
-            </Link>
-          );
-        })}
-      </nav>
+      <TooltipProvider delayDuration={0}>
+        <nav className={cn("flex-1 space-y-1 overflow-y-auto", mini ? "p-2" : "p-3")}>
+          {nav.map((item) => {
+            const active = location.pathname.startsWith(item.to);
+            const Icon = item.icon;
+            const link = (
+              <Link
+                key={item.to}
+                to={item.to}
+                onClick={() => setOpen(false)}
+                className={cn(
+                  "flex items-center rounded-md text-sm transition-colors",
+                  mini ? "justify-center h-10 w-10 mx-auto" : "gap-3 px-3 py-2",
+                  active
+                    ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                    : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                )}
+                aria-label={item.label}
+              >
+                <Icon className="h-4 w-4 shrink-0" />
+                {!mini && <span className="truncate">{item.label}</span>}
+              </Link>
+            );
+            return mini ? (
+              <Tooltip key={item.to}>
+                <TooltipTrigger asChild>{link}</TooltipTrigger>
+                <TooltipContent side="right">{item.label}</TooltipContent>
+              </Tooltip>
+            ) : (
+              link
+            );
+          })}
+        </nav>
+      </TooltipProvider>
 
-      <div className="p-4 border-t border-sidebar-border space-y-3">
-        <div>
-          <p className="text-sm font-medium truncate">{profile?.nome ?? "Usuário"}</p>
-          <p className="text-xs opacity-70 truncate">{profile?.email}</p>
-          <div className="mt-1 flex flex-wrap gap-1">
-            {(roles ?? []).map((r) => (
-              <span key={r} className="text-[10px] uppercase tracking-wide bg-sidebar-accent text-sidebar-accent-foreground px-2 py-0.5 rounded">
-                {r}
-              </span>
-            ))}
+      <div className={cn("border-t border-sidebar-border space-y-3", mini ? "p-2" : "p-4")}>
+        {!mini && (
+          <div>
+            <p className="text-sm font-medium truncate">{profile?.nome ?? "Usuário"}</p>
+            <p className="text-xs opacity-70 truncate">{profile?.email}</p>
+            <div className="mt-1 flex flex-wrap gap-1">
+              {(roles ?? []).map((r) => (
+                <span key={r} className="text-[10px] uppercase tracking-wide bg-sidebar-accent text-sidebar-accent-foreground px-2 py-0.5 rounded">
+                  {r}
+                </span>
+              ))}
+            </div>
           </div>
-        </div>
-        <Button variant="secondary" size="sm" className="w-full" onClick={logout}>
-          <LogOut className="h-4 w-4" /> Sair
+        )}
+        <Button
+          variant="secondary"
+          size={mini ? "icon" : "sm"}
+          className={cn(mini ? "w-10 h-10 mx-auto" : "w-full")}
+          onClick={logout}
+          aria-label="Sair"
+        >
+          <LogOut className="h-4 w-4" />
+          {!mini && <span className="ml-1">Sair</span>}
         </Button>
       </div>
     </aside>
@@ -106,12 +146,12 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen flex bg-background">
-      <div className="hidden lg:flex">{Sidebar}</div>
+      <div className="hidden lg:flex">{renderSidebar(collapsed)}</div>
 
       {open && (
         <div className="fixed inset-0 z-50 flex lg:hidden">
           <div className="absolute inset-0 bg-black/50" onClick={() => setOpen(false)} />
-          <div className="relative z-10">{Sidebar}</div>
+          <div className="relative z-10">{renderSidebar(false)}</div>
         </div>
       )}
 
@@ -131,7 +171,16 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </header>
 
-        <div className="hidden lg:flex items-center justify-end px-6 lg:px-8 pt-4">
+        <div className="hidden lg:flex items-center justify-between px-6 lg:px-8 pt-4">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setCollapsed((v) => !v)}
+            aria-label={collapsed ? "Expandir menu" : "Recolher menu"}
+            title={collapsed ? "Expandir menu" : "Recolher menu"}
+          >
+            {collapsed ? <PanelLeftOpen className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
+          </Button>
           <div className="flex items-center gap-2 text-sm">
             <MapPin className="h-4 w-4 text-muted-foreground" />
             <span className="text-muted-foreground">Obra:</span>
