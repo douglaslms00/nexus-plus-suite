@@ -23,9 +23,14 @@ function AtivosPage() {
   const canCreate = canManage(roles);
   const canDelete = isAdmin(roles);
 
+  const { obraId } = useObraAtual();
   const { data: ativos = [] } = useQuery({
-    queryKey: ["ativos"],
-    queryFn: async () => (await supabase.from("ativos").select("*, obra:obras(nome)").order("created_at", { ascending: false })).data ?? [],
+    queryKey: ["ativos", obraId],
+    queryFn: async () => {
+      let q = supabase.from("ativos").select("*, obra:obras(nome)").order("created_at", { ascending: false });
+      if (obraId) q = q.eq("obra_id", obraId);
+      return (await q).data ?? [];
+    },
   });
   const { data: obras = [] } = useQuery({
     queryKey: ["obras-min"],
