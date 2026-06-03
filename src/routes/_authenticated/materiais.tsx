@@ -12,9 +12,11 @@ import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Trash2, ArrowUp, ArrowDown, AlertTriangle, FileDown, FileText, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { exportCSV, exportPDF } from "@/lib/exports";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/materiais")({ component: MateriaisPage });
 
@@ -167,30 +169,50 @@ function MateriaisPage() {
               </DialogContent>
             </Dialog>
           )}
-          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-            {materiais.map((m: any) => {
-              const baixo = Number(m.estoque_atual) < Number(m.estoque_minimo);
-              return (
-                <Card key={m.id} className="p-4">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h3 className="font-medium">{m.nome}</h3>
-                      <p className="text-xs text-muted-foreground">{m.codigo} · {m.unidade}</p>
-                      <p className={`text-sm mt-2 font-medium ${baixo ? "text-destructive" : ""}`}>
-                        {Number(m.estoque_atual).toFixed(2)} {m.unidade} <span className="text-xs text-muted-foreground">/ mín {Number(m.estoque_minimo).toFixed(2)}</span>
-                      </p>
-                      {baixo && <p className="text-xs text-destructive flex items-center gap-1 mt-1"><AlertTriangle className="h-3 w-3" /> Abaixo do mínimo</p>}
-                    </div>
-                    <div className="flex gap-1">
-                      {canCreate && <Button size="icon" variant="ghost" onClick={() => openEditM(m)}><Pencil className="h-4 w-4" /></Button>}
-                      {canDelete && <Button size="icon" variant="ghost" onClick={() => confirm("Excluir?") && removeMat.mutate(m.id)}><Trash2 className="h-4 w-4" /></Button>}
-                    </div>
-                  </div>
-                </Card>
-              );
-            })}
-            {materiais.length === 0 && <Card className="p-8 text-center text-muted-foreground md:col-span-2 lg:col-span-3">Nenhum material cadastrado.</Card>}
-          </div>
+          <Card>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nome</TableHead>
+                  <TableHead>Código</TableHead>
+                  <TableHead>Unidade</TableHead>
+                  <TableHead>Estoque</TableHead>
+                  <TableHead>Mínimo</TableHead>
+                  <TableHead>Preço médio</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {materiais.map((m: any) => {
+                  const baixo = Number(m.estoque_atual) < Number(m.estoque_minimo);
+                  return (
+                    <TableRow key={m.id}>
+                      <TableCell className="font-medium">{m.nome}</TableCell>
+                      <TableCell>{m.codigo ?? "—"}</TableCell>
+                      <TableCell>{m.unidade}</TableCell>
+                      <TableCell className={cn(baixo && "text-destructive font-semibold")}>
+                        <span className="inline-flex items-center gap-1">
+                          {baixo && <AlertTriangle className="h-3 w-3" />}
+                          {Number(m.estoque_atual).toFixed(2)}
+                        </span>
+                      </TableCell>
+                      <TableCell>{Number(m.estoque_minimo).toFixed(2)}</TableCell>
+                      <TableCell>{m.preco_medio != null ? Number(m.preco_medio).toFixed(2) : "—"}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-1">
+                          {canCreate && <Button size="icon" variant="ghost" onClick={() => openEditM(m)}><Pencil className="h-4 w-4" /></Button>}
+                          {canDelete && <Button size="icon" variant="ghost" onClick={() => confirm("Excluir?") && removeMat.mutate(m.id)}><Trash2 className="h-4 w-4" /></Button>}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+                {materiais.length === 0 && (
+                  <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Nenhum material cadastrado.</TableCell></TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </Card>
         </TabsContent>
 
         <TabsContent value="mov" className="space-y-3">
