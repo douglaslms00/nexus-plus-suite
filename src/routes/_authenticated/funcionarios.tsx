@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { canManage, isAdmin, useUserRoles } from "@/lib/permissions";
 import { useObraAtual } from "@/lib/obra-context";
@@ -66,6 +66,28 @@ function FuncionariosPage() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Funcionario | null>(null);
   const [form, setForm] = useState<any>({});
+  const [busca, setBusca] = useState("");
+  const [fStatus, setFStatus] = useState<"todos" | "ativos" | "inativos">("todos");
+  const [fExp, setFExp] = useState<"todos" | "concluida" | "em_curso">("todos");
+  const [fVenc, setFVenc] = useState<"todos" | "vencidos" | "proximos">("todos");
+
+  const filtered = useMemo(() => {
+    return funcionarios.filter((f: any) => {
+      if (busca && !`${f.nome ?? ""} ${f.funcao ?? ""} ${f.setor ?? ""} ${f.cpf ?? ""}`.toLowerCase().includes(busca.toLowerCase())) return false;
+      if (fStatus === "ativos" && !f.ativo) return false;
+      if (fStatus === "inativos" && f.ativo) return false;
+      if (fExp === "concluida" && !f.experiencia_concluida) return false;
+      if (fExp === "em_curso" && f.experiencia_concluida) return false;
+      if (fVenc !== "todos") {
+        const dates = VENC.map(([k]) => f[k]).filter(Boolean) as string[];
+        const hasOverdue = dates.some((d) => differenceInDays(parseISO(d), new Date()) < 0);
+        const hasSoon = dates.some((d) => { const x = differenceInDays(parseISO(d), new Date()); return x >= 0 && x <= 30; });
+        if (fVenc === "vencidos" && !hasOverdue) return false;
+        if (fVenc === "proximos" && !hasSoon) return false;
+      }
+      return true;
+    });
+  }, [funcionarios, busca, fStatus, fExp, fVenc]);
 
   const openNew = () => { setEditing(null); setForm({ ativo: true, experiencia_concluida: false }); setOpen(true); };
   const openEdit = (f: Funcionario) => { setEditing(f); setForm({ ...f }); setOpen(true); };
@@ -187,6 +209,37 @@ function FuncionariosPage() {
         )}
       </div>
 
+      <Card className="p-3">
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+          <Input placeholder="Buscar nome, função, CPF..." value={busca} onChange={(e) => setBusca(e.target.value)} />
+          <Select value={fStatus} onValueChange={(v) => setFStatus(v as any)}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos</SelectItem>
+              <SelectItem value="ativos">Ativos</SelectItem>
+              <SelectItem value="inativos">Inativos</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={fExp} onValueChange={(v) => setFExp(v as any)}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Toda experiência</SelectItem>
+              <SelectItem value="concluida">Experiência concluída</SelectItem>
+              <SelectItem value="em_curso">Experiência em curso</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={fVenc} onValueChange={(v) => setFVenc(v as any)}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todas validades</SelectItem>
+              <SelectItem value="vencidos">Com vencidos</SelectItem>
+              <SelectItem value="proximos">Vence em 30 dias</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button variant="ghost" onClick={() => { setBusca(""); setFStatus("todos"); setFExp("todos"); setFVenc("todos"); }}>Limpar</Button>
+        </div>
+      </Card>
+
       <Card>
         <Table>
           <TableHeader>
@@ -200,10 +253,10 @@ function FuncionariosPage() {
           </TableHeader>
           <TableBody>
             {isLoading && <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>}
-            {!isLoading && funcionarios.length === 0 && (
-              <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Nenhum funcionário cadastrado.</TableCell></TableRow>
+            {!isLoading && filtered.length === 0 && (
+              <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Nenhum funcionário encontrado.</TableCell></TableRow>
             )}
-            {funcionarios.map((f: any) => (
+            {filtered.map((f: any) => (
               <TableRow key={f.id}>
                 <TableCell>
                   <div className="font-medium">{f.nome}</div>
