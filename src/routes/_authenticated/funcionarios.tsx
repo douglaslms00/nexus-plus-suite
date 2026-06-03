@@ -209,6 +209,37 @@ function FuncionariosPage() {
         )}
       </div>
 
+      <Card className="p-3">
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+          <Input placeholder="Buscar nome, função, CPF..." value={busca} onChange={(e) => setBusca(e.target.value)} />
+          <Select value={fStatus} onValueChange={(v) => setFStatus(v as any)}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos</SelectItem>
+              <SelectItem value="ativos">Ativos</SelectItem>
+              <SelectItem value="inativos">Inativos</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={fExp} onValueChange={(v) => setFExp(v as any)}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Toda experiência</SelectItem>
+              <SelectItem value="concluida">Experiência concluída</SelectItem>
+              <SelectItem value="em_curso">Experiência em curso</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={fVenc} onValueChange={(v) => setFVenc(v as any)}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todas validades</SelectItem>
+              <SelectItem value="vencidos">Com vencidos</SelectItem>
+              <SelectItem value="proximos">Vence em 30 dias</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button variant="ghost" onClick={() => { setBusca(""); setFStatus("todos"); setFExp("todos"); setFVenc("todos"); }}>Limpar</Button>
+        </div>
+      </Card>
+
       <Card>
         <Table>
           <TableHeader>
@@ -222,10 +253,10 @@ function FuncionariosPage() {
           </TableHeader>
           <TableBody>
             {isLoading && <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>}
-            {!isLoading && funcionarios.length === 0 && (
-              <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Nenhum funcionário cadastrado.</TableCell></TableRow>
+            {!isLoading && filtered.length === 0 && (
+              <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Nenhum funcionário encontrado.</TableCell></TableRow>
             )}
-            {funcionarios.map((f: any) => (
+            {filtered.map((f: any) => (
               <TableRow key={f.id}>
                 <TableCell>
                   <div className="font-medium">{f.nome}</div>
