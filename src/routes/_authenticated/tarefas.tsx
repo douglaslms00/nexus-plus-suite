@@ -32,9 +32,15 @@ function TarefasPage() {
   const { data: tarefas = [] } = useQuery({
     queryKey: ["tarefas"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("tarefas").select("*, responsavel:profiles!tarefas_responsavel_id_fkey(nome)").order("created_at", { ascending: false });
+      const { data, error } = await supabase.from("tarefas").select("*").order("created_at", { ascending: false });
       if (error) throw error;
-      return data;
+      const ids = Array.from(new Set((data ?? []).map((t: any) => t.responsavel_id).filter(Boolean)));
+      let nameMap = new Map<string, string>();
+      if (ids.length) {
+        const { data: profs } = await supabase.from("profiles").select("id, nome").in("id", ids);
+        nameMap = new Map((profs ?? []).map((p: any) => [p.id, p.nome]));
+      }
+      return (data ?? []).map((t: any) => ({ ...t, responsavel: t.responsavel_id ? { nome: nameMap.get(t.responsavel_id) ?? "—" } : null }));
     },
   });
 
