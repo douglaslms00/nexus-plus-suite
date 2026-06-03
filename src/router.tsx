@@ -12,7 +12,13 @@ function DefaultErrorFallback({ error, reset }: { error: Error; reset: () => voi
         <p className="mt-2 text-sm text-muted-foreground break-words">
           {error?.message ?? "Erro inesperado ao carregar esta tela."}
         </p>
-        <div className="mt-5 flex justify-center gap-2">
+        <div className="mt-5 flex flex-wrap justify-center gap-2">
+          <button
+            onClick={() => { router.history.back(); }}
+            className="rounded-md border px-4 py-2 text-sm font-medium hover:bg-accent"
+          >
+            Voltar
+          </button>
           <button
             onClick={() => { router.invalidate(); reset(); }}
             className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
@@ -23,7 +29,7 @@ function DefaultErrorFallback({ error, reset }: { error: Error; reset: () => voi
             href="/"
             className="rounded-md border px-4 py-2 text-sm font-medium hover:bg-accent"
           >
-            Ir para o início
+            Início
           </a>
         </div>
       </div>
@@ -32,12 +38,16 @@ function DefaultErrorFallback({ error, reset }: { error: Error; reset: () => voi
 }
 
 function DefaultNotFound() {
+  const router = useRouter();
   return (
     <div className="flex min-h-[60vh] items-center justify-center px-4">
-      <div className="max-w-md text-center">
+      <div className="max-w-md w-full text-center rounded-lg border bg-card p-6 shadow-sm">
         <h1 className="text-5xl font-bold">404</h1>
-        <p className="mt-2 text-sm text-muted-foreground">Página não encontrada.</p>
-        <a href="/" className="mt-5 inline-flex rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">Voltar ao início</a>
+        <p className="mt-2 text-sm text-muted-foreground">A página que você procura não existe ou foi movida.</p>
+        <div className="mt-5 flex flex-wrap justify-center gap-2">
+          <button onClick={() => router.history.back()} className="rounded-md border px-4 py-2 text-sm font-medium hover:bg-accent">Voltar</button>
+          <a href="/" className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">Ir para o início</a>
+        </div>
       </div>
     </div>
   );
