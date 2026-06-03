@@ -181,8 +181,10 @@ function MateriaisPage() {
                       </p>
                       {baixo && <p className="text-xs text-destructive flex items-center gap-1 mt-1"><AlertTriangle className="h-3 w-3" /> Abaixo do mínimo</p>}
                     </div>
-                    {canDelete && <Button size="icon" variant="ghost" onClick={() => confirm("Excluir?") && removeMat.mutate(m.id)}><Trash2 className="h-4 w-4" /></Button>}
-                  </div>
+                    <div className="flex gap-1">
+                      {canCreate && <Button size="icon" variant="ghost" onClick={() => openEditM(m)}><Pencil className="h-4 w-4" /></Button>}
+                      {canDelete && <Button size="icon" variant="ghost" onClick={() => confirm("Excluir?") && removeMat.mutate(m.id)}><Trash2 className="h-4 w-4" /></Button>}
+                    </div>
                 </Card>
               );
             })}
