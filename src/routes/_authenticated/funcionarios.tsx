@@ -247,15 +247,16 @@ function FuncionariosPage() {
             <TableRow>
               <TableHead>Nome</TableHead>
               <TableHead>Função / Setor</TableHead>
+              <TableHead>Obra</TableHead>
               <TableHead>Experiência</TableHead>
               {VENC.map(([k, l]) => <TableHead key={k}>{l}</TableHead>)}
               <TableHead className="w-24 text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {isLoading && <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>}
+            {isLoading && <TableRow><TableCell colSpan={11} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>}
             {!isLoading && filtered.length === 0 && (
-              <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Nenhum funcionário encontrado.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={11} className="text-center py-8 text-muted-foreground">Nenhum funcionário encontrado.</TableCell></TableRow>
             )}
             {filtered.map((f: any) => (
               <TableRow key={f.id}>
@@ -266,6 +267,9 @@ function FuncionariosPage() {
                 <TableCell>
                   <div>{f.funcao ?? "—"}</div>
                   <div className="text-xs text-muted-foreground">{f.setor}</div>
+                </TableCell>
+                <TableCell className="text-sm">
+                  {obras.find((o: any) => o.id === f.obra_id)?.nome ?? <span className="text-muted-foreground">—</span>}
                 </TableCell>
                 <TableCell>
                   <span className={cn(
