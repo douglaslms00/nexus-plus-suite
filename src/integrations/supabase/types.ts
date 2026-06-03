@@ -500,10 +500,13 @@ export type Database = {
           telefone: string | null
           updated_at: string
           validade_meses_aso: number | null
+          validade_meses_experiencia: number | null
           validade_meses_ferias: number | null
           validade_meses_ficha_epi: number | null
           validade_meses_folga_campo: number | null
+          validade_meses_treinamento: number | null
           vencimento_aso: string | null
+          vencimento_experiencia: string | null
           vencimento_ferias: string | null
           vencimento_ficha_epi: string | null
           vencimento_folga_campo: string | null
@@ -526,10 +529,13 @@ export type Database = {
           telefone?: string | null
           updated_at?: string
           validade_meses_aso?: number | null
+          validade_meses_experiencia?: number | null
           validade_meses_ferias?: number | null
           validade_meses_ficha_epi?: number | null
           validade_meses_folga_campo?: number | null
+          validade_meses_treinamento?: number | null
           vencimento_aso?: string | null
+          vencimento_experiencia?: string | null
           vencimento_ferias?: string | null
           vencimento_ficha_epi?: string | null
           vencimento_folga_campo?: string | null
@@ -552,10 +558,13 @@ export type Database = {
           telefone?: string | null
           updated_at?: string
           validade_meses_aso?: number | null
+          validade_meses_experiencia?: number | null
           validade_meses_ferias?: number | null
           validade_meses_ficha_epi?: number | null
           validade_meses_folga_campo?: number | null
+          validade_meses_treinamento?: number | null
           vencimento_aso?: string | null
+          vencimento_experiencia?: string | null
           vencimento_ferias?: string | null
           vencimento_ficha_epi?: string | null
           vencimento_folga_campo?: string | null
