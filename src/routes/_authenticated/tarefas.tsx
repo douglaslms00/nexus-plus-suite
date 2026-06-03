@@ -292,17 +292,17 @@ function TarefaDetailDialog({ tarefa, onClose, canEdit, pessoas }: { tarefa: any
   });
 
   const [editing, setEditing] = useState<any>(null);
-  const [form, setForm] = useState<any>({});
+  const [execForm, setExecForm] = useState<any>({});
   const open = !!tarefa;
 
   const save = useMutation({
     mutationFn: async () => {
       const payload: any = {
         tarefa_id: tarefa.id,
-        executor_id: form.executor_id || user?.id || null,
-        executor_nome: form.executor_nome || pessoas.find((p) => p.id === (form.executor_id || user?.id))?.nome || null,
-        executado_em: form.executado_em ? new Date(form.executado_em).toISOString() : new Date().toISOString(),
-        observacao: form.observacao || null,
+        executor_id: execForm.executor_id || user?.id || null,
+        executor_nome: execForm.executor_nome || pessoas.find((p) => p.id === (execForm.executor_id || user?.id))?.nome || null,
+        executado_em: execForm.executado_em ? new Date(execForm.executado_em).toISOString() : new Date().toISOString(),
+        observacao: execForm.observacao || null,
       };
       if (editing) {
         const { error } = await supabase.from("tarefa_execucoes" as any).update(payload).eq("id", editing.id);
@@ -315,7 +315,7 @@ function TarefaDetailDialog({ tarefa, onClose, canEdit, pessoas }: { tarefa: any
     onSuccess: () => {
       toast.success("Registro salvo");
       qc.invalidateQueries({ queryKey: ["tarefa-execucoes", tarefa.id] });
-      setEditing(null); setForm({});
+      setEditing(null); setExecForm({});
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -355,7 +355,7 @@ function TarefaDetailDialog({ tarefa, onClose, canEdit, pessoas }: { tarefa: any
               <form onSubmit={(e) => { e.preventDefault(); save.mutate(); }} className="grid gap-2 sm:grid-cols-2 p-3 rounded border mb-3">
                 <div className="space-y-1 sm:col-span-1">
                   <Label className="text-xs">Executor</Label>
-                  <Select value={form.executor_id ?? ""} onValueChange={(v) => setForm({ ...form, executor_id: v })}>
+                  <Select value={execForm.executor_id ?? ""} onValueChange={(v) => setExecForm({ ...execForm, executor_id: v })}>
                     <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                     <SelectContent>
                       {pessoas.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>)}
@@ -364,14 +364,14 @@ function TarefaDetailDialog({ tarefa, onClose, canEdit, pessoas }: { tarefa: any
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">Data/hora</Label>
-                  <Input type="datetime-local" value={form.executado_em ?? ""} onChange={(e) => setForm({ ...form, executado_em: e.target.value })} />
+                  <Input type="datetime-local" value={execForm.executado_em ?? ""} onChange={(e) => setExecForm({ ...execForm, executado_em: e.target.value })} />
                 </div>
                 <div className="space-y-1 sm:col-span-2">
                   <Label className="text-xs">Observação</Label>
-                  <Textarea value={form.observacao ?? ""} onChange={(e) => setForm({ ...form, observacao: e.target.value })} />
+                  <Textarea value={execForm.observacao ?? ""} onChange={(e) => setExecForm({ ...execForm, observacao: e.target.value })} />
                 </div>
                 <div className="sm:col-span-2 flex justify-end gap-2">
-                  {editing && <Button type="button" variant="ghost" onClick={() => { setEditing(null); setForm({}); }}>Cancelar</Button>}
+                  {editing && <Button type="button" variant="ghost" onClick={() => { setEditing(null); setExecForm({}); }}>Cancelar</Button>}
                   <Button type="submit" disabled={save.isPending}>{editing ? "Atualizar" : "Registrar"}</Button>
                 </div>
               </form>
@@ -390,7 +390,7 @@ function TarefaDetailDialog({ tarefa, onClose, canEdit, pessoas }: { tarefa: any
                     </div>
                     {(mine || canEdit) && (
                       <div className="flex gap-1">
-                        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => { setEditing(e); setForm({ executor_id: e.executor_id, executor_nome: e.executor_nome, executado_em: e.executado_em?.slice(0,16), observacao: e.observacao }); }}><Pencil className="h-3 w-3" /></Button>
+                        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => { setEditing(e); setExecForm({ executor_id: e.executor_id, executor_nome: e.executor_nome, executado_em: e.executado_em?.slice(0,16), observacao: e.observacao }); }}><Pencil className="h-3 w-3" /></Button>
                         <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => { if (confirm("Excluir registro?")) remove.mutate(e.id); }}><Trash2 className="h-3 w-3" /></Button>
                       </div>
                     )}
