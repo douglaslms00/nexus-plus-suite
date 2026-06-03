@@ -20,8 +20,9 @@ export const Route = createFileRoute("/_authenticated/materiais")({ component: M
 
 function MateriaisPage() {
   const qc = useQueryClient();
+  const { obraId } = useObraAtual();
   const { data: user } = useCurrentUser();
-  const { data: roles } = useUserRoles();
+  useUserRoles();
   const perm = useModulePerm("materiais");
   const canCreate = perm.can_edit;
   const canDelete = perm.can_delete;
@@ -35,14 +36,26 @@ function MateriaisPage() {
     queryFn: async () => (await supabase.from("obras").select("id, nome").order("nome")).data ?? [],
   });
   const { data: movs = [] } = useQuery({
-    queryKey: ["material-movs"],
-    queryFn: async () => (await supabase.from("material_movimentos").select("*, material:materiais(nome, unidade), obra:obras(nome)").order("data", { ascending: false }).limit(500)).data ?? [],
+    queryKey: ["material-movs", obraId],
+    queryFn: async () => {
+      let q = supabase.from("material_movimentos").select("*, material:materiais(nome, unidade), obra:obras(nome)").order("data", { ascending: false }).limit(500);
+      if (obraId) q = q.eq("obra_id", obraId);
+      return (await q).data ?? [];
+    },
   });
 
   const [openM, setOpenM] = useState(false);
+  const [editingM, setEditingM] = useState<any>(null);
   const [openMv, setOpenMv] = useState(false);
   const [fM, setFM] = useState<any>({ unidade: "un" });
   const [fMv, setFMv] = useState<any>({ tipo: "entrada" });
+
+  useEffect(() => {
+    if (obraId) setFMv((p: any) => ({ ...p, obra_id: p.obra_id ?? obraId }));
+  }, [obraId]);
+
+  const openNewM = () => { setEditingM(null); setFM({ unidade: "un" }); setOpenM(true); };
+  const openEditM = (m: any) => { setEditingM(m); setFM({ ...m }); setOpenM(true); };
 
   // Filters
   const [filtro, setFiltro] = useState<{ ini: string; fim: string; tipo: string; obra: string; material: string }>({
