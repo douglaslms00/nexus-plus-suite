@@ -721,6 +721,50 @@ export type Database = {
         }
         Relationships: []
       }
+      tarefa_execucoes: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          executado_em: string
+          executor_id: string | null
+          executor_nome: string | null
+          id: string
+          observacao: string | null
+          tarefa_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          executado_em?: string
+          executor_id?: string | null
+          executor_nome?: string | null
+          id?: string
+          observacao?: string | null
+          tarefa_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          executado_em?: string
+          executor_id?: string | null
+          executor_nome?: string | null
+          id?: string
+          observacao?: string | null
+          tarefa_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tarefa_execucoes_tarefa_id_fkey"
+            columns: ["tarefa_id"]
+            isOneToOne: false
+            referencedRelation: "tarefas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tarefas: {
         Row: {
           concluida: boolean
