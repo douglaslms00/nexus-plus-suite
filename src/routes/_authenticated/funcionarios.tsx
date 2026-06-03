@@ -3,28 +3,30 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { canManage, isAdmin, useUserRoles } from "@/lib/permissions";
+import { useObraAtual } from "@/lib/obra-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Plus, Trash2, Pencil } from "lucide-react";
 import { toast } from "sonner";
-import { differenceInDays, parseISO, format } from "date-fns";
+import { differenceInDays, parseISO, format, addMonths } from "date-fns";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/funcionarios")({
   component: FuncionariosPage,
 });
 
-const VENC = [
-  ["vencimento_aso", "ASO"],
-  ["vencimento_treinamento", "Treinamento"],
-  ["vencimento_folga_campo", "Folga Campo"],
-  ["vencimento_ferias", "Férias"],
-  ["vencimento_ficha_epi", "Ficha EPI"],
+const VENC: ReadonlyArray<readonly [string, string, string | null]> = [
+  ["vencimento_aso", "ASO", "validade_meses_aso"],
+  ["vencimento_ficha_epi", "Ficha EPI", "validade_meses_ficha_epi"],
+  ["vencimento_folga_campo", "Folga Campo", "validade_meses_folga_campo"],
+  ["vencimento_ferias", "Férias", "validade_meses_ferias"],
+  ["vencimento_treinamento", "Treinamento", null],
 ] as const;
 
 type Funcionario = any;
