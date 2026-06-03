@@ -14,6 +14,60 @@ export type Database = {
   }
   public: {
     Tables: {
+      ativo_emprestimos: {
+        Row: {
+          anexo_url: string | null
+          ativo_id: string
+          created_at: string
+          created_by: string | null
+          data_devolucao: string | null
+          data_emprestimo: string
+          funcionario_id: string | null
+          id: string
+          observacoes: string | null
+          prevista_devolucao: string | null
+        }
+        Insert: {
+          anexo_url?: string | null
+          ativo_id: string
+          created_at?: string
+          created_by?: string | null
+          data_devolucao?: string | null
+          data_emprestimo?: string
+          funcionario_id?: string | null
+          id?: string
+          observacoes?: string | null
+          prevista_devolucao?: string | null
+        }
+        Update: {
+          anexo_url?: string | null
+          ativo_id?: string
+          created_at?: string
+          created_by?: string | null
+          data_devolucao?: string | null
+          data_emprestimo?: string
+          funcionario_id?: string | null
+          id?: string
+          observacoes?: string | null
+          prevista_devolucao?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ativo_emprestimos_ativo_id_fkey"
+            columns: ["ativo_id"]
+            isOneToOne: false
+            referencedRelation: "ativos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ativo_emprestimos_funcionario_id_fkey"
+            columns: ["funcionario_id"]
+            isOneToOne: false
+            referencedRelation: "funcionarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ativo_manutencoes: {
         Row: {
           ativo_id: string
@@ -172,6 +226,7 @@ export type Database = {
       contas_financeiras: {
         Row: {
           categoria: string | null
+          comprovante_url: string | null
           created_at: string
           created_by: string | null
           data_pagamento: string | null
@@ -188,6 +243,7 @@ export type Database = {
         }
         Insert: {
           categoria?: string | null
+          comprovante_url?: string | null
           created_at?: string
           created_by?: string | null
           data_pagamento?: string | null
@@ -204,6 +260,7 @@ export type Database = {
         }
         Update: {
           categoria?: string | null
+          comprovante_url?: string | null
           created_at?: string
           created_by?: string | null
           data_pagamento?: string | null
@@ -237,6 +294,7 @@ export type Database = {
           epi_id: string
           funcionario_id: string | null
           id: string
+          motivo_retirada: string | null
           observacoes: string | null
           quantidade: number
           tipo: Database["public"]["Enums"]["epi_movimento_tipo"]
@@ -249,6 +307,7 @@ export type Database = {
           epi_id: string
           funcionario_id?: string | null
           id?: string
+          motivo_retirada?: string | null
           observacoes?: string | null
           quantidade?: number
           tipo: Database["public"]["Enums"]["epi_movimento_tipo"]
@@ -261,6 +320,7 @@ export type Database = {
           epi_id?: string
           funcionario_id?: string | null
           id?: string
+          motivo_retirada?: string | null
           observacoes?: string | null
           quantidade?: number
           tipo?: Database["public"]["Enums"]["epi_movimento_tipo"]
@@ -434,10 +494,15 @@ export type Database = {
           funcao: string | null
           id: string
           nome: string
+          obra_id: string | null
           observacoes: string | null
           setor: string | null
           telefone: string | null
           updated_at: string
+          validade_meses_aso: number | null
+          validade_meses_ferias: number | null
+          validade_meses_ficha_epi: number | null
+          validade_meses_folga_campo: number | null
           vencimento_aso: string | null
           vencimento_ferias: string | null
           vencimento_ficha_epi: string | null
@@ -455,10 +520,15 @@ export type Database = {
           funcao?: string | null
           id?: string
           nome: string
+          obra_id?: string | null
           observacoes?: string | null
           setor?: string | null
           telefone?: string | null
           updated_at?: string
+          validade_meses_aso?: number | null
+          validade_meses_ferias?: number | null
+          validade_meses_ficha_epi?: number | null
+          validade_meses_folga_campo?: number | null
           vencimento_aso?: string | null
           vencimento_ferias?: string | null
           vencimento_ficha_epi?: string | null
@@ -476,17 +546,30 @@ export type Database = {
           funcao?: string | null
           id?: string
           nome?: string
+          obra_id?: string | null
           observacoes?: string | null
           setor?: string | null
           telefone?: string | null
           updated_at?: string
+          validade_meses_aso?: number | null
+          validade_meses_ferias?: number | null
+          validade_meses_ficha_epi?: number | null
+          validade_meses_folga_campo?: number | null
           vencimento_aso?: string | null
           vencimento_ferias?: string | null
           vencimento_ficha_epi?: string | null
           vencimento_folga_campo?: string | null
           vencimento_treinamento?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "funcionarios_obra_id_fkey"
+            columns: ["obra_id"]
+            isOneToOne: false
+            referencedRelation: "obras"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       materiais: {
         Row: {
@@ -742,6 +825,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_delete_user: { Args: { _user_id: string }; Returns: undefined }
       admin_set_role: {
         Args: {
           _grant: boolean
