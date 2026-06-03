@@ -185,6 +185,7 @@ function MateriaisPage() {
                       {canCreate && <Button size="icon" variant="ghost" onClick={() => openEditM(m)}><Pencil className="h-4 w-4" /></Button>}
                       {canDelete && <Button size="icon" variant="ghost" onClick={() => confirm("Excluir?") && removeMat.mutate(m.id)}><Trash2 className="h-4 w-4" /></Button>}
                     </div>
+                  </div>
                 </Card>
               );
             })}
