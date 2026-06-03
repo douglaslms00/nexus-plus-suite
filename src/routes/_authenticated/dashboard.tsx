@@ -29,7 +29,6 @@ function StatusDot({ status }: { status: "verde" | "amarelo" | "vermelho" }) {
 }
 
 function DashboardPage() {
-  const qc = useQueryClient();
   const { data: roles } = useUserRoles();
 
   const { data: funcionarios = [] } = useQuery({ queryKey: ["dash-funcionarios"], queryFn: async () => (await supabase.from("funcionarios").select("*").eq("ativo", true)).data ?? [] });
@@ -37,23 +36,7 @@ function DashboardPage() {
   const { data: epis = [] } = useQuery({ queryKey: ["dash-epis"], queryFn: async () => (await supabase.from("epis").select("*").eq("ativo", true)).data ?? [] });
   const { data: materiais = [] } = useQuery({ queryKey: ["dash-mat"], queryFn: async () => (await supabase.from("materiais").select("*").eq("ativo", true)).data ?? [] });
   const { data: contas = [] } = useQuery({ queryKey: ["dash-contas"], queryFn: async () => (await supabase.from("contas_financeiras").select("*").neq("status", "pago")).data ?? [] });
-  const { data: adminCount } = useQuery({
-    queryKey: ["admin-count"],
-    queryFn: async () => {
-      const { count } = await supabase.from("user_roles").select("*", { count: "exact", head: true }).eq("role", "admin");
-      return count ?? 0;
-    },
-  });
 
-  const promote = useMutation({
-    mutationFn: async () => {
-      const { data, error } = await supabase.rpc("promote_to_admin_if_no_admin");
-      if (error) throw error;
-      return data as string;
-    },
-    onSuccess: (msg) => { toast.success(msg); qc.invalidateQueries(); },
-    onError: (e: any) => toast.error(e.message),
-  });
 
   const alertasVencimento = funcionarios.flatMap((f: any) =>
     FIELDS.flatMap(({ key, label }) => {
