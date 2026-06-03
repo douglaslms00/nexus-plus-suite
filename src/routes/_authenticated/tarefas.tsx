@@ -108,7 +108,7 @@ function TarefasPage() {
   });
 
   const updateStatus = useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+    mutationFn: async ({ id, status }: { id: string; status: "pendente" | "em_andamento" | "concluida" }) => {
       const { error } = await supabase.from("tarefas").update({ status, concluida: status === "concluida" }).eq("id", id);
       if (error) throw error;
     },
