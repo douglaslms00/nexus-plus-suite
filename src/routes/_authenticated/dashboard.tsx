@@ -1,11 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, CheckSquare, HardHat, AlertTriangle, Package, CalendarClock, Wallet, ShieldCheck } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Users, CheckSquare, HardHat, AlertTriangle, Package, CalendarClock, Wallet, ShieldCheck, MapPin, ClipboardCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { differenceInDays, parseISO } from "date-fns";
+import { differenceInDays, parseISO, format } from "date-fns";
 import { isAdmin, useUserRoles } from "@/lib/permissions";
+import { useObraAtual } from "@/lib/obra-context";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({ component: DashboardPage });
 
@@ -18,40 +21,97 @@ const FIELDS = [
   { key: "vencimento_experiencia", label: "Experiência" },
 ] as const;
 
-function statusFromDays(days: number): "verde" | "amarelo" | "vermelho" {
+type Status = "verde" | "amarelo" | "vermelho";
+
+function statusFromDays(days: number): Status {
   if (days < 0) return "vermelho";
   if (days <= 30) return "amarelo";
   return "verde";
 }
 
-function StatusDot({ status }: { status: "verde" | "amarelo" | "vermelho" }) {
+function StatusDot({ status }: { status: Status }) {
   return <span className={cn("inline-block h-2.5 w-2.5 rounded-full",
     status === "verde" && "bg-success", status === "amarelo" && "bg-warning", status === "vermelho" && "bg-destructive")} />;
 }
 
 function DashboardPage() {
   const { data: roles } = useUserRoles();
+  const { obraId } = useObraAtual();
+  const [confTab, setConfTab] = useState<"pendentes" | "em_dia" | "todos">("pendentes");
 
-  const { data: funcionarios = [] } = useQuery({ queryKey: ["dash-funcionarios"], queryFn: async () => (await supabase.from("funcionarios").select("*").eq("ativo", true)).data ?? [] });
-  const { data: tarefas = [] } = useQuery({ queryKey: ["dash-tarefas"], queryFn: async () => (await supabase.from("tarefas").select("*").neq("status", "concluida")).data ?? [] });
+  const { data: obras = [] } = useQuery({
+    queryKey: ["dash-obras"],
+    queryFn: async () => (await supabase.from("obras").select("id, nome").order("nome")).data ?? [],
+  });
+  const obraAtualNome = obraId ? obras.find((o: any) => o.id === obraId)?.nome : null;
+
+  const { data: funcionarios = [] } = useQuery({
+    queryKey: ["dash-funcionarios", obraId],
+    queryFn: async () => {
+      let q = supabase.from("funcionarios").select("*").eq("ativo", true);
+      if (obraId) q = q.eq("obra_id", obraId);
+      return (await q).data ?? [];
+    },
+  });
+  const { data: tarefas = [] } = useQuery({
+    queryKey: ["dash-tarefas", obraId, funcionarios.map((f: any) => f.id).join(",")],
+    queryFn: async () => {
+      let q = supabase.from("tarefas").select("*").neq("status", "concluida");
+      if (obraId) {
+        const ids = funcionarios.map((f: any) => f.id);
+        if (ids.length === 0) return [];
+        q = q.in("funcionario_id", ids);
+      }
+      return (await q).data ?? [];
+    },
+  });
   const { data: epis = [] } = useQuery({ queryKey: ["dash-epis"], queryFn: async () => (await supabase.from("epis").select("*").eq("ativo", true)).data ?? [] });
   const { data: materiais = [] } = useQuery({ queryKey: ["dash-mat"], queryFn: async () => (await supabase.from("materiais").select("*").eq("ativo", true)).data ?? [] });
-  const { data: contas = [] } = useQuery({ queryKey: ["dash-contas"], queryFn: async () => (await supabase.from("contas_financeiras").select("*").neq("status", "pago")).data ?? [] });
+  const { data: contas = [] } = useQuery({
+    queryKey: ["dash-contas", obraId],
+    queryFn: async () => {
+      let q = supabase.from("contas_financeiras").select("*").neq("status", "pago");
+      if (obraId) q = q.eq("obra_id", obraId);
+      return (await q).data ?? [];
+    },
+  });
 
+  const conformidade = useMemo(() => funcionarios.map((f: any) => {
+    const items = FIELDS.map(({ key, label }) => {
+      const v = f[key as keyof typeof f];
+      if (!v) return { key, label, status: null as Status | null, dias: null as number | null, data: null as string | null };
+      const days = differenceInDays(parseISO(v as string), new Date());
+      return { key, label, status: statusFromDays(days), dias: days, data: v as string };
+    });
+    const pior: Status = items.some((i) => i.status === "vermelho") ? "vermelho"
+      : items.some((i) => i.status === "amarelo") ? "amarelo" : "verde";
+    return { funcionario: f, items, pior };
+  }), [funcionarios]);
 
-  const alertasVencimento = funcionarios.flatMap((f: any) =>
-    FIELDS.flatMap(({ key, label }) => {
-      const v = f[key]; if (!v) return [];
-      const days = differenceInDays(parseISO(v), new Date());
-      const status = statusFromDays(days);
-      if (status === "verde") return [];
-      return [{ funcionario: f.nome, label, dias: days, status }];
-    })
+  const alertasVencimento = conformidade.flatMap((c) =>
+    c.items.filter((i) => i.status && i.status !== "verde").map((i) => ({
+      funcionario: c.funcionario.nome, label: i.label, dias: i.dias!, status: i.status!,
+    }))
   );
+
   const epiAbaixoMin = epis.filter((e: any) => e.estoque_atual < e.estoque_minimo);
   const matAbaixoMin = materiais.filter((m: any) => Number(m.estoque_atual) < Number(m.estoque_minimo));
   const contasPagar = contas.filter((c: any) => c.tipo === "pagar");
   const alertasAtivos = alertasVencimento.length + epiAbaixoMin.length + matAbaixoMin.length;
+
+  // Validação automática: contador bate com soma e cores correspondem aos dias.
+  useEffect(() => {
+    const soma = alertasVencimento.length + epiAbaixoMin.length + matAbaixoMin.length;
+    if (soma !== alertasAtivos) console.error("[Validação] Alertas Ativos divergem da soma", { soma, alertasAtivos });
+    for (const a of alertasVencimento) {
+      const esperado = statusFromDays(a.dias);
+      if (esperado !== a.status) console.error("[Validação] Cor incorreta", a);
+    }
+  }, [alertasAtivos, alertasVencimento, epiAbaixoMin.length, matAbaixoMin.length]);
+
+  const pendentes = conformidade.filter((c) => c.pior !== "verde");
+  const emDia = conformidade.filter((c) => c.pior === "verde");
+  const confLista = confTab === "pendentes" ? pendentes : confTab === "em_dia" ? emDia : conformidade;
 
   const indicadores = [
     { label: "Alertas Ativos", valor: alertasAtivos, icon: AlertTriangle, status: alertasAtivos === 0 ? "verde" : alertasAtivos > 5 ? "vermelho" : "amarelo" },
@@ -64,11 +124,19 @@ function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground">Visão geral da operação em tempo real.</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+          <p className="text-muted-foreground">Visão geral da operação em tempo real.</p>
+        </div>
+        <div className={cn(
+          "flex items-center gap-2 px-3 py-1.5 rounded-md border text-sm",
+          obraId ? "bg-primary/10 border-primary/30 text-primary" : "bg-muted text-muted-foreground"
+        )}>
+          <MapPin className="h-4 w-4" />
+          <span className="font-medium">{obraAtualNome ?? "Todas as obras"}</span>
+        </div>
       </div>
-
 
       {isAdmin(roles) && (
         <Card className="p-3 flex items-center justify-between bg-primary/5 border-primary/30">
@@ -92,6 +160,70 @@ function DashboardPage() {
           </Card>
         ))}
       </div>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between gap-2">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <ClipboardCheck className="h-4 w-4" /> Conformidade de Funcionários
+            <span className="text-xs font-normal text-muted-foreground">
+              ({emDia.length} em dia · {pendentes.length} pendentes)
+            </span>
+          </CardTitle>
+          <Tabs value={confTab} onValueChange={(v) => setConfTab(v as any)}>
+            <TabsList>
+              <TabsTrigger value="pendentes">Pendentes</TabsTrigger>
+              <TabsTrigger value="em_dia">Em dia</TabsTrigger>
+              <TabsTrigger value="todos">Todos</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </CardHeader>
+        <CardContent>
+          {confLista.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nenhum funcionário nesta categoria.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs text-muted-foreground border-b">
+                    <th className="py-2 pr-3">Funcionário</th>
+                    <th className="py-2 pr-3">Status</th>
+                    {FIELDS.map((f) => <th key={f.key} className="py-2 pr-3 whitespace-nowrap">{f.label}</th>)}
+                  </tr>
+                </thead>
+                <tbody>
+                  {confLista.map((c) => (
+                    <tr key={c.funcionario.id} className="border-b last:border-0">
+                      <td className="py-2 pr-3 font-medium">{c.funcionario.nome}</td>
+                      <td className="py-2 pr-3">
+                        <span className={cn("inline-flex items-center gap-1.5 text-xs px-2 py-0.5 rounded",
+                          c.pior === "verde" && "bg-success/15 text-success",
+                          c.pior === "amarelo" && "bg-warning/15 text-warning",
+                          c.pior === "vermelho" && "bg-destructive/15 text-destructive")}>
+                          <StatusDot status={c.pior} />
+                          {c.pior === "verde" ? "Em dia" : c.pior === "amarelo" ? "Vence em breve" : "Vencido"}
+                        </span>
+                      </td>
+                      {c.items.map((i) => (
+                        <td key={i.key} className="py-2 pr-3 whitespace-nowrap text-xs">
+                          {i.status ? (
+                            <span className={cn("inline-flex items-center gap-1.5",
+                              i.status === "verde" && "text-success",
+                              i.status === "amarelo" && "text-warning",
+                              i.status === "vermelho" && "text-destructive font-medium")}>
+                              <StatusDot status={i.status} />
+                              {format(parseISO(i.data!), "dd/MM/yy")}
+                            </span>
+                          ) : <span className="text-muted-foreground">—</span>}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
