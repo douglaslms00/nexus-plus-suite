@@ -88,7 +88,6 @@ function FuncionariosPage() {
       return true;
     });
   }, [funcionarios, busca, fStatus, fExp, fVenc]);
-  const [form, setForm] = useState<any>({});
 
   const openNew = () => { setEditing(null); setForm({ ativo: true, experiencia_concluida: false }); setOpen(true); };
   const openEdit = (f: Funcionario) => { setEditing(f); setForm({ ...f }); setOpen(true); };
