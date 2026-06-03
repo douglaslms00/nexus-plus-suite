@@ -42,17 +42,26 @@ function vencColor(date?: string | null) {
 function FuncionariosPage() {
   const qc = useQueryClient();
   const { data: roles } = useUserRoles();
+  const { obraId } = useObraAtual();
   const canEdit = canManage(roles);
   const canDelete = isAdmin(roles);
 
   const { data: funcionarios = [], isLoading } = useQuery({
-    queryKey: ["funcionarios"],
+    queryKey: ["funcionarios", obraId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("funcionarios").select("*").order("nome");
+      let q = supabase.from("funcionarios").select("*").order("nome");
+      if (obraId) q = q.eq("obra_id", obraId);
+      const { data, error } = await q;
       if (error) throw error;
-      return data as Funcionario[];
+      return data as any[];
     },
   });
+
+  const { data: obras = [] } = useQuery({
+    queryKey: ["obras-min-func"],
+    queryFn: async () => (await supabase.from("obras").select("id, nome").order("nome")).data ?? [],
+  });
+
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Funcionario | null>(null);
