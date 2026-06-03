@@ -61,8 +61,6 @@ function DashboardPage() {
     { label: "Materiais abaixo do mín.", valor: matAbaixoMin.length, icon: Package, status: matAbaixoMin.length === 0 ? "verde" : "vermelho" },
   ] as const;
 
-  const semAdmin = (adminCount ?? 0) === 0;
-
   return (
     <div className="space-y-6">
       <div>
@@ -70,18 +68,7 @@ function DashboardPage() {
         <p className="text-muted-foreground">Visão geral da operação em tempo real.</p>
       </div>
 
-      {semAdmin && !isAdmin(roles) && (
-        <Card className="p-4 border-warning bg-warning/5 flex items-center justify-between flex-wrap gap-3">
-          <div className="flex items-center gap-3">
-            <ShieldCheck className="h-5 w-5 text-warning" />
-            <div>
-              <p className="font-medium">Nenhum administrador configurado</p>
-              <p className="text-sm text-muted-foreground">Como o sistema ainda não tem um admin, você pode se promover agora para gerenciar acessos.</p>
-            </div>
-          </div>
-          <Button onClick={() => promote.mutate()} disabled={promote.isPending}>Tornar-me Admin</Button>
-        </Card>
-      )}
+
       {isAdmin(roles) && (
         <Card className="p-3 flex items-center justify-between bg-primary/5 border-primary/30">
           <div className="flex items-center gap-2 text-sm"><ShieldCheck className="h-4 w-4 text-primary" /> Você é administrador.</div>
