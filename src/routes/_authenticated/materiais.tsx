@@ -51,6 +51,17 @@ function MateriaisPage() {
   const [openMv, setOpenMv] = useState(false);
   const [fM, setFM] = useState<any>({ unidade: "un" });
   const [fMv, setFMv] = useState<any>({ tipo: "entrada" });
+  const [busca, setBusca] = useState("");
+  const [soBaixo, setSoBaixo] = useState(false);
+
+  const materiaisFiltrados = useMemo(() => {
+    const q = busca.trim().toLowerCase();
+    return materiais.filter((m: any) => {
+      if (soBaixo && !(Number(m.estoque_atual) < Number(m.estoque_minimo))) return false;
+      if (!q) return true;
+      return (m.nome ?? "").toLowerCase().includes(q) || (m.codigo ?? "").toLowerCase().includes(q);
+    });
+  }, [materiais, busca, soBaixo]);
 
   useEffect(() => {
     if (obraId) setFMv((p: any) => ({ ...p, obra_id: p.obra_id ?? obraId }));
