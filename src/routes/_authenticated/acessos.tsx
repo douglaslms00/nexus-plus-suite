@@ -25,17 +25,39 @@ function AcessosPage() {
     queryKey: ["all-users-perms"],
     enabled: isAdmin(roles),
     queryFn: async () => {
-      const [{ data: profs }, { data: r }, { data: perms }] = await Promise.all([
+      const [{ data: profs }, { data: r }, { data: perms }, { data: uobras }] = await Promise.all([
         supabase.from("profiles").select("id, nome, email"),
         supabase.from("user_roles").select("user_id, role"),
         supabase.from("user_module_permissions").select("user_id, module, can_view, can_edit, can_delete"),
+        supabase.from("user_obras").select("user_id, obra_id"),
       ]);
       return (profs ?? []).map((p: any) => ({
         ...p,
         roles: (r ?? []).filter((x: any) => x.user_id === p.id).map((x: any) => x.role) as AppRole[],
         perms: (perms ?? []).filter((x: any) => x.user_id === p.id) as ({ module: AppModule } & ModulePerm)[],
+        obras: (uobras ?? []).filter((x: any) => x.user_id === p.id).map((x: any) => x.obra_id) as string[],
       }));
     },
+  });
+
+  const { data: obrasAll = [] } = useQuery({
+    queryKey: ["obras-all-admin"],
+    enabled: isAdmin(roles),
+    queryFn: async () => (await supabase.from("obras").select("id, nome").order("nome")).data ?? [],
+  });
+
+  const toggleObra = useMutation({
+    mutationFn: async ({ user_id, obra_id, grant }: { user_id: string; obra_id: string; grant: boolean }) => {
+      if (grant) {
+        const { error } = await supabase.from("user_obras").insert({ user_id, obra_id });
+        if (error && !String(error.message).includes("duplicate")) throw error;
+      } else {
+        const { error } = await supabase.from("user_obras").delete().eq("user_id", user_id).eq("obra_id", obra_id);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["all-users-perms"] }); qc.invalidateQueries({ queryKey: ["authorized-obras"] }); },
+    onError: (e: any) => toast.error(e.message),
   });
 
   const toggleRole = useMutation({
@@ -116,7 +138,27 @@ function AcessosPage() {
                 </div>
 
                 {open && (
-                  <div className="mt-4 border-t pt-4">
+                  <div className="mt-4 border-t pt-4 space-y-5">
+                    <div>
+                      <p className="text-sm font-medium mb-2">Obras autorizadas</p>
+                      <p className="text-xs text-muted-foreground mb-2">
+                        Admin e Gestor têm acesso a todas. Para os demais, selecione abaixo. Sem seleção: nenhuma obra fica visível.
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {obrasAll.map((o: any) => {
+                          const has = u.obras.includes(o.id);
+                          return (
+                            <Button key={o.id} size="sm" variant={has ? "default" : "outline"}
+                              onClick={() => toggleObra.mutate({ user_id: u.id, obra_id: o.id, grant: !has })}>
+                              {o.nome}
+                            </Button>
+                          );
+                        })}
+                        {obrasAll.length === 0 && <span className="text-xs text-muted-foreground">Nenhuma obra cadastrada.</span>}
+                      </div>
+                    </div>
+
+                    <div>
                     <p className="text-sm font-medium mb-2">Permissões por módulo</p>
                     <p className="text-xs text-muted-foreground mb-3">
                       Valores em <em>itálico</em> vêm do papel padrão. Marque para sobrescrever para este usuário.
@@ -163,6 +205,7 @@ function AcessosPage() {
                           })}
                         </tbody>
                       </table>
+                    </div>
                     </div>
                   </div>
                 )}
