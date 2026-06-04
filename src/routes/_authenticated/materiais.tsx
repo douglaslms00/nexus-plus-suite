@@ -213,7 +213,7 @@ function MateriaisPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {materiais.map((m: any) => {
+                {materiaisFiltrados.map((m: any) => {
                   const baixo = Number(m.estoque_atual) < Number(m.estoque_minimo);
                   return (
                     <TableRow key={m.id}>
@@ -237,8 +237,10 @@ function MateriaisPage() {
                     </TableRow>
                   );
                 })}
-                {materiais.length === 0 && (
-                  <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Nenhum material cadastrado.</TableCell></TableRow>
+                {materiaisFiltrados.length === 0 && (
+                  <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    {materiais.length === 0 ? "Nenhum material cadastrado." : "Nenhum material no filtro."}
+                  </TableCell></TableRow>
                 )}
               </TableBody>
             </Table>
