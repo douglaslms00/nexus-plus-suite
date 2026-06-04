@@ -852,6 +852,35 @@ export type Database = {
         }
         Relationships: []
       }
+      user_obras: {
+        Row: {
+          created_at: string
+          id: string
+          obra_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          obra_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          obra_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_obras_obra_id_fkey"
+            columns: ["obra_id"]
+            isOneToOne: false
+            referencedRelation: "obras"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -886,6 +915,10 @@ export type Database = {
           _user_id: string
         }
         Returns: undefined
+      }
+      has_obra_access: {
+        Args: { _obra_id: string; _user_id: string }
+        Returns: boolean
       }
       has_role: {
         Args: {
