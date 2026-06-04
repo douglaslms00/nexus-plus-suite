@@ -180,6 +180,25 @@ function MateriaisPage() {
               </DialogContent>
             </Dialog>
           )}
+
+          <Card className="p-3">
+            <div className="flex flex-wrap gap-2 items-end">
+              <div className="flex-1 min-w-[200px]">
+                <Label className="text-xs">Buscar (nome ou código)</Label>
+                <Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Digite para filtrar..." />
+              </div>
+              <Button variant={soBaixo ? "default" : "outline"} size="sm" onClick={() => setSoBaixo((v) => !v)}>
+                <AlertTriangle className="h-4 w-4" /> Apenas estoque baixo
+              </Button>
+              {(busca || soBaixo) && (
+                <Button variant="ghost" size="sm" onClick={() => { setBusca(""); setSoBaixo(false); }}>Limpar</Button>
+              )}
+              <span className="text-xs text-muted-foreground ml-auto">
+                {materiaisFiltrados.length} de {materiais.length}
+              </span>
+            </div>
+          </Card>
+
           <Card>
             <Table>
               <TableHeader>
