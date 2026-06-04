@@ -1,7 +1,6 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useProfile, useUserRoles, useMyModulePermissions, effectivePerm, type AppModule } from "@/lib/permissions";
+import { useProfile, useUserRoles, useMyModulePermissions, effectivePerm, useAuthorizedObras, type AppModule } from "@/lib/permissions";
 import {
   LayoutDashboard, Users, CheckSquare, HardHat, Building2, LogOut,
   Boxes, Wrench, Package, Wallet, MapPin, ShieldCheck, Menu, X,
@@ -33,10 +32,14 @@ export function AppShell({ children }: { children: ReactNode }) {
     }
   }, [collapsed]);
 
-  const { data: obras = [] } = useQuery({
-    queryKey: ["obras-selector"],
-    queryFn: async () => (await supabase.from("obras").select("id, nome").order("nome")).data ?? [],
-  });
+  const { data: obras = [] } = useAuthorizedObras();
+
+  // Se a obra atual deixar de estar autorizada, limpa a seleção.
+  useEffect(() => {
+    if (obraId && obras.length > 0 && !obras.some((o) => o.id === obraId)) {
+      setObraId(null);
+    }
+  }, [obras, obraId, setObraId]);
 
   const logout = async () => {
     await supabase.auth.signOut();

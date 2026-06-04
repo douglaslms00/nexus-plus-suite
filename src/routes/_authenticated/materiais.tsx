@@ -51,6 +51,17 @@ function MateriaisPage() {
   const [openMv, setOpenMv] = useState(false);
   const [fM, setFM] = useState<any>({ unidade: "un" });
   const [fMv, setFMv] = useState<any>({ tipo: "entrada" });
+  const [busca, setBusca] = useState("");
+  const [soBaixo, setSoBaixo] = useState(false);
+
+  const materiaisFiltrados = useMemo(() => {
+    const q = busca.trim().toLowerCase();
+    return materiais.filter((m: any) => {
+      if (soBaixo && !(Number(m.estoque_atual) < Number(m.estoque_minimo))) return false;
+      if (!q) return true;
+      return (m.nome ?? "").toLowerCase().includes(q) || (m.codigo ?? "").toLowerCase().includes(q);
+    });
+  }, [materiais, busca, soBaixo]);
 
   useEffect(() => {
     if (obraId) setFMv((p: any) => ({ ...p, obra_id: p.obra_id ?? obraId }));
@@ -169,6 +180,25 @@ function MateriaisPage() {
               </DialogContent>
             </Dialog>
           )}
+
+          <Card className="p-3">
+            <div className="flex flex-wrap gap-2 items-end">
+              <div className="flex-1 min-w-[200px]">
+                <Label className="text-xs">Buscar (nome ou código)</Label>
+                <Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Digite para filtrar..." />
+              </div>
+              <Button variant={soBaixo ? "default" : "outline"} size="sm" onClick={() => setSoBaixo((v) => !v)}>
+                <AlertTriangle className="h-4 w-4" /> Apenas estoque baixo
+              </Button>
+              {(busca || soBaixo) && (
+                <Button variant="ghost" size="sm" onClick={() => { setBusca(""); setSoBaixo(false); }}>Limpar</Button>
+              )}
+              <span className="text-xs text-muted-foreground ml-auto">
+                {materiaisFiltrados.length} de {materiais.length}
+              </span>
+            </div>
+          </Card>
+
           <Card>
             <Table>
               <TableHeader>
@@ -183,7 +213,7 @@ function MateriaisPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {materiais.map((m: any) => {
+                {materiaisFiltrados.map((m: any) => {
                   const baixo = Number(m.estoque_atual) < Number(m.estoque_minimo);
                   return (
                     <TableRow key={m.id}>
@@ -207,8 +237,10 @@ function MateriaisPage() {
                     </TableRow>
                   );
                 })}
-                {materiais.length === 0 && (
-                  <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Nenhum material cadastrado.</TableCell></TableRow>
+                {materiaisFiltrados.length === 0 && (
+                  <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    {materiais.length === 0 ? "Nenhum material cadastrado." : "Nenhum material no filtro."}
+                  </TableCell></TableRow>
                 )}
               </TableBody>
             </Table>

@@ -87,6 +87,33 @@ export function isAdmin(roles?: AppRole[]) { return hasAny(roles, "admin"); }
 export function canManage(roles?: AppRole[]) { return hasAny(roles, "admin", "gestor"); }
 export function canFinance(roles?: AppRole[]) { return hasAny(roles, "admin", "gestor", "financeiro"); }
 
+// Obras que o usuário pode acessar.
+// Admin/Gestor: todas as obras. Outros: somente as vinculadas em user_obras.
+export function useAuthorizedObras() {
+  const { data: user } = useCurrentUser();
+  const { data: roles } = useUserRoles();
+  return useQuery({
+    queryKey: ["authorized-obras", user?.id, roles],
+    enabled: !!user?.id && !!roles,
+    queryFn: async (): Promise<{ id: string; nome: string }[]> => {
+      if (canManage(roles)) {
+        const { data, error } = await supabase.from("obras").select("id, nome").order("nome");
+        if (error) throw error;
+        return data ?? [];
+      }
+      const { data, error } = await supabase
+        .from("user_obras")
+        .select("obra:obras(id, nome)")
+        .eq("user_id", user!.id);
+      if (error) throw error;
+      return (data ?? [])
+        .map((r: any) => r.obra)
+        .filter(Boolean)
+        .sort((a: any, b: any) => a.nome.localeCompare(b.nome));
+    },
+  });
+}
+
 // Default permissions per role per module (used when no override exists)
 function defaultPerm(module: AppModule, roles: AppRole[] | undefined): ModulePerm {
   const r = roles ?? [];
