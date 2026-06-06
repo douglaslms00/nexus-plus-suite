@@ -1,6 +1,6 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
-import { useProfile, useUserRoles, useMyModulePermissions, effectivePerm, useAuthorizedObras, type AppModule } from "@/lib/permissions";
+import { useProfile, useUserRoles, useMyModulePermissions, effectivePerm, useAuthorizedObras, canManage, type AppModule } from "@/lib/permissions";
 import {
   LayoutDashboard, Users, CheckSquare, HardHat, Building2, LogOut,
   Boxes, Wrench, Package, Wallet, MapPin, ShieldCheck, Menu, X,
@@ -33,13 +33,20 @@ export function AppShell({ children }: { children: ReactNode }) {
   }, [collapsed]);
 
   const { data: obras = [] } = useAuthorizedObras();
+  const canSeeAllObras = canManage(roles);
 
-  // Se a obra atual deixar de estar autorizada, limpa a seleção.
+  // Se a obra atual deixar de estar autorizada, limpa/ajusta a seleção.
+  // Para usuários sem permissão de "todas", força a primeira obra autorizada.
   useEffect(() => {
-    if (obraId && obras.length > 0 && !obras.some((o) => o.id === obraId)) {
-      setObraId(null);
+    if (obras.length === 0) return;
+    if (obraId && !obras.some((o) => o.id === obraId)) {
+      setObraId(canSeeAllObras ? null : obras[0].id);
+      return;
     }
-  }, [obras, obraId, setObraId]);
+    if (!obraId && !canSeeAllObras) {
+      setObraId(obras[0].id);
+    }
+  }, [obras, obraId, setObraId, canSeeAllObras]);
 
   const logout = async () => {
     await supabase.auth.signOut();
@@ -167,7 +174,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <Select value={obraId ?? "all"} onValueChange={(v) => setObraId(v === "all" ? null : v)}>
               <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Obra" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todas as obras</SelectItem>
+                {canSeeAllObras && <SelectItem value="all">Todas as obras</SelectItem>}
                 {obras.map((o: any) => <SelectItem key={o.id} value={o.id}>{o.nome}</SelectItem>)}
               </SelectContent>
             </Select>
@@ -188,9 +195,9 @@ export function AppShell({ children }: { children: ReactNode }) {
             <MapPin className="h-4 w-4 text-muted-foreground" />
             <span className="text-muted-foreground">Obra:</span>
             <Select value={obraId ?? "all"} onValueChange={(v) => setObraId(v === "all" ? null : v)}>
-              <SelectTrigger className="h-9 w-[220px]"><SelectValue placeholder="Todas as obras" /></SelectTrigger>
+              <SelectTrigger className="h-9 w-[220px]"><SelectValue placeholder={canSeeAllObras ? "Todas as obras" : "Selecione a obra"} /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todas as obras</SelectItem>
+                {canSeeAllObras && <SelectItem value="all">Todas as obras</SelectItem>}
                 {obras.map((o: any) => <SelectItem key={o.id} value={o.id}>{o.nome}</SelectItem>)}
               </SelectContent>
             </Select>
