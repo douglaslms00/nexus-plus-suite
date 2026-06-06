@@ -195,9 +195,9 @@ export function AppShell({ children }: { children: ReactNode }) {
             <MapPin className="h-4 w-4 text-muted-foreground" />
             <span className="text-muted-foreground">Obra:</span>
             <Select value={obraId ?? "all"} onValueChange={(v) => setObraId(v === "all" ? null : v)}>
-              <SelectTrigger className="h-9 w-[220px]"><SelectValue placeholder="Todas as obras" /></SelectTrigger>
+              <SelectTrigger className="h-9 w-[220px]"><SelectValue placeholder={canSeeAllObras ? "Todas as obras" : "Selecione a obra"} /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todas as obras</SelectItem>
+                {canSeeAllObras && <SelectItem value="all">Todas as obras</SelectItem>}
                 {obras.map((o: any) => <SelectItem key={o.id} value={o.id}>{o.nome}</SelectItem>)}
               </SelectContent>
             </Select>
