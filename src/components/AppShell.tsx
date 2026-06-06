@@ -33,13 +33,20 @@ export function AppShell({ children }: { children: ReactNode }) {
   }, [collapsed]);
 
   const { data: obras = [] } = useAuthorizedObras();
+  const canSeeAllObras = canManage(roles);
 
-  // Se a obra atual deixar de estar autorizada, limpa a seleção.
+  // Se a obra atual deixar de estar autorizada, limpa/ajusta a seleção.
+  // Para usuários sem permissão de "todas", força a primeira obra autorizada.
   useEffect(() => {
-    if (obraId && obras.length > 0 && !obras.some((o) => o.id === obraId)) {
-      setObraId(null);
+    if (obras.length === 0) return;
+    if (obraId && !obras.some((o) => o.id === obraId)) {
+      setObraId(canSeeAllObras ? null : obras[0].id);
+      return;
     }
-  }, [obras, obraId, setObraId]);
+    if (!obraId && !canSeeAllObras) {
+      setObraId(obras[0].id);
+    }
+  }, [obras, obraId, setObraId, canSeeAllObras]);
 
   const logout = async () => {
     await supabase.auth.signOut();
