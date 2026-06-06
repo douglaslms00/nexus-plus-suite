@@ -482,6 +482,47 @@ export type Database = {
           },
         ]
       }
+      funcionario_documentos: {
+        Row: {
+          created_at: string
+          funcionario_id: string
+          id: string
+          nome: string
+          storage_path: string
+          tamanho: number | null
+          tipo: string | null
+          uploaded_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          funcionario_id: string
+          id?: string
+          nome: string
+          storage_path: string
+          tamanho?: number | null
+          tipo?: string | null
+          uploaded_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          funcionario_id?: string
+          id?: string
+          nome?: string
+          storage_path?: string
+          tamanho?: number | null
+          tipo?: string | null
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "funcionario_documentos_funcionario_id_fkey"
+            columns: ["funcionario_id"]
+            isOneToOne: false
+            referencedRelation: "funcionarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       funcionarios: {
         Row: {
           ativo: boolean
