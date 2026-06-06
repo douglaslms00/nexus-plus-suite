@@ -174,7 +174,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <Select value={obraId ?? "all"} onValueChange={(v) => setObraId(v === "all" ? null : v)}>
               <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Obra" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todas as obras</SelectItem>
+                {canSeeAllObras && <SelectItem value="all">Todas as obras</SelectItem>}
                 {obras.map((o: any) => <SelectItem key={o.id} value={o.id}>{o.nome}</SelectItem>)}
               </SelectContent>
             </Select>
