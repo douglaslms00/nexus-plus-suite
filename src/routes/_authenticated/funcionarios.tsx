@@ -232,12 +232,11 @@ function FuncionariosPage() {
               <SelectItem value="inativos">Inativos</SelectItem>
             </SelectContent>
           </Select>
-          <Select value={fExp} onValueChange={(v) => setFExp(v as any)}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
+          <Select value={fObra} onValueChange={(v) => setFObra(v)}>
+            <SelectTrigger><SelectValue placeholder="Obra" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="todos">Toda experiência</SelectItem>
-              <SelectItem value="concluida">Experiência concluída</SelectItem>
-              <SelectItem value="em_curso">Experiência em curso</SelectItem>
+              <SelectItem value="todas">Todas as obras</SelectItem>
+              {obras.map((o: any) => <SelectItem key={o.id} value={o.id}>{o.nome}</SelectItem>)}
             </SelectContent>
           </Select>
           <Select value={fVenc} onValueChange={(v) => setFVenc(v as any)}>
@@ -248,7 +247,7 @@ function FuncionariosPage() {
               <SelectItem value="proximos">Vence em 30 dias</SelectItem>
             </SelectContent>
           </Select>
-          <Button variant="ghost" onClick={() => { setBusca(""); setFStatus("todos"); setFExp("todos"); setFVenc("todos"); }}>Limpar</Button>
+          <Button variant="ghost" onClick={() => { setBusca(""); setFStatus("todos"); setFObra("todas"); setFVenc("todos"); }}>Limpar</Button>
         </div>
       </Card>
 
