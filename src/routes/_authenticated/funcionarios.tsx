@@ -41,6 +41,16 @@ function vencColor(date?: string | null) {
   return "text-success";
 }
 
+// Experiência é considerada concluída automaticamente quando passa da data de vencimento
+// ou quando o flag manual experiencia_concluida está marcado.
+function isExperienciaConcluida(f: any) {
+  if (f?.experiencia_concluida) return true;
+  if (f?.vencimento_experiencia) {
+    return differenceInDays(parseISO(f.vencimento_experiencia), new Date()) < 0;
+  }
+  return false;
+}
+
 function FuncionariosPage() {
   const qc = useQueryClient();
   const { data: roles } = useUserRoles();
