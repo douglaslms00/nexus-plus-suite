@@ -282,12 +282,17 @@ function FuncionariosPage() {
                   {obras.find((o: any) => o.id === f.obra_id)?.nome ?? <span className="text-muted-foreground">—</span>}
                 </TableCell>
                 <TableCell>
-                  <span className={cn(
-                    "text-xs px-2 py-0.5 rounded",
-                    f.experiencia_concluida ? "bg-success/15 text-success" : "bg-warning/15 text-warning"
-                  )}>
-                    {f.experiencia_concluida ? "Concluída" : "Em curso"}
-                  </span>
+                  {(() => {
+                    const concluida = isExperienciaConcluida(f);
+                    return (
+                      <span className={cn(
+                        "text-xs px-2 py-0.5 rounded",
+                        concluida ? "bg-success/15 text-success" : "bg-warning/15 text-warning"
+                      )}>
+                        {concluida ? "Concluída" : "Em curso"}
+                      </span>
+                    );
+                  })()}
                 </TableCell>
                 {VENC.map(([key]) => (
                   <TableCell key={key} className={cn("text-xs whitespace-nowrap", vencColor(f[key]))}>
@@ -296,8 +301,9 @@ function FuncionariosPage() {
                 ))}
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-1">
-                    {canEdit && <Button size="icon" variant="ghost" onClick={() => openEdit(f)}><Pencil className="h-4 w-4" /></Button>}
-                    {canDelete && <Button size="icon" variant="ghost" onClick={() => { if (confirm(`Excluir ${f.nome}?`)) remove.mutate(f.id); }}><Trash2 className="h-4 w-4" /></Button>}
+                    <Button size="icon" variant="ghost" title="Documentos" onClick={() => setDocsFor(f)}><FileText className="h-4 w-4" /></Button>
+                    {canEdit && <Button size="icon" variant="ghost" title="Editar" onClick={() => openEdit(f)}><Pencil className="h-4 w-4" /></Button>}
+                    {canDelete && <Button size="icon" variant="ghost" title="Excluir" onClick={() => { if (confirm(`Excluir ${f.nome}?`)) remove.mutate(f.id); }}><Trash2 className="h-4 w-4" /></Button>}
                   </div>
                 </TableCell>
               </TableRow>
@@ -305,6 +311,97 @@ function FuncionariosPage() {
           </TableBody>
         </Table>
       </Card>
+
+      <DocumentosDialog funcionario={docsFor} onClose={() => setDocsFor(null)} canEdit={canEdit} canDelete={canDelete} />
     </div>
+  );
+}
+
+function DocumentosDialog({ funcionario, onClose, canEdit, canDelete }: { funcionario: any; onClose: () => void; canEdit: boolean; canDelete: boolean }) {
+  const qc = useQueryClient();
+  const open = !!funcionario;
+
+  const { data: docs = [], isLoading } = useQuery({
+    queryKey: ["funcionario-documentos", funcionario?.id],
+    enabled: open,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("funcionario_documentos")
+        .select("*")
+        .eq("funcionario_id", funcionario.id)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const addDoc = useMutation({
+    mutationFn: async (file: File) => {
+      const path = await uploadAnexo(file, `funcionarios/${funcionario.id}`);
+      const user = (await supabase.auth.getUser()).data.user;
+      const { error } = await (supabase as any).from("funcionario_documentos").insert({
+        funcionario_id: funcionario.id,
+        nome: file.name,
+        tipo: file.type || null,
+        storage_path: path,
+        tamanho: file.size,
+        uploaded_by: user?.id ?? null,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => { toast.success("Documento enviado"); qc.invalidateQueries({ queryKey: ["funcionario-documentos", funcionario?.id] }); },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const delDoc = useMutation({
+    mutationFn: async (doc: any) => {
+      await supabase.storage.from("anexos").remove([doc.storage_path]);
+      const { error } = await (supabase as any).from("funcionario_documentos").delete().eq("id", doc.id);
+      if (error) throw error;
+    },
+    onSuccess: () => { toast.success("Documento removido"); qc.invalidateQueries({ queryKey: ["funcionario-documentos", funcionario?.id] }); },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const handleDownload = async (doc: any) => {
+    const url = await getAnexoUrl(doc.storage_path);
+    if (url) window.open(url, "_blank");
+    else toast.error("Não foi possível abrir o arquivo");
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Documentos — {funcionario?.nome}</DialogTitle>
+        </DialogHeader>
+        {canEdit && (
+          <div>
+            <Label className="text-sm">Adicionar ficha / documento</Label>
+            <Input type="file" onChange={(e) => { const f = e.target.files?.[0]; if (f) { addDoc.mutate(f); e.target.value = ""; } }} disabled={addDoc.isPending} />
+            <p className="text-xs text-muted-foreground mt-1">PDF, imagem ou qualquer arquivo até 50MB.</p>
+          </div>
+        )}
+        <div className="border rounded mt-2">
+          {isLoading && <div className="p-4 text-sm text-muted-foreground text-center">Carregando...</div>}
+          {!isLoading && docs.length === 0 && <div className="p-4 text-sm text-muted-foreground text-center">Nenhum documento ainda.</div>}
+          {docs.map((d: any) => (
+            <div key={d.id} className="flex items-center justify-between gap-2 p-2 border-b last:border-b-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <div className="min-w-0">
+                  <div className="text-sm truncate">{d.nome}</div>
+                  <div className="text-xs text-muted-foreground">{format(parseISO(d.created_at), "dd/MM/yy HH:mm")} {d.tamanho ? `· ${Math.round(d.tamanho / 1024)} KB` : ""}</div>
+                </div>
+              </div>
+              <div className="flex gap-1">
+                <Button size="icon" variant="ghost" title="Baixar" onClick={() => handleDownload(d)}><Download className="h-4 w-4" /></Button>
+                {canDelete && <Button size="icon" variant="ghost" title="Excluir" onClick={() => { if (confirm(`Excluir ${d.nome}?`)) delDoc.mutate(d); }}><Trash2 className="h-4 w-4" /></Button>}
+              </div>
+            </div>
+          ))}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
