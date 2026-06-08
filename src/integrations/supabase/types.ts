@@ -285,6 +285,74 @@ export type Database = {
           },
         ]
       }
+      custom_role_module_permissions: {
+        Row: {
+          can_delete: boolean
+          can_edit: boolean
+          can_view: boolean
+          created_at: string
+          custom_role_id: string
+          id: string
+          module: string
+          updated_at: string
+        }
+        Insert: {
+          can_delete?: boolean
+          can_edit?: boolean
+          can_view?: boolean
+          created_at?: string
+          custom_role_id: string
+          id?: string
+          module: string
+          updated_at?: string
+        }
+        Update: {
+          can_delete?: boolean
+          can_edit?: boolean
+          can_view?: boolean
+          created_at?: string
+          custom_role_id?: string
+          id?: string
+          module?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custom_role_module_permissions_custom_role_id_fkey"
+            columns: ["custom_role_id"]
+            isOneToOne: false
+            referencedRelation: "custom_roles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      custom_roles: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          label: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          label: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          label?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       epi_movimentos: {
         Row: {
           created_at: string
@@ -859,6 +927,35 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      user_custom_roles: {
+        Row: {
+          created_at: string
+          custom_role_id: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          custom_role_id: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          custom_role_id?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_custom_roles_custom_role_id_fkey"
+            columns: ["custom_role_id"]
+            isOneToOne: false
+            referencedRelation: "custom_roles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_module_permissions: {
         Row: {
