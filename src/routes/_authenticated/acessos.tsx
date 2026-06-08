@@ -4,14 +4,18 @@ import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   isAdmin, useUserRoles, ALL_MODULES, effectivePerm,
-  type AppRole, type AppModule, type ModulePerm,
+  type AppRole, type AppModule, type ModulePerm, type CustomRole, type CustomRolePerm,
 } from "@/lib/permissions";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { ChevronDown, ChevronRight, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+
 
 export const Route = createFileRoute("/_authenticated/acessos")({ component: AcessosPage });
 
@@ -25,17 +29,19 @@ function AcessosPage() {
     queryKey: ["all-users-perms"],
     enabled: isAdmin(roles),
     queryFn: async () => {
-      const [{ data: profs }, { data: r }, { data: perms }, { data: uobras }] = await Promise.all([
+      const [{ data: profs }, { data: r }, { data: perms }, { data: uobras }, { data: ucroles }] = await Promise.all([
         supabase.from("profiles").select("id, nome, email"),
         supabase.from("user_roles").select("user_id, role"),
         supabase.from("user_module_permissions").select("user_id, module, can_view, can_edit, can_delete"),
         supabase.from("user_obras").select("user_id, obra_id"),
+        (supabase as any).from("user_custom_roles").select("user_id, custom_role_id"),
       ]);
       return (profs ?? []).map((p: any) => ({
         ...p,
         roles: (r ?? []).filter((x: any) => x.user_id === p.id).map((x: any) => x.role) as AppRole[],
         perms: (perms ?? []).filter((x: any) => x.user_id === p.id) as ({ module: AppModule } & ModulePerm)[],
         obras: (uobras ?? []).filter((x: any) => x.user_id === p.id).map((x: any) => x.obra_id) as string[],
+        customRoleIds: (ucroles ?? []).filter((x: any) => x.user_id === p.id).map((x: any) => x.custom_role_id) as string[],
       }));
     },
   });
@@ -45,6 +51,27 @@ function AcessosPage() {
     enabled: isAdmin(roles),
     queryFn: async () => (await supabase.from("obras").select("id, nome").order("nome")).data ?? [],
   });
+
+  const { data: customRoles = [] } = useQuery({
+    queryKey: ["custom-roles-admin"],
+    enabled: isAdmin(roles),
+    queryFn: async (): Promise<CustomRole[]> => {
+      const { data } = await (supabase as any).from("custom_roles").select("id, name, label, description").order("label");
+      return data ?? [];
+    },
+  });
+
+  const { data: customRolePerms = [] } = useQuery({
+    queryKey: ["custom-role-perms-admin"],
+    enabled: isAdmin(roles),
+    queryFn: async (): Promise<CustomRolePerm[]> => {
+      const { data } = await (supabase as any)
+        .from("custom_role_module_permissions")
+        .select("custom_role_id, module, can_view, can_edit, can_delete");
+      return data ?? [];
+    },
+  });
+
 
   const toggleObra = useMutation({
     mutationFn: async ({ user_id, obra_id, grant }: { user_id: string; obra_id: string; grant: boolean }) => {
@@ -89,6 +116,51 @@ function AcessosPage() {
     onSuccess: () => { toast.success("Override removido"); qc.invalidateQueries({ queryKey: ["all-users-perms"] }); },
   });
 
+  const toggleCustomRole = useMutation({
+    mutationFn: async ({ user_id, custom_role_id, grant }: { user_id: string; custom_role_id: string; grant: boolean }) => {
+      if (grant) {
+        const { error } = await (supabase as any).from("user_custom_roles").insert({ user_id, custom_role_id });
+        if (error && !String(error.message).includes("duplicate")) throw error;
+      } else {
+        const { error } = await (supabase as any).from("user_custom_roles").delete()
+          .eq("user_id", user_id).eq("custom_role_id", custom_role_id);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["all-users-perms"] }); qc.invalidateQueries({ queryKey: ["my-custom-roles"] }); },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const createCustomRole = useMutation({
+    mutationFn: async (p: { name: string; label: string; description?: string }) => {
+      const { error } = await (supabase as any).from("custom_roles").insert(p);
+      if (error) throw error;
+    },
+    onSuccess: () => { toast.success("Cargo criado"); qc.invalidateQueries({ queryKey: ["custom-roles-admin"] }); },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const deleteCustomRole = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await (supabase as any).from("custom_roles").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => { toast.success("Cargo removido"); qc.invalidateQueries({ queryKey: ["custom-roles-admin"] }); qc.invalidateQueries({ queryKey: ["all-users-perms"] }); },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const setCustomRolePerm = useMutation({
+    mutationFn: async (p: { custom_role_id: string; module: AppModule; perm: ModulePerm }) => {
+      const { error } = await (supabase as any)
+        .from("custom_role_module_permissions")
+        .upsert({ custom_role_id: p.custom_role_id, module: p.module, ...p.perm }, { onConflict: "custom_role_id,module" });
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["custom-role-perms-admin"] }),
+    onError: (e: any) => toast.error(e.message),
+  });
+
+
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   if (!isAdmin(roles)) {
@@ -107,8 +179,10 @@ function AcessosPage() {
       <Tabs defaultValue="users">
         <TabsList>
           <TabsTrigger value="users">Usuários</TabsTrigger>
+          <TabsTrigger value="custom-roles">Cargos hierárquicos</TabsTrigger>
           <TabsTrigger value="matrix">Matriz de papéis</TabsTrigger>
         </TabsList>
+
 
         <TabsContent value="users" className="space-y-3">
           {usuarios.map((u: any) => {
@@ -158,10 +232,27 @@ function AcessosPage() {
                       </div>
                     </div>
 
+                    {customRoles.length > 0 && (
+                      <div>
+                        <p className="text-sm font-medium mb-2">Cargos hierárquicos</p>
+                        <div className="flex flex-wrap gap-2">
+                          {customRoles.map((cr) => {
+                            const has = u.customRoleIds.includes(cr.id);
+                            return (
+                              <Button key={cr.id} size="sm" variant={has ? "default" : "outline"}
+                                onClick={() => toggleCustomRole.mutate({ user_id: u.id, custom_role_id: cr.id, grant: !has })}>
+                                {cr.label}
+                              </Button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
                     <div>
                     <p className="text-sm font-medium mb-2">Permissões por módulo</p>
                     <p className="text-xs text-muted-foreground mb-3">
-                      Valores em <em>itálico</em> vêm do papel padrão. Marque para sobrescrever para este usuário.
+                      Valores em <em>itálico</em> vêm do papel/cargo. Marque para sobrescrever para este usuário.
                     </p>
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm">
@@ -178,7 +269,8 @@ function AcessosPage() {
                         <tbody>
                           {ALL_MODULES.map((m) => {
                             const override = u.perms.find((p: any) => p.module === m.key);
-                            const eff = effectivePerm(m.key, u.roles, u.perms);
+                            const eff = effectivePerm(m.key, u.roles, u.perms, u.customRoleIds, customRolePerms);
+
                             const update = (patch: Partial<ModulePerm>) => {
                               const next: ModulePerm = { ...eff, ...patch };
                               setPerm.mutate({ user_id: u.id, module: m.key, perm: next });
@@ -215,6 +307,69 @@ function AcessosPage() {
           {usuarios.length === 0 && <Card className="p-8 text-center text-muted-foreground">Nenhum usuário.</Card>}
         </TabsContent>
 
+        <TabsContent value="custom-roles" className="space-y-4">
+          <Card className="p-4">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="font-medium">Cargos hierárquicos personalizados</h3>
+                <p className="text-xs text-muted-foreground">Crie cargos próprios (ex.: Supervisor, Engenheiro) e defina o que cada um pode fazer.</p>
+              </div>
+              <CreateCustomRoleDialog onCreate={(p) => createCustomRole.mutate(p)} />
+            </div>
+
+            {customRoles.length === 0 && (
+              <p className="text-sm text-muted-foreground">Nenhum cargo personalizado criado ainda.</p>
+            )}
+
+            <div className="space-y-4">
+              {customRoles.map((cr) => (
+                <Card key={cr.id} className="p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <p className="font-medium">{cr.label} <span className="text-xs text-muted-foreground">({cr.name})</span></p>
+                      {cr.description && <p className="text-xs text-muted-foreground">{cr.description}</p>}
+                    </div>
+                    <Button size="sm" variant="ghost"
+                      onClick={() => { if (confirm(`Remover cargo "${cr.label}"?`)) deleteCustomRole.mutate(cr.id); }}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-left text-muted-foreground border-b">
+                          <th className="py-2 pr-3">Módulo</th>
+                          <th className="px-2">Visualizar</th>
+                          <th className="px-2">Editar</th>
+                          <th className="px-2">Excluir</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {ALL_MODULES.map((m) => {
+                          const p = customRolePerms.find((x) => x.custom_role_id === cr.id && x.module === m.key);
+                          const cur: ModulePerm = p ?? { can_view: false, can_edit: false, can_delete: false };
+                          const update = (patch: Partial<ModulePerm>) =>
+                            setCustomRolePerm.mutate({ custom_role_id: cr.id, module: m.key, perm: { ...cur, ...patch } });
+                          return (
+                            <tr key={m.key} className="border-b">
+                              <td className="py-2 pr-3 font-medium">{m.label}</td>
+                              <td className="px-2"><Checkbox checked={cur.can_view} onCheckedChange={(v) => update({ can_view: !!v })} /></td>
+                              <td className="px-2"><Checkbox checked={cur.can_edit} onCheckedChange={(v) => update({ can_edit: !!v })} /></td>
+                              <td className="px-2"><Checkbox checked={cur.can_delete} onCheckedChange={(v) => update({ can_delete: !!v })} /></td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </Card>
+        </TabsContent>
+
+
+
         <TabsContent value="matrix">
           <Card className="p-4 overflow-x-auto">
             <h3 className="font-medium mb-3">Permissões padrão por papel</h3>
@@ -243,5 +398,52 @@ function AcessosPage() {
         </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+function CreateCustomRoleDialog({ onCreate }: { onCreate: (p: { name: string; label: string; description?: string }) => void }) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [label, setLabel] = useState("");
+  const [description, setDescription] = useState("");
+
+  const submit = () => {
+    const cleanName = name.trim().toLowerCase().replace(/[^a-z0-9_]/g, "_");
+    if (!cleanName || !label.trim()) {
+      toast.error("Preencha o nome interno e o rótulo");
+      return;
+    }
+    onCreate({ name: cleanName, label: label.trim(), description: description.trim() || undefined });
+    setOpen(false);
+    setName(""); setLabel(""); setDescription("");
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm"><Plus className="h-4 w-4" /> Novo cargo</Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader><DialogTitle>Criar cargo hierárquico</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <div>
+            <Label>Rótulo (exibido)</Label>
+            <Input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Ex.: Supervisor de Obra" />
+          </div>
+          <div>
+            <Label>Nome interno (sem espaços)</Label>
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="ex.: supervisor_obra" />
+          </div>
+          <div>
+            <Label>Descrição (opcional)</Label>
+            <Input value={description} onChange={(e) => setDescription(e.target.value)} />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
+          <Button onClick={submit}>Criar</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
