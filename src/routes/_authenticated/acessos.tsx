@@ -116,6 +116,51 @@ function AcessosPage() {
     onSuccess: () => { toast.success("Override removido"); qc.invalidateQueries({ queryKey: ["all-users-perms"] }); },
   });
 
+  const toggleCustomRole = useMutation({
+    mutationFn: async ({ user_id, custom_role_id, grant }: { user_id: string; custom_role_id: string; grant: boolean }) => {
+      if (grant) {
+        const { error } = await (supabase as any).from("user_custom_roles").insert({ user_id, custom_role_id });
+        if (error && !String(error.message).includes("duplicate")) throw error;
+      } else {
+        const { error } = await (supabase as any).from("user_custom_roles").delete()
+          .eq("user_id", user_id).eq("custom_role_id", custom_role_id);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["all-users-perms"] }); qc.invalidateQueries({ queryKey: ["my-custom-roles"] }); },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const createCustomRole = useMutation({
+    mutationFn: async (p: { name: string; label: string; description?: string }) => {
+      const { error } = await (supabase as any).from("custom_roles").insert(p);
+      if (error) throw error;
+    },
+    onSuccess: () => { toast.success("Cargo criado"); qc.invalidateQueries({ queryKey: ["custom-roles-admin"] }); },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const deleteCustomRole = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await (supabase as any).from("custom_roles").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => { toast.success("Cargo removido"); qc.invalidateQueries({ queryKey: ["custom-roles-admin"] }); qc.invalidateQueries({ queryKey: ["all-users-perms"] }); },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const setCustomRolePerm = useMutation({
+    mutationFn: async (p: { custom_role_id: string; module: AppModule; perm: ModulePerm }) => {
+      const { error } = await (supabase as any)
+        .from("custom_role_module_permissions")
+        .upsert({ custom_role_id: p.custom_role_id, module: p.module, ...p.perm }, { onConflict: "custom_role_id,module" });
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["custom-role-perms-admin"] }),
+    onError: (e: any) => toast.error(e.message),
+  });
+
+
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   if (!isAdmin(roles)) {
