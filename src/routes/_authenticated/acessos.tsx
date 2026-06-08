@@ -29,17 +29,19 @@ function AcessosPage() {
     queryKey: ["all-users-perms"],
     enabled: isAdmin(roles),
     queryFn: async () => {
-      const [{ data: profs }, { data: r }, { data: perms }, { data: uobras }] = await Promise.all([
+      const [{ data: profs }, { data: r }, { data: perms }, { data: uobras }, { data: ucroles }] = await Promise.all([
         supabase.from("profiles").select("id, nome, email"),
         supabase.from("user_roles").select("user_id, role"),
         supabase.from("user_module_permissions").select("user_id, module, can_view, can_edit, can_delete"),
         supabase.from("user_obras").select("user_id, obra_id"),
+        (supabase as any).from("user_custom_roles").select("user_id, custom_role_id"),
       ]);
       return (profs ?? []).map((p: any) => ({
         ...p,
         roles: (r ?? []).filter((x: any) => x.user_id === p.id).map((x: any) => x.role) as AppRole[],
         perms: (perms ?? []).filter((x: any) => x.user_id === p.id) as ({ module: AppModule } & ModulePerm)[],
         obras: (uobras ?? []).filter((x: any) => x.user_id === p.id).map((x: any) => x.obra_id) as string[],
+        customRoleIds: (ucroles ?? []).filter((x: any) => x.user_id === p.id).map((x: any) => x.custom_role_id) as string[],
       }));
     },
   });
@@ -49,6 +51,27 @@ function AcessosPage() {
     enabled: isAdmin(roles),
     queryFn: async () => (await supabase.from("obras").select("id, nome").order("nome")).data ?? [],
   });
+
+  const { data: customRoles = [] } = useQuery({
+    queryKey: ["custom-roles-admin"],
+    enabled: isAdmin(roles),
+    queryFn: async (): Promise<CustomRole[]> => {
+      const { data } = await (supabase as any).from("custom_roles").select("id, name, label, description").order("label");
+      return data ?? [];
+    },
+  });
+
+  const { data: customRolePerms = [] } = useQuery({
+    queryKey: ["custom-role-perms-admin"],
+    enabled: isAdmin(roles),
+    queryFn: async (): Promise<CustomRolePerm[]> => {
+      const { data } = await (supabase as any)
+        .from("custom_role_module_permissions")
+        .select("custom_role_id, module, can_view, can_edit, can_delete");
+      return data ?? [];
+    },
+  });
+
 
   const toggleObra = useMutation({
     mutationFn: async ({ user_id, obra_id, grant }: { user_id: string; obra_id: string; grant: boolean }) => {
