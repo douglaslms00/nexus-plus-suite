@@ -129,11 +129,63 @@ function defaultPerm(module: AppModule, roles: AppRole[] | undefined): ModulePer
   return { can_view: baseView.includes(module), can_edit: false, can_delete: false };
 }
 
+// Custom roles: assigned to user via user_custom_roles, with their own module perms
+export type CustomRole = { id: string; name: string; label: string; description: string | null };
+export type CustomRolePerm = { custom_role_id: string; module: AppModule } & ModulePerm;
+
+export function useMyCustomRoles() {
+  const { data: user } = useCurrentUser();
+  return useQuery({
+    queryKey: ["my-custom-roles", user?.id],
+    enabled: !!user?.id,
+    queryFn: async (): Promise<CustomRole[]> => {
+      const { data, error } = await (supabase as any)
+        .from("user_custom_roles")
+        .select("custom_role:custom_roles(id, name, label, description)")
+        .eq("user_id", user!.id);
+      if (error) throw error;
+      return (data ?? []).map((r: any) => r.custom_role).filter(Boolean);
+    },
+  });
+}
+
+export function useAllCustomRolePerms() {
+  return useQuery({
+    queryKey: ["all-custom-role-perms"],
+    queryFn: async (): Promise<CustomRolePerm[]> => {
+      const { data, error } = await (supabase as any)
+        .from("custom_role_module_permissions")
+        .select("custom_role_id, module, can_view, can_edit, can_delete");
+      if (error) throw error;
+      return (data ?? []) as CustomRolePerm[];
+    },
+  });
+}
+
+function mergeCustomPerms(
+  module: AppModule,
+  customRoleIds: string[],
+  customPerms: CustomRolePerm[] | undefined,
+): ModulePerm | null {
+  if (!customRoleIds.length || !customPerms?.length) return null;
+  const matches = customPerms.filter((p) => customRoleIds.includes(p.custom_role_id) && p.module === module);
+  if (!matches.length) return null;
+  return {
+    can_view: matches.some((m) => m.can_view),
+    can_edit: matches.some((m) => m.can_edit),
+    can_delete: matches.some((m) => m.can_delete),
+  };
+}
+
 export function useModulePerm(module: AppModule): ModulePerm {
   const { data: roles } = useUserRoles();
   const { data: overrides } = useMyModulePermissions();
+  const { data: customRoles } = useMyCustomRoles();
+  const { data: customPerms } = useAllCustomRolePerms();
   const o = overrides?.find((x) => x.module === module);
   if (o) return { can_view: o.can_view, can_edit: o.can_edit, can_delete: o.can_delete };
+  const fromCustom = mergeCustomPerms(module, (customRoles ?? []).map((c) => c.id), customPerms);
+  if (fromCustom) return fromCustom;
   return defaultPerm(module, roles);
 }
 
@@ -141,8 +193,13 @@ export function effectivePerm(
   module: AppModule,
   roles: AppRole[] | undefined,
   overrides: ({ module: AppModule } & ModulePerm)[] | undefined,
+  customRoleIds: string[] = [],
+  customPerms: CustomRolePerm[] = [],
 ): ModulePerm {
   const o = overrides?.find((x) => x.module === module);
   if (o) return { can_view: o.can_view, can_edit: o.can_edit, can_delete: o.can_delete };
+  const fromCustom = mergeCustomPerms(module, customRoleIds, customPerms);
+  if (fromCustom) return fromCustom;
   return defaultPerm(module, roles);
 }
+
