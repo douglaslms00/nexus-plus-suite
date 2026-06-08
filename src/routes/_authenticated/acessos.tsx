@@ -400,3 +400,50 @@ function AcessosPage() {
     </div>
   );
 }
+
+function CreateCustomRoleDialog({ onCreate }: { onCreate: (p: { name: string; label: string; description?: string }) => void }) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [label, setLabel] = useState("");
+  const [description, setDescription] = useState("");
+
+  const submit = () => {
+    const cleanName = name.trim().toLowerCase().replace(/[^a-z0-9_]/g, "_");
+    if (!cleanName || !label.trim()) {
+      toast.error("Preencha o nome interno e o rótulo");
+      return;
+    }
+    onCreate({ name: cleanName, label: label.trim(), description: description.trim() || undefined });
+    setOpen(false);
+    setName(""); setLabel(""); setDescription("");
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm"><Plus className="h-4 w-4" /> Novo cargo</Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader><DialogTitle>Criar cargo hierárquico</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <div>
+            <Label>Rótulo (exibido)</Label>
+            <Input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Ex.: Supervisor de Obra" />
+          </div>
+          <div>
+            <Label>Nome interno (sem espaços)</Label>
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="ex.: supervisor_obra" />
+          </div>
+          <div>
+            <Label>Descrição (opcional)</Label>
+            <Input value={description} onChange={(e) => setDescription(e.target.value)} />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
+          <Button onClick={submit}>Criar</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
