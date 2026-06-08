@@ -179,8 +179,10 @@ function AcessosPage() {
       <Tabs defaultValue="users">
         <TabsList>
           <TabsTrigger value="users">Usuários</TabsTrigger>
+          <TabsTrigger value="custom-roles">Cargos hierárquicos</TabsTrigger>
           <TabsTrigger value="matrix">Matriz de papéis</TabsTrigger>
         </TabsList>
+
 
         <TabsContent value="users" className="space-y-3">
           {usuarios.map((u: any) => {
