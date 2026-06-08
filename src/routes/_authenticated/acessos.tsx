@@ -4,14 +4,18 @@ import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   isAdmin, useUserRoles, ALL_MODULES, effectivePerm,
-  type AppRole, type AppModule, type ModulePerm,
+  type AppRole, type AppModule, type ModulePerm, type CustomRole, type CustomRolePerm,
 } from "@/lib/permissions";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { ChevronDown, ChevronRight, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+
 
 export const Route = createFileRoute("/_authenticated/acessos")({ component: AcessosPage });
 
