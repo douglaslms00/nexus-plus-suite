@@ -232,10 +232,27 @@ function AcessosPage() {
                       </div>
                     </div>
 
+                    {customRoles.length > 0 && (
+                      <div>
+                        <p className="text-sm font-medium mb-2">Cargos hierárquicos</p>
+                        <div className="flex flex-wrap gap-2">
+                          {customRoles.map((cr) => {
+                            const has = u.customRoleIds.includes(cr.id);
+                            return (
+                              <Button key={cr.id} size="sm" variant={has ? "default" : "outline"}
+                                onClick={() => toggleCustomRole.mutate({ user_id: u.id, custom_role_id: cr.id, grant: !has })}>
+                                {cr.label}
+                              </Button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
                     <div>
                     <p className="text-sm font-medium mb-2">Permissões por módulo</p>
                     <p className="text-xs text-muted-foreground mb-3">
-                      Valores em <em>itálico</em> vêm do papel padrão. Marque para sobrescrever para este usuário.
+                      Valores em <em>itálico</em> vêm do papel/cargo. Marque para sobrescrever para este usuário.
                     </p>
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm">
@@ -252,7 +269,8 @@ function AcessosPage() {
                         <tbody>
                           {ALL_MODULES.map((m) => {
                             const override = u.perms.find((p: any) => p.module === m.key);
-                            const eff = effectivePerm(m.key, u.roles, u.perms);
+                            const eff = effectivePerm(m.key, u.roles, u.perms, u.customRoleIds, customRolePerms);
+
                             const update = (patch: Partial<ModulePerm>) => {
                               const next: ModulePerm = { ...eff, ...patch };
                               setPerm.mutate({ user_id: u.id, module: m.key, perm: next });
