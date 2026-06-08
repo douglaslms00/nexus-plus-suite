@@ -307,6 +307,69 @@ function AcessosPage() {
           {usuarios.length === 0 && <Card className="p-8 text-center text-muted-foreground">Nenhum usuário.</Card>}
         </TabsContent>
 
+        <TabsContent value="custom-roles" className="space-y-4">
+          <Card className="p-4">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="font-medium">Cargos hierárquicos personalizados</h3>
+                <p className="text-xs text-muted-foreground">Crie cargos próprios (ex.: Supervisor, Engenheiro) e defina o que cada um pode fazer.</p>
+              </div>
+              <CreateCustomRoleDialog onCreate={(p) => createCustomRole.mutate(p)} />
+            </div>
+
+            {customRoles.length === 0 && (
+              <p className="text-sm text-muted-foreground">Nenhum cargo personalizado criado ainda.</p>
+            )}
+
+            <div className="space-y-4">
+              {customRoles.map((cr) => (
+                <Card key={cr.id} className="p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <p className="font-medium">{cr.label} <span className="text-xs text-muted-foreground">({cr.name})</span></p>
+                      {cr.description && <p className="text-xs text-muted-foreground">{cr.description}</p>}
+                    </div>
+                    <Button size="sm" variant="ghost"
+                      onClick={() => { if (confirm(`Remover cargo "${cr.label}"?`)) deleteCustomRole.mutate(cr.id); }}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-left text-muted-foreground border-b">
+                          <th className="py-2 pr-3">Módulo</th>
+                          <th className="px-2">Visualizar</th>
+                          <th className="px-2">Editar</th>
+                          <th className="px-2">Excluir</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {ALL_MODULES.map((m) => {
+                          const p = customRolePerms.find((x) => x.custom_role_id === cr.id && x.module === m.key);
+                          const cur: ModulePerm = p ?? { can_view: false, can_edit: false, can_delete: false };
+                          const update = (patch: Partial<ModulePerm>) =>
+                            setCustomRolePerm.mutate({ custom_role_id: cr.id, module: m.key, perm: { ...cur, ...patch } });
+                          return (
+                            <tr key={m.key} className="border-b">
+                              <td className="py-2 pr-3 font-medium">{m.label}</td>
+                              <td className="px-2"><Checkbox checked={cur.can_view} onCheckedChange={(v) => update({ can_view: !!v })} /></td>
+                              <td className="px-2"><Checkbox checked={cur.can_edit} onCheckedChange={(v) => update({ can_edit: !!v })} /></td>
+                              <td className="px-2"><Checkbox checked={cur.can_delete} onCheckedChange={(v) => update({ can_delete: !!v })} /></td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </Card>
+        </TabsContent>
+
+
+
         <TabsContent value="matrix">
           <Card className="p-4 overflow-x-auto">
             <h3 className="font-medium mb-3">Permissões padrão por papel</h3>
