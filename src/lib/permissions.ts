@@ -130,7 +130,14 @@ function defaultPerm(module: AppModule, roles: AppRole[] | undefined): ModulePer
 }
 
 // Custom roles: assigned to user via user_custom_roles, with their own module perms
-export type CustomRole = { id: string; name: string; label: string; description: string | null };
+export type CustomRole = {
+  id: string;
+  name: string;
+  label: string;
+  description: string | null;
+  parent_role_id?: string | null;
+  template_role?: AppRole | null;
+};
 export type CustomRolePerm = { custom_role_id: string; module: AppModule } & ModulePerm;
 
 export function useMyCustomRoles() {
