@@ -333,6 +333,8 @@ export type Database = {
           id: string
           label: string
           name: string
+          parent_role_id: string | null
+          template_role: Database["public"]["Enums"]["app_role"] | null
           updated_at: string
         }
         Insert: {
@@ -341,6 +343,8 @@ export type Database = {
           id?: string
           label: string
           name: string
+          parent_role_id?: string | null
+          template_role?: Database["public"]["Enums"]["app_role"] | null
           updated_at?: string
         }
         Update: {
@@ -349,9 +353,19 @@ export type Database = {
           id?: string
           label?: string
           name?: string
+          parent_role_id?: string | null
+          template_role?: Database["public"]["Enums"]["app_role"] | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "custom_roles_parent_role_id_fkey"
+            columns: ["parent_role_id"]
+            isOneToOne: false
+            referencedRelation: "custom_roles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       epi_movimentos: {
         Row: {
@@ -812,6 +826,42 @@ export type Database = {
         }
         Relationships: []
       }
+      permission_audit_log: {
+        Row: {
+          action: string
+          actor_email: string | null
+          actor_id: string | null
+          created_at: string
+          custom_role_id: string | null
+          details: Json | null
+          id: string
+          module: string | null
+          target_user_id: string | null
+        }
+        Insert: {
+          action: string
+          actor_email?: string | null
+          actor_id?: string | null
+          created_at?: string
+          custom_role_id?: string | null
+          details?: Json | null
+          id?: string
+          module?: string | null
+          target_user_id?: string | null
+        }
+        Update: {
+          action?: string
+          actor_email?: string | null
+          actor_id?: string | null
+          created_at?: string
+          custom_role_id?: string | null
+          details?: Json | null
+          id?: string
+          module?: string | null
+          target_user_id?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -1045,12 +1095,43 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_bulk_set_custom_role: {
+        Args: { _custom_role_id: string; _grant: boolean; _user_ids: string[] }
+        Returns: undefined
+      }
+      admin_create_custom_role_from_template: {
+        Args: {
+          _description: string
+          _label: string
+          _name: string
+          _template: Database["public"]["Enums"]["app_role"]
+        }
+        Returns: string
+      }
+      admin_create_custom_role_inherit: {
+        Args: {
+          _description: string
+          _label: string
+          _name: string
+          _parent_id: string
+        }
+        Returns: string
+      }
       admin_delete_user: { Args: { _user_id: string }; Returns: undefined }
       admin_set_role: {
         Args: {
           _grant: boolean
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
+        }
+        Returns: undefined
+      }
+      admin_update_custom_role: {
+        Args: {
+          _description: string
+          _id: string
+          _label: string
+          _name: string
         }
         Returns: undefined
       }
@@ -1066,7 +1147,24 @@ export type Database = {
         Returns: boolean
       }
       is_admin_or_gestor: { Args: { _user_id: string }; Returns: boolean }
+      log_permission_change: {
+        Args: {
+          _action: string
+          _custom_role_id: string
+          _details: Json
+          _module: string
+          _target_user_id: string
+        }
+        Returns: undefined
+      }
       promote_to_admin_if_no_admin: { Args: never; Returns: string }
+      seed_default_perms_for_role: {
+        Args: {
+          _custom_role_id: string
+          _template: Database["public"]["Enums"]["app_role"]
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       app_role: "admin" | "gestor" | "colaborador" | "financeiro"
