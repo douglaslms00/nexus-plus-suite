@@ -4,7 +4,7 @@ import { useProfile, useUserRoles, useMyModulePermissions, useMyCustomRoles, use
 import {
   LayoutDashboard, Users, CheckSquare, HardHat, Building2, LogOut,
   Boxes, Wrench, Package, Wallet, MapPin, ShieldCheck, Menu, X,
-  PanelLeftClose, PanelLeftOpen,
+  PanelLeftClose, PanelLeftOpen, FolderOpen, UserCog,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -12,6 +12,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { cn } from "@/lib/utils";
 import { useEffect, useState, type ReactNode } from "react";
 import { useObraAtual } from "@/lib/obra-context";
+import { NotificationsBell } from "@/components/NotificationsBell";
+
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { location } = useRouterState();
