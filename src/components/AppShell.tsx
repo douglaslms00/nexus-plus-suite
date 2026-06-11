@@ -67,8 +67,10 @@ export function AppShell({ children }: { children: ReactNode }) {
     { to: "/materiais", label: "Materiais", icon: Package, module: "materiais" },
     { to: "/epis", label: "EPI / EPC", icon: HardHat, module: "epis" },
     { to: "/financeiro", label: "Financeiro", icon: Wallet, module: "financeiro" },
+    { to: "/documentos", label: "Documentos", icon: FolderOpen, module: "documentos" },
     { to: "/acessos", label: "Acessos", icon: ShieldCheck, module: "acessos" },
   ];
+
   const nav = items.filter((it) => effectivePerm(it.module, roles, overrides, (myCustomRoles ?? []).map((c) => c.id), customRolePerms ?? []).can_view);
 
   const renderSidebar = (mini: boolean) => (
