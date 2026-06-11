@@ -254,6 +254,16 @@ function TarefasPage() {
                     {od?.kind === "soon" && (
                       <span className="text-[10px] uppercase px-2 py-0.5 rounded bg-warning/20 text-warning">Vence em {od.days}d</span>
                     )}
+                    {t.assignment_status === "pendente" && t.assigned_to && (
+                      <span className="text-[10px] uppercase px-2 py-0.5 rounded bg-primary/15 text-primary">Aguardando resposta</span>
+                    )}
+                    {t.assignment_status === "aceita" && (
+                      <span className="text-[10px] uppercase px-2 py-0.5 rounded bg-success/15 text-success">Aceita</span>
+                    )}
+                    {t.assignment_status === "recusada" && (
+                      <span className="text-[10px] uppercase px-2 py-0.5 rounded bg-destructive/15 text-destructive">Recusada</span>
+                    )}
+
                   </div>
                   {t.descricao && <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{t.descricao}</p>}
                   <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground flex-wrap">
