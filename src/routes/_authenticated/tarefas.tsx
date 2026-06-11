@@ -170,14 +170,15 @@ function TarefasPage() {
                   <div className="space-y-1"><Label>Vencimento</Label><Input type="date" value={form.data_vencimento ?? ""} onChange={(e) => setForm({ ...form, data_vencimento: e.target.value })} /></div>
                 </div>
                 <div className="space-y-1">
-                  <Label>Responsável</Label>
-                  <Select value={form.responsavel_id ?? ""} onValueChange={(v) => setForm({ ...form, responsavel_id: v })}>
-                    <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                  <Label>Atribuir a (envia para aceitar/recusar)</Label>
+                  <Select value={form.assigned_to ?? ""} onValueChange={(v) => setForm({ ...form, assigned_to: v })}>
+                    <SelectTrigger><SelectValue placeholder="Ninguém (eu mesmo)" /></SelectTrigger>
                     <SelectContent>
                       {pessoas.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
+
                 <DialogFooter><Button type="submit" disabled={create.isPending}>{create.isPending ? "Salvando..." : "Criar"}</Button></DialogFooter>
               </form>
             </DialogContent>
