@@ -232,6 +232,7 @@ export type Database = {
           data_pagamento: string | null
           data_vencimento: string
           descricao: string
+          escopo: string
           id: string
           obra_id: string | null
           observacoes: string | null
@@ -249,6 +250,7 @@ export type Database = {
           data_pagamento?: string | null
           data_vencimento: string
           descricao: string
+          escopo?: string
           id?: string
           obra_id?: string | null
           observacoes?: string | null
@@ -266,6 +268,7 @@ export type Database = {
           data_pagamento?: string | null
           data_vencimento?: string
           descricao?: string
+          escopo?: string
           id?: string
           obra_id?: string | null
           observacoes?: string | null
@@ -363,6 +366,97 @@ export type Database = {
             columns: ["parent_role_id"]
             isOneToOne: false
             referencedRelation: "custom_roles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      documento_pastas: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          escopo: string
+          id: string
+          nome: string
+          obra_id: string | null
+          parent_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          escopo: string
+          id?: string
+          nome: string
+          obra_id?: string | null
+          parent_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          escopo?: string
+          id?: string
+          nome?: string
+          obra_id?: string | null
+          parent_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "documento_pastas_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "documento_pastas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      documentos: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          escopo: string
+          id: string
+          mime: string | null
+          nome: string
+          obra_id: string | null
+          pasta_id: string | null
+          storage_path: string
+          tamanho: number | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          escopo: string
+          id?: string
+          mime?: string | null
+          nome: string
+          obra_id?: string | null
+          pasta_id?: string | null
+          storage_path: string
+          tamanho?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          escopo?: string
+          id?: string
+          mime?: string | null
+          nome?: string
+          obra_id?: string | null
+          pasta_id?: string | null
+          storage_path?: string
+          tamanho?: number | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "documentos_pasta_id_fkey"
+            columns: ["pasta_id"]
+            isOneToOne: false
+            referencedRelation: "documento_pastas"
             referencedColumns: ["id"]
           },
         ]
@@ -796,6 +890,45 @@ export type Database = {
           },
         ]
       }
+      notifications: {
+        Row: {
+          created_at: string
+          id: string
+          lida: boolean
+          link: string | null
+          mensagem: string | null
+          ref_id: string | null
+          ref_table: string | null
+          tipo: string
+          titulo: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          lida?: boolean
+          link?: string | null
+          mensagem?: string | null
+          ref_id?: string | null
+          ref_table?: string | null
+          tipo: string
+          titulo: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          lida?: boolean
+          link?: string | null
+          mensagem?: string | null
+          ref_id?: string | null
+          ref_table?: string | null
+          tipo?: string
+          titulo?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       obras: {
         Row: {
           created_at: string
@@ -864,6 +997,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          avatar_url: string | null
           created_at: string
           email: string | null
           id: string
@@ -872,6 +1006,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          avatar_url?: string | null
           created_at?: string
           email?: string | null
           id: string
@@ -880,11 +1015,33 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          avatar_url?: string | null
           created_at?: string
           email?: string | null
           id?: string
           nome?: string
           setor?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      system_role_labels: {
+        Row: {
+          description: string | null
+          label: string
+          role: Database["public"]["Enums"]["app_role"]
+          updated_at: string
+        }
+        Insert: {
+          description?: string | null
+          label: string
+          role: Database["public"]["Enums"]["app_role"]
+          updated_at?: string
+        }
+        Update: {
+          description?: string | null
+          label?: string
+          role?: Database["public"]["Enums"]["app_role"]
           updated_at?: string
         }
         Relationships: []
@@ -935,6 +1092,10 @@ export type Database = {
       }
       tarefas: {
         Row: {
+          assigned_to: string | null
+          assignment_response_at: string | null
+          assignment_response_note: string | null
+          assignment_status: string
           concluida: boolean
           concluida_em: string | null
           created_at: string
@@ -949,6 +1110,10 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          assigned_to?: string | null
+          assignment_response_at?: string | null
+          assignment_response_note?: string | null
+          assignment_status?: string
           concluida?: boolean
           concluida_em?: string | null
           created_at?: string
@@ -963,6 +1128,10 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          assigned_to?: string | null
+          assignment_response_at?: string | null
+          assignment_response_note?: string | null
+          assignment_status?: string
           concluida?: boolean
           concluida_em?: string | null
           created_at?: string
@@ -1126,6 +1295,14 @@ export type Database = {
         }
         Returns: undefined
       }
+      admin_set_system_role_label: {
+        Args: {
+          _description: string
+          _label: string
+          _role: Database["public"]["Enums"]["app_role"]
+        }
+        Returns: undefined
+      }
       admin_update_custom_role: {
         Args: {
           _description: string
@@ -1154,6 +1331,18 @@ export type Database = {
           _details: Json
           _module: string
           _target_user_id: string
+        }
+        Returns: undefined
+      }
+      notify_user: {
+        Args: {
+          _link: string
+          _mensagem: string
+          _ref_id: string
+          _ref_table: string
+          _tipo: string
+          _titulo: string
+          _user_id: string
         }
         Returns: undefined
       }
