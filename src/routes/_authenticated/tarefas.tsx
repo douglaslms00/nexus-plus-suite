@@ -285,9 +285,16 @@ function TarefasPage() {
                     <span className="text-xs px-2 py-1 rounded bg-muted">{STATUS_LABEL[t.status]}</span>
                   )}
                   <div className="flex gap-1">
+                    {t.assigned_to === user?.id && t.assignment_status === "pendente" && (
+                      <>
+                        <Button size="sm" variant="default" onClick={() => respondAssignment.mutate({ id: t.id, decision: "aceita" })}>Aceitar</Button>
+                        <Button size="sm" variant="outline" onClick={() => respondAssignment.mutate({ id: t.id, decision: "recusada" })}>Recusar</Button>
+                      </>
+                    )}
                     <Button size="icon" variant="ghost" onClick={() => setDetailId(t.id)} title="Detalhes"><History className="h-4 w-4" /></Button>
                     {canDelete && <Button size="icon" variant="ghost" onClick={() => { if (confirm("Excluir tarefa?")) remove.mutate(t.id); }}><Trash2 className="h-4 w-4" /></Button>}
                   </div>
+
                 </div>
               </div>
             </Card>
