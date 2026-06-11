@@ -35,9 +35,10 @@ function TarefasPage() {
   const qc = useQueryClient();
   const { data: user } = useCurrentUser();
   const { data: roles } = useUserRoles();
-  const canCreate = canManage(roles);
+  const canCreate = true; // qualquer usuário pode criar/atribuir tarefas
   const canDelete = isAdmin(roles);
   const isGestor = canManage(roles);
+
 
   const [fStatus, setFStatus] = useState<string>("todos");
   const [fPrio, setFPrio] = useState<string>("todos");
