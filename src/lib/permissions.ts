@@ -128,9 +128,10 @@ function defaultPerm(module: AppModule, roles: AppRole[] | undefined): ModulePer
     return { can_view: true, can_edit: false, can_delete: false };
   }
   // colaborador
-  const baseView: AppModule[] = ["dashboard", "tarefas", "funcionarios", "epis"];
+  const baseView: AppModule[] = ["dashboard", "tarefas", "funcionarios", "epis", "documentos"];
   return { can_view: baseView.includes(module), can_edit: false, can_delete: false };
 }
+
 
 // Custom roles: assigned to user via user_custom_roles, with their own module perms
 export type CustomRole = {
