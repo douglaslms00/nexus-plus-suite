@@ -84,16 +84,33 @@ function TarefasPage() {
 
   const create = useMutation({
     mutationFn: async () => {
+      const assigned = form.assigned_to || null;
       const { error } = await supabase.from("tarefas").insert({
         titulo: form.titulo, descricao: form.descricao, prioridade: form.prioridade,
-        status: form.status, responsavel_id: form.responsavel_id || null,
+        status: form.status, responsavel_id: form.responsavel_id || assigned || null,
         data_vencimento: form.data_vencimento || null,
-      });
+        ...(assigned ? { assigned_to: assigned, assignment_status: "pendente" } : {}),
+      } as any);
       if (error) throw error;
     },
     onSuccess: () => { toast.success("Tarefa criada"); qc.invalidateQueries({ queryKey: ["tarefas"] }); setOpen(false); setForm({ prioridade: "media", status: "pendente" }); },
     onError: (e: any) => toast.error(e.message),
   });
+
+  const respondAssignment = useMutation({
+    mutationFn: async ({ id, decision, note }: { id: string; decision: "aceita" | "recusada"; note?: string }) => {
+      const { error } = await supabase.from("tarefas").update({
+        assignment_status: decision,
+        assignment_response_at: new Date().toISOString(),
+        assignment_response_note: note ?? null,
+        ...(decision === "aceita" ? { responsavel_id: user?.id } : {}),
+      } as any).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: (_d, v) => { toast.success(v.decision === "aceita" ? "Tarefa aceita" : "Tarefa recusada"); qc.invalidateQueries({ queryKey: ["tarefas"] }); },
+    onError: (e: any) => toast.error(e.message),
+  });
+
 
   const toggleDone = useMutation({
     mutationFn: async ({ id, concluida }: { id: string; concluida: boolean }) => {
