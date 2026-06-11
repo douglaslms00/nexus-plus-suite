@@ -19,6 +19,7 @@ import { Route as AuthenticatedFuncionariosRouteImport } from './routes/_authent
 import { Route as AuthenticatedFinanceiroRouteImport } from './routes/_authenticated/financeiro'
 import { Route as AuthenticatedFerramentasRouteImport } from './routes/_authenticated/ferramentas'
 import { Route as AuthenticatedEpisRouteImport } from './routes/_authenticated/epis'
+import { Route as AuthenticatedDocumentosRouteImport } from './routes/_authenticated/documentos'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedAtivosRouteImport } from './routes/_authenticated/ativos'
 import { Route as AuthenticatedAcessosRouteImport } from './routes/_authenticated/acessos'
@@ -74,6 +75,11 @@ const AuthenticatedEpisRoute = AuthenticatedEpisRouteImport.update({
   path: '/epis',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedDocumentosRoute = AuthenticatedDocumentosRouteImport.update({
+  id: '/documentos',
+  path: '/documentos',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -96,6 +102,7 @@ export interface FileRoutesByFullPath {
   '/acessos': typeof AuthenticatedAcessosRoute
   '/ativos': typeof AuthenticatedAtivosRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/documentos': typeof AuthenticatedDocumentosRoute
   '/epis': typeof AuthenticatedEpisRoute
   '/ferramentas': typeof AuthenticatedFerramentasRoute
   '/financeiro': typeof AuthenticatedFinanceiroRoute
@@ -109,6 +116,7 @@ export interface FileRoutesByTo {
   '/acessos': typeof AuthenticatedAcessosRoute
   '/ativos': typeof AuthenticatedAtivosRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/documentos': typeof AuthenticatedDocumentosRoute
   '/epis': typeof AuthenticatedEpisRoute
   '/ferramentas': typeof AuthenticatedFerramentasRoute
   '/financeiro': typeof AuthenticatedFinanceiroRoute
@@ -125,6 +133,7 @@ export interface FileRoutesById {
   '/_authenticated/acessos': typeof AuthenticatedAcessosRoute
   '/_authenticated/ativos': typeof AuthenticatedAtivosRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/documentos': typeof AuthenticatedDocumentosRoute
   '/_authenticated/epis': typeof AuthenticatedEpisRoute
   '/_authenticated/ferramentas': typeof AuthenticatedFerramentasRoute
   '/_authenticated/financeiro': typeof AuthenticatedFinanceiroRoute
@@ -142,6 +151,7 @@ export interface FileRouteTypes {
     | '/acessos'
     | '/ativos'
     | '/dashboard'
+    | '/documentos'
     | '/epis'
     | '/ferramentas'
     | '/financeiro'
@@ -155,6 +165,7 @@ export interface FileRouteTypes {
     | '/acessos'
     | '/ativos'
     | '/dashboard'
+    | '/documentos'
     | '/epis'
     | '/ferramentas'
     | '/financeiro'
@@ -170,6 +181,7 @@ export interface FileRouteTypes {
     | '/_authenticated/acessos'
     | '/_authenticated/ativos'
     | '/_authenticated/dashboard'
+    | '/_authenticated/documentos'
     | '/_authenticated/epis'
     | '/_authenticated/ferramentas'
     | '/_authenticated/financeiro'
@@ -257,6 +269,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedEpisRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/documentos': {
+      id: '/_authenticated/documentos'
+      path: '/documentos'
+      fullPath: '/documentos'
+      preLoaderRoute: typeof AuthenticatedDocumentosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/dashboard': {
       id: '/_authenticated/dashboard'
       path: '/dashboard'
@@ -285,6 +304,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAcessosRoute: typeof AuthenticatedAcessosRoute
   AuthenticatedAtivosRoute: typeof AuthenticatedAtivosRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedDocumentosRoute: typeof AuthenticatedDocumentosRoute
   AuthenticatedEpisRoute: typeof AuthenticatedEpisRoute
   AuthenticatedFerramentasRoute: typeof AuthenticatedFerramentasRoute
   AuthenticatedFinanceiroRoute: typeof AuthenticatedFinanceiroRoute
@@ -299,6 +319,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAcessosRoute: AuthenticatedAcessosRoute,
   AuthenticatedAtivosRoute: AuthenticatedAtivosRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedDocumentosRoute: AuthenticatedDocumentosRoute,
   AuthenticatedEpisRoute: AuthenticatedEpisRoute,
   AuthenticatedFerramentasRoute: AuthenticatedFerramentasRoute,
   AuthenticatedFinanceiroRoute: AuthenticatedFinanceiroRoute,
@@ -319,3 +340,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
