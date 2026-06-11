@@ -185,6 +185,12 @@ export function AppShell({ children }: { children: ReactNode }) {
               </SelectContent>
             </Select>
           </div>
+          <div className="flex items-center gap-1">
+            <NotificationsBell />
+            <Button variant="ghost" size="icon" aria-label="Perfil" onClick={() => navigate({ to: "/perfil" })}>
+              <UserCog className="h-5 w-5" />
+            </Button>
+          </div>
         </header>
 
         <div className="hidden lg:flex items-center justify-between px-6 lg:px-8 pt-4">
@@ -197,7 +203,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           >
             {collapsed ? <PanelLeftOpen className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
           </Button>
-          <div className="flex items-center gap-2 text-sm">
+          <div className="flex items-center gap-3 text-sm">
             <MapPin className="h-4 w-4 text-muted-foreground" />
             <span className="text-muted-foreground">Obra:</span>
             <Select value={obraId ?? "all"} onValueChange={(v) => setObraId(v === "all" ? null : v)}>
@@ -207,8 +213,13 @@ export function AppShell({ children }: { children: ReactNode }) {
                 {obras.map((o: any) => <SelectItem key={o.id} value={o.id}>{o.nome}</SelectItem>)}
               </SelectContent>
             </Select>
+            <NotificationsBell />
+            <Button variant="ghost" size="icon" aria-label="Perfil" onClick={() => navigate({ to: "/perfil" })} title="Meu perfil">
+              <UserCog className="h-5 w-5" />
+            </Button>
           </div>
         </div>
+
 
         <div className="max-w-7xl mx-auto w-full p-4 lg:p-8">{children}</div>
       </main>
