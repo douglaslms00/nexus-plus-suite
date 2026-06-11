@@ -13,6 +13,7 @@ export type AppModule =
   | "materiais"
   | "epis"
   | "financeiro"
+  | "documentos"
   | "acessos";
 
 export const ALL_MODULES: { key: AppModule; label: string }[] = [
@@ -25,8 +26,10 @@ export const ALL_MODULES: { key: AppModule; label: string }[] = [
   { key: "materiais", label: "Materiais" },
   { key: "epis", label: "EPI / EPC" },
   { key: "financeiro", label: "Financeiro" },
+  { key: "documentos", label: "Documentos" },
   { key: "acessos", label: "Acessos" },
 ];
+
 
 export function useCurrentUser() {
   return useQuery({
