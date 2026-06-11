@@ -35,9 +35,10 @@ function TarefasPage() {
   const qc = useQueryClient();
   const { data: user } = useCurrentUser();
   const { data: roles } = useUserRoles();
-  const canCreate = canManage(roles);
+  const canCreate = true; // qualquer usuário pode criar/atribuir tarefas
   const canDelete = isAdmin(roles);
   const isGestor = canManage(roles);
+
 
   const [fStatus, setFStatus] = useState<string>("todos");
   const [fPrio, setFPrio] = useState<string>("todos");
@@ -84,16 +85,33 @@ function TarefasPage() {
 
   const create = useMutation({
     mutationFn: async () => {
+      const assigned = form.assigned_to || null;
       const { error } = await supabase.from("tarefas").insert({
         titulo: form.titulo, descricao: form.descricao, prioridade: form.prioridade,
-        status: form.status, responsavel_id: form.responsavel_id || null,
+        status: form.status, responsavel_id: form.responsavel_id || assigned || null,
         data_vencimento: form.data_vencimento || null,
-      });
+        ...(assigned ? { assigned_to: assigned, assignment_status: "pendente" } : {}),
+      } as any);
       if (error) throw error;
     },
     onSuccess: () => { toast.success("Tarefa criada"); qc.invalidateQueries({ queryKey: ["tarefas"] }); setOpen(false); setForm({ prioridade: "media", status: "pendente" }); },
     onError: (e: any) => toast.error(e.message),
   });
+
+  const respondAssignment = useMutation({
+    mutationFn: async ({ id, decision, note }: { id: string; decision: "aceita" | "recusada"; note?: string }) => {
+      const { error } = await supabase.from("tarefas").update({
+        assignment_status: decision,
+        assignment_response_at: new Date().toISOString(),
+        assignment_response_note: note ?? null,
+        ...(decision === "aceita" ? { responsavel_id: user?.id } : {}),
+      } as any).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: (_d, v) => { toast.success(v.decision === "aceita" ? "Tarefa aceita" : "Tarefa recusada"); qc.invalidateQueries({ queryKey: ["tarefas"] }); },
+    onError: (e: any) => toast.error(e.message),
+  });
+
 
   const toggleDone = useMutation({
     mutationFn: async ({ id, concluida }: { id: string; concluida: boolean }) => {
@@ -153,14 +171,15 @@ function TarefasPage() {
                   <div className="space-y-1"><Label>Vencimento</Label><Input type="date" value={form.data_vencimento ?? ""} onChange={(e) => setForm({ ...form, data_vencimento: e.target.value })} /></div>
                 </div>
                 <div className="space-y-1">
-                  <Label>Responsável</Label>
-                  <Select value={form.responsavel_id ?? ""} onValueChange={(v) => setForm({ ...form, responsavel_id: v })}>
-                    <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                  <Label>Atribuir a (envia para aceitar/recusar)</Label>
+                  <Select value={form.assigned_to ?? ""} onValueChange={(v) => setForm({ ...form, assigned_to: v })}>
+                    <SelectTrigger><SelectValue placeholder="Ninguém (eu mesmo)" /></SelectTrigger>
                     <SelectContent>
                       {pessoas.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
+
                 <DialogFooter><Button type="submit" disabled={create.isPending}>{create.isPending ? "Salvando..." : "Criar"}</Button></DialogFooter>
               </form>
             </DialogContent>
@@ -236,6 +255,16 @@ function TarefasPage() {
                     {od?.kind === "soon" && (
                       <span className="text-[10px] uppercase px-2 py-0.5 rounded bg-warning/20 text-warning">Vence em {od.days}d</span>
                     )}
+                    {t.assignment_status === "pendente" && t.assigned_to && (
+                      <span className="text-[10px] uppercase px-2 py-0.5 rounded bg-primary/15 text-primary">Aguardando resposta</span>
+                    )}
+                    {t.assignment_status === "aceita" && (
+                      <span className="text-[10px] uppercase px-2 py-0.5 rounded bg-success/15 text-success">Aceita</span>
+                    )}
+                    {t.assignment_status === "recusada" && (
+                      <span className="text-[10px] uppercase px-2 py-0.5 rounded bg-destructive/15 text-destructive">Recusada</span>
+                    )}
+
                   </div>
                   {t.descricao && <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{t.descricao}</p>}
                   <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground flex-wrap">
@@ -257,9 +286,16 @@ function TarefasPage() {
                     <span className="text-xs px-2 py-1 rounded bg-muted">{STATUS_LABEL[t.status]}</span>
                   )}
                   <div className="flex gap-1">
+                    {t.assigned_to === user?.id && t.assignment_status === "pendente" && (
+                      <>
+                        <Button size="sm" variant="default" onClick={() => respondAssignment.mutate({ id: t.id, decision: "aceita" })}>Aceitar</Button>
+                        <Button size="sm" variant="outline" onClick={() => respondAssignment.mutate({ id: t.id, decision: "recusada" })}>Recusar</Button>
+                      </>
+                    )}
                     <Button size="icon" variant="ghost" onClick={() => setDetailId(t.id)} title="Detalhes"><History className="h-4 w-4" /></Button>
                     {canDelete && <Button size="icon" variant="ghost" onClick={() => { if (confirm("Excluir tarefa?")) remove.mutate(t.id); }}><Trash2 className="h-4 w-4" /></Button>}
                   </div>
+
                 </div>
               </div>
             </Card>

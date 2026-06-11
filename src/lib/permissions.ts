@@ -13,6 +13,7 @@ export type AppModule =
   | "materiais"
   | "epis"
   | "financeiro"
+  | "documentos"
   | "acessos";
 
 export const ALL_MODULES: { key: AppModule; label: string }[] = [
@@ -25,8 +26,10 @@ export const ALL_MODULES: { key: AppModule; label: string }[] = [
   { key: "materiais", label: "Materiais" },
   { key: "epis", label: "EPI / EPC" },
   { key: "financeiro", label: "Financeiro" },
+  { key: "documentos", label: "Documentos" },
   { key: "acessos", label: "Acessos" },
 ];
+
 
 export function useCurrentUser() {
   return useQuery({
@@ -125,9 +128,10 @@ function defaultPerm(module: AppModule, roles: AppRole[] | undefined): ModulePer
     return { can_view: true, can_edit: false, can_delete: false };
   }
   // colaborador
-  const baseView: AppModule[] = ["dashboard", "tarefas", "funcionarios", "epis"];
+  const baseView: AppModule[] = ["dashboard", "tarefas", "funcionarios", "epis", "documentos"];
   return { can_view: baseView.includes(module), can_edit: false, can_delete: false };
 }
+
 
 // Custom roles: assigned to user via user_custom_roles, with their own module perms
 export type CustomRole = {

@@ -4,7 +4,7 @@ import { useProfile, useUserRoles, useMyModulePermissions, useMyCustomRoles, use
 import {
   LayoutDashboard, Users, CheckSquare, HardHat, Building2, LogOut,
   Boxes, Wrench, Package, Wallet, MapPin, ShieldCheck, Menu, X,
-  PanelLeftClose, PanelLeftOpen,
+  PanelLeftClose, PanelLeftOpen, FolderOpen, UserCog,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -12,6 +12,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { cn } from "@/lib/utils";
 import { useEffect, useState, type ReactNode } from "react";
 import { useObraAtual } from "@/lib/obra-context";
+import { NotificationsBell } from "@/components/NotificationsBell";
+
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { location } = useRouterState();
@@ -65,8 +67,10 @@ export function AppShell({ children }: { children: ReactNode }) {
     { to: "/materiais", label: "Materiais", icon: Package, module: "materiais" },
     { to: "/epis", label: "EPI / EPC", icon: HardHat, module: "epis" },
     { to: "/financeiro", label: "Financeiro", icon: Wallet, module: "financeiro" },
+    { to: "/documentos", label: "Documentos", icon: FolderOpen, module: "documentos" },
     { to: "/acessos", label: "Acessos", icon: ShieldCheck, module: "acessos" },
   ];
+
   const nav = items.filter((it) => effectivePerm(it.module, roles, overrides, (myCustomRoles ?? []).map((c) => c.id), customRolePerms ?? []).can_view);
 
   const renderSidebar = (mini: boolean) => (
@@ -181,6 +185,12 @@ export function AppShell({ children }: { children: ReactNode }) {
               </SelectContent>
             </Select>
           </div>
+          <div className="flex items-center gap-1">
+            <NotificationsBell />
+            <Button variant="ghost" size="icon" aria-label="Perfil" onClick={() => navigate({ to: "/perfil" })}>
+              <UserCog className="h-5 w-5" />
+            </Button>
+          </div>
         </header>
 
         <div className="hidden lg:flex items-center justify-between px-6 lg:px-8 pt-4">
@@ -193,7 +203,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           >
             {collapsed ? <PanelLeftOpen className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
           </Button>
-          <div className="flex items-center gap-2 text-sm">
+          <div className="flex items-center gap-3 text-sm">
             <MapPin className="h-4 w-4 text-muted-foreground" />
             <span className="text-muted-foreground">Obra:</span>
             <Select value={obraId ?? "all"} onValueChange={(v) => setObraId(v === "all" ? null : v)}>
@@ -203,8 +213,13 @@ export function AppShell({ children }: { children: ReactNode }) {
                 {obras.map((o: any) => <SelectItem key={o.id} value={o.id}>{o.nome}</SelectItem>)}
               </SelectContent>
             </Select>
+            <NotificationsBell />
+            <Button variant="ghost" size="icon" aria-label="Perfil" onClick={() => navigate({ to: "/perfil" })} title="Meu perfil">
+              <UserCog className="h-5 w-5" />
+            </Button>
           </div>
         </div>
+
 
         <div className="max-w-7xl mx-auto w-full p-4 lg:p-8">{children}</div>
       </main>
