@@ -310,6 +310,19 @@ function AcessosPage() {
                         </Button>
                       );
                     })}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-destructive hover:text-destructive"
+                      onClick={() => {
+                        if (confirm(`Excluir o usuário "${u.nome}"? Esta ação remove perfil, cargos e permissões. A conta de autenticação deve ser removida pelo painel.`)) {
+                          deleteUser.mutate(u.id);
+                        }
+                      }}
+                      title="Excluir usuário"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
 
