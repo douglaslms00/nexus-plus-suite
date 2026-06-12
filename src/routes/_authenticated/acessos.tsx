@@ -168,6 +168,15 @@ function AcessosPage() {
     onSuccess: () => { toast.success("Override removido"); invalidateAll(); },
   });
 
+  const deleteUser = useMutation({
+    mutationFn: async (user_id: string) => {
+      const { error } = await supabase.rpc("admin_delete_user", { _user_id: user_id });
+      if (error) throw error;
+    },
+    onSuccess: () => { toast.success("Usuário excluído"); invalidateAll(); },
+    onError: (e: any) => toast.error(e.message),
+  });
+
   // Bulk — supports system role or custom cargo
   const bulkAssign = useMutation({
     mutationFn: async (p: { user_ids: string[]; cargo: CargoRef; grant: boolean }) => {
@@ -301,6 +310,19 @@ function AcessosPage() {
                         </Button>
                       );
                     })}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-destructive hover:text-destructive"
+                      onClick={() => {
+                        if (confirm(`Excluir o usuário "${u.nome}"? Esta ação remove perfil, cargos e permissões. A conta de autenticação deve ser removida pelo painel.`)) {
+                          deleteUser.mutate(u.id);
+                        }
+                      }}
+                      title="Excluir usuário"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
 
