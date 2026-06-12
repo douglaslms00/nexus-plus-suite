@@ -168,6 +168,15 @@ function AcessosPage() {
     onSuccess: () => { toast.success("Override removido"); invalidateAll(); },
   });
 
+  const deleteUser = useMutation({
+    mutationFn: async (user_id: string) => {
+      const { error } = await supabase.rpc("admin_delete_user", { _user_id: user_id });
+      if (error) throw error;
+    },
+    onSuccess: () => { toast.success("Usuário excluído"); invalidateAll(); },
+    onError: (e: any) => toast.error(e.message),
+  });
+
   // Bulk — supports system role or custom cargo
   const bulkAssign = useMutation({
     mutationFn: async (p: { user_ids: string[]; cargo: CargoRef; grant: boolean }) => {
