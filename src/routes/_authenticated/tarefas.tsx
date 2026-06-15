@@ -84,20 +84,65 @@ function TarefasPage() {
   });
 
   const [open, setOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<any>({ prioridade: "media", status: "pendente" });
+
+  const openCreate = () => {
+    setEditingId(null);
+    setForm({ prioridade: "media", status: "pendente" });
+    setOpen(true);
+  };
+
+  const openEdit = (t: any) => {
+    setEditingId(t.id);
+    setForm({
+      titulo: t.titulo,
+      descricao: t.descricao ?? "",
+      prioridade: t.prioridade,
+      status: t.status,
+      data_vencimento: t.data_vencimento ?? "",
+      assigned_to: t.assigned_to ?? "",
+    });
+    setOpen(true);
+  };
 
   const create = useMutation({
     mutationFn: async () => {
       const assigned = form.assigned_to || null;
-      const { error } = await supabase.from("tarefas").insert({
-        titulo: form.titulo, descricao: form.descricao, prioridade: form.prioridade,
-        status: form.status, responsavel_id: form.responsavel_id || assigned || null,
-        data_vencimento: form.data_vencimento || null,
-        ...(assigned ? { assigned_to: assigned, assignment_status: "pendente" } : {}),
-      } as any);
-      if (error) throw error;
+      if (editingId) {
+        const original = tarefas.find((x: any) => x.id === editingId);
+        const assignedChanged = original && original.assigned_to !== assigned;
+        const patch: any = {
+          titulo: form.titulo, descricao: form.descricao, prioridade: form.prioridade,
+          data_vencimento: form.data_vencimento || null,
+          assigned_to: assigned,
+        };
+        if (assignedChanged && assigned) {
+          patch.assignment_status = "pendente";
+          patch.assignment_response_at = null;
+          patch.assignment_response_note = null;
+          patch.responsavel_id = assigned;
+        } else if (assignedChanged && !assigned) {
+          patch.assignment_status = null;
+        }
+        const { error } = await supabase.from("tarefas").update(patch).eq("id", editingId);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("tarefas").insert({
+          titulo: form.titulo, descricao: form.descricao, prioridade: form.prioridade,
+          status: form.status, responsavel_id: form.responsavel_id || assigned || null,
+          data_vencimento: form.data_vencimento || null,
+          ...(assigned ? { assigned_to: assigned, assignment_status: "pendente" } : {}),
+        } as any);
+        if (error) throw error;
+      }
     },
-    onSuccess: () => { toast.success("Tarefa criada"); qc.invalidateQueries({ queryKey: ["tarefas"] }); setOpen(false); setForm({ prioridade: "media", status: "pendente" }); },
+    onSuccess: () => {
+      toast.success(editingId ? "Tarefa atualizada" : "Tarefa criada");
+      qc.invalidateQueries({ queryKey: ["tarefas"] });
+      setOpen(false); setEditingId(null);
+      setForm({ prioridade: "media", status: "pendente" });
+    },
     onError: (e: any) => toast.error(e.message),
   });
 
