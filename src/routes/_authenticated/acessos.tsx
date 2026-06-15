@@ -262,6 +262,29 @@ function AcessosPage() {
     onError: (e: any) => toast.error(e.message),
   });
 
+  const setSystemRolePerm = useMutation({
+    mutationFn: async (p: { role: AppRole; module: AppModule; perm: ModulePerm }) => {
+      const { error } = await (supabase as any).rpc("admin_set_system_role_perm", {
+        _role: p.role, _module: p.module,
+        _can_view: p.perm.can_view, _can_edit: p.perm.can_edit, _can_delete: p.perm.can_delete,
+      });
+      if (error) throw error;
+    },
+    onSuccess: invalidateAll,
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const updateSystemRoleLabel = useMutation({
+    mutationFn: async (p: { role: AppRole; label: string; description: string }) => {
+      const { error } = await (supabase as any).rpc("admin_set_system_role_label", {
+        _role: p.role, _label: p.label, _description: p.description,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => { toast.success("Cargo do sistema atualizado"); invalidateAll(); },
+    onError: (e: any) => toast.error(e.message),
+  });
+
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   if (!isAdmin(roles)) {
