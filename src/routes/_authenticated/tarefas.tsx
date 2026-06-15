@@ -197,10 +197,10 @@ function TarefasPage() {
           <p className="text-muted-foreground">Atribua, acompanhe e conclua tarefas.</p>
         </div>
         {canCreate && (
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild><Button><Plus className="h-4 w-4" /> Nova tarefa</Button></DialogTrigger>
+          <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setEditingId(null); }}>
+            <Button onClick={openCreate}><Plus className="h-4 w-4" /> Nova tarefa</Button>
             <DialogContent>
-              <DialogHeader><DialogTitle>Nova tarefa</DialogTitle></DialogHeader>
+              <DialogHeader><DialogTitle>{editingId ? "Editar tarefa" : "Nova tarefa"}</DialogTitle></DialogHeader>
               <form onSubmit={(e) => { e.preventDefault(); create.mutate(); }} className="space-y-3">
                 <div className="space-y-1"><Label>Título *</Label><Input required value={form.titulo ?? ""} onChange={(e) => setForm({ ...form, titulo: e.target.value })} /></div>
                 <div className="space-y-1"><Label>Descrição</Label><Textarea value={form.descricao ?? ""} onChange={(e) => setForm({ ...form, descricao: e.target.value })} /></div>
@@ -226,9 +226,12 @@ function TarefasPage() {
                       {pessoas.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>)}
                     </SelectContent>
                   </Select>
+                  {editingId && form.assigned_to && (
+                    <p className="text-[11px] text-muted-foreground">Alterar o destinatário reenvia a tarefa para aceitar/recusar.</p>
+                  )}
                 </div>
 
-                <DialogFooter><Button type="submit" disabled={create.isPending}>{create.isPending ? "Salvando..." : "Criar"}</Button></DialogFooter>
+                <DialogFooter><Button type="submit" disabled={create.isPending}>{create.isPending ? "Salvando..." : editingId ? "Salvar" : "Criar"}</Button></DialogFooter>
               </form>
             </DialogContent>
           </Dialog>
