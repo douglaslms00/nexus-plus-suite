@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   isAdmin, useUserRoles, ALL_MODULES, effectivePerm,
-  type AppRole, type AppModule, type ModulePerm, type CustomRole, type CustomRolePerm,
+  type AppRole, type AppModule, type ModulePerm, type CustomRole, type CustomRolePerm, type SystemRolePerm,
 } from "@/lib/permissions";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
