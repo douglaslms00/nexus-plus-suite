@@ -501,15 +501,61 @@ function AcessosPage() {
   );
 }
 
-function SystemRoleCard({ role }: { role: { key: AppRole; label: string; description: string } }) {
+function SystemRoleCard({ role, perms, onUpdateLabel, onSetPerm }: {
+  role: { key: AppRole; label: string; description: string };
+  perms: SystemRolePerm[];
+  onUpdateLabel: (p: { role: AppRole; label: string; description: string }) => void;
+  onSetPerm: (p: { role: AppRole; module: AppModule; perm: ModulePerm }) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [label, setLabel] = useState(role.label);
+  const [description, setDescription] = useState(role.description);
+
+  const save = () => {
+    onUpdateLabel({ role: role.key, label: label.trim(), description });
+    setEditing(false);
+  };
+
+  const permFor = (m: AppModule): ModulePerm => {
+    const found = perms.find((p) => p.module === m);
+    if (found) return { can_view: found.can_view, can_edit: found.can_edit, can_delete: found.can_delete };
+    return effectivePerm(m, [role.key], [], [], [], []);
+  };
+
   return (
     <Card className="p-4 bg-muted/30">
       <div className="flex items-start justify-between mb-3 gap-2 flex-wrap">
-        <div>
-          <p className="font-medium">{role.label} <span className="text-xs text-muted-foreground">(sistema · {role.key})</span></p>
-          <p className="text-xs text-muted-foreground">{role.description}</p>
+        {editing ? (
+          <div className="flex-1 space-y-2">
+            <div>
+              <Label className="text-xs">Rótulo</Label>
+              <Input value={label} onChange={(e) => setLabel(e.target.value)} />
+            </div>
+            <div>
+              <Label className="text-xs">Descrição</Label>
+              <Input value={description} onChange={(e) => setDescription(e.target.value)} />
+            </div>
+          </div>
+        ) : (
+          <div>
+            <p className="font-medium">{label} <span className="text-xs text-muted-foreground">(sistema · {role.key})</span></p>
+            <p className="text-xs text-muted-foreground">{description}</p>
+          </div>
+        )}
+        <div className="flex gap-1">
+          {editing ? (
+            <>
+              <Button size="sm" variant="ghost" onClick={save}><Save className="h-4 w-4" /></Button>
+              <Button size="sm" variant="ghost" onClick={() => { setLabel(role.label); setDescription(role.description); setEditing(false); }}>
+                <X className="h-4 w-4" />
+              </Button>
+            </>
+          ) : (
+            <Button size="sm" variant="ghost" onClick={() => setEditing(true)} title="Editar rótulo">
+              <Pencil className="h-4 w-4" />
+            </Button>
+          )}
         </div>
-        <span className="text-[10px] uppercase tracking-wider bg-secondary text-secondary-foreground px-2 py-1 rounded">Não editável</span>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
@@ -523,13 +569,18 @@ function SystemRoleCard({ role }: { role: { key: AppRole; label: string; descrip
           </thead>
           <tbody>
             {ALL_MODULES.map((m) => {
-              const p = effectivePerm(m.key, [role.key], []);
+              const p = permFor(m.key);
+              // admin sempre mantém acesso total a Acessos (guarda-corpo no servidor também)
+              const lockedAcessosAdmin = role.key === "admin" && m.key === "acessos";
+              const update = (patch: Partial<ModulePerm>) => {
+                onSetPerm({ role: role.key, module: m.key, perm: { ...p, ...patch } });
+              };
               return (
                 <tr key={m.key} className="border-b">
                   <td className="py-2 pr-3 font-medium">{m.label}</td>
-                  <td className="px-2"><Checkbox checked={p.can_view} disabled /></td>
-                  <td className="px-2"><Checkbox checked={p.can_edit} disabled /></td>
-                  <td className="px-2"><Checkbox checked={p.can_delete} disabled /></td>
+                  <td className="px-2"><Checkbox checked={p.can_view} disabled={lockedAcessosAdmin} onCheckedChange={(v) => update({ can_view: !!v })} /></td>
+                  <td className="px-2"><Checkbox checked={p.can_edit} disabled={lockedAcessosAdmin} onCheckedChange={(v) => update({ can_edit: !!v })} /></td>
+                  <td className="px-2"><Checkbox checked={p.can_delete} disabled={lockedAcessosAdmin} onCheckedChange={(v) => update({ can_delete: !!v })} /></td>
                 </tr>
               );
             })}
