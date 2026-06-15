@@ -72,7 +72,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     { to: "/acessos", label: "Acessos", icon: ShieldCheck, module: "acessos" },
   ];
 
-  const nav = items.filter((it) => effectivePerm(it.module, roles, overrides, (myCustomRoles ?? []).map((c) => c.id), customRolePerms ?? []).can_view);
+  const nav = items.filter((it) => effectivePerm(it.module, roles, overrides, (myCustomRoles ?? []).map((c) => c.id), customRolePerms ?? [], systemRolePerms ?? []).can_view);
 
   const renderSidebar = (mini: boolean) => (
     <aside
