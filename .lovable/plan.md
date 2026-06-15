@@ -1,64 +1,47 @@
+## 1. Tornar todos os cargos editáveis (inclusive os do sistema)
 
-## 1. Notificações (sino + tempo real)
+**Banco**
+- Nova tabela `system_role_module_permissions(role app_role, module text, can_view, can_edit, can_delete)` com seed inicial copiando o que hoje é hardcoded em `effectivePerm` (admin = tudo; gestor = view+edit menos acessos; etc.).
+- Novo RPC `admin_set_system_role_perm(_role, _module, _can_view, _can_edit, _can_delete)` (security definer, só admin).
+- Já existe `admin_set_system_role_label` — será usado para editar rótulo/descrição.
+- RLS: leitura para `authenticated`, escrita só via RPC.
 
-- Nova tabela `notifications` (user_id destinatário, tipo, título, mensagem, link, lida, ref_id, ref_table) com RLS própria por `user_id = auth.uid()`. Realtime habilitado.
-- Componente `NotificationsBell` no header do `AppShell`: badge de não lidas, popover com lista, marcar como lida, "ver tudo".
-- Hook `useNotifications` que assina `postgres_changes` em INSERT/UPDATE e invalida a query.
-- Helper `notify(user_id, ...)` em SQL (SECURITY DEFINER) usado pelos triggers.
+**Frontend (`src/routes/_authenticated/acessos.tsx`)**
+- `SystemRoleCard` passa a se comportar como `CustomRoleCard`:
+  - Remover o badge "Não editável".
+  - Botão "Editar" para alterar rótulo + descrição (chama `admin_set_system_role_label`).
+  - Checkboxes da matriz ficam habilitados e chamam `admin_set_system_role_perm`.
+  - Bloquear apenas a coluna `acessos` quando o cargo for `admin` (admin sempre mantém acesso a Acessos) para evitar lockout — único guarda-corpo.
+- `effectivePerm` passa a ler de `system_role_module_permissions` (carregado via query) em vez dos defaults hardcoded.
 
-## 2. Tarefas atribuídas (aceitar/recusar)
+## 2. Notificações em tempo real — endurecimento
 
-- Acrescentar em `tarefas`: `assigned_to uuid`, `assignment_status` (`pendente|aceita|recusada|concluida`), `assignment_response_at`, `assignment_response_note`.
-- Qualquer usuário com `can_edit` em tarefas pode atribuir a outro usuário da mesma obra.
-- Triggers geram notificações:
-  - Ao atribuir → notifica destinatário ("Nova tarefa atribuída").
-  - Ao aceitar/recusar → notifica criador (`created_by`).
-  - Ao concluir → notifica criador.
-  - Job/verificação simples no frontend para tarefas atrasadas (sem cron): trigger ao salvar/update marca atraso e notifica.
-- UI em `tarefas.tsx`: seletor de "Responsável", badge do status de atribuição, botões Aceitar/Recusar quando `auth.uid() = assigned_to` e status `pendente`.
+**Banco**
+- Confirmar/recriar política `notifications_select` como `USING (user_id = auth.uid())` (sem fallback para gestor/admin), `notifications_update` e `notifications_delete` idem. INSERT continua só via `notify_user` (security definer).
+- Garantir que `notifications` está na publicação `supabase_realtime` apenas com `REPLICA IDENTITY DEFAULT` (não FULL) para não vazar colunas antigas.
+- Realtime respeita RLS de SELECT → o filtro `user_id=eq.${user.id}` no canal já é redundante mas mantido como defesa em profundidade.
 
-## 3. Financeiro pessoal + obra (abas)
+**Frontend (`src/components/NotificationsBell.tsx`)**
+- Resetar o cache de notificações no `SIGNED_OUT` (limpar `["notifications"]`) para não exibir notificações do usuário anterior se outra conta logar na mesma aba.
+- Confirmar que o canal é recriado quando `user.id` muda (já é, pelo dep `user?.id`).
+- Adicionar guard: se `payload.new.user_id !== user.id`, ignorar (defesa extra caso a RLS seja afrouxada por engano).
 
-- Adicionar coluna `escopo` em `contas_financeiras` (`obra | pessoal`); RLS:
-  - `pessoal`: somente o próprio `user_id` lê/edita.
-  - `obra`: regras atuais (obra_id + `has_obra_access`).
-- Reformular `financeiro.tsx` com `Tabs`: "Minhas finanças" (pessoal) e "Obra" (compartilhada). Cards de saldo separados por aba.
-- Manter exportações CSV/PDF por aba.
+## 3. Tarefas — visibilidade pós-aceite + edição antes do aceite
 
-## 4. Módulo Documentos
+**Banco**
+- Atualizar política `tarefas_select_own_or_gestor` para incluir `assigned_to = auth.uid()` no `USING`, garantindo que o destinatário sempre veja a tarefa.
+- Política `tarefas_update_owner_or_gestor`: permitir que o `assigned_to` atualize **somente** os campos de resposta (aceita/recusa). Manter edição completa para `created_by`, responsável e gestor/admin.
 
-- Tabelas:
-  - `documento_pastas` (id, nome, parent_id, escopo `obra|pessoal`, obra_id, user_id, created_by).
-  - `documentos` (id, pasta_id, nome, storage_path, mime, tamanho, escopo, obra_id, user_id, created_by).
-- Bucket `anexos` reaproveitado com prefixos `documentos/obra/<obra_id>/...` e `documentos/pessoal/<user_id>/...`. Políticas de storage por escopo.
-- Nova rota `_authenticated/documentos.tsx`: árvore de pastas + tabela de arquivos, criar pasta, upload, download (signed url), excluir. Tabs "Obra" e "Minhas".
-- Entrada no menu lateral com permissão própria de módulo `documentos`.
+**Frontend (`src/routes/_authenticated/tarefas.tsx`)**
+- Na criação com `assigned_to`: deixar `responsavel_id = null` até o aceite. Ao aceitar, `responsavel_id` passa a ser o `assigned_to` (já acontece). Ao recusar, fica como estava.
+- Ajustar filtro `onlyMine` para incluir `assigned_to === user.id` (mostra para o destinatário enquanto está pendente e depois do aceite).
+- Botão "Editar" na tarefa quando `created_by === user.id` E `assignment_status === 'pendente'` (ou sem destinatário ainda):
+  - Abre Dialog reaproveitando o form de criação (título, descrição, prioridade, vencimento, destinatário).
+  - Salva via `update` em `tarefas`. Se trocar o destinatário, reseta `assignment_status = 'pendente'` e `assignment_response_*` → trigger `tarefas_notify` já dispara nova notificação para o novo destinatário.
+- Após o aceite, badge "Aceita" + a tarefa aparece normalmente para criador (via `created_by`) e destinatário (via `assigned_to`/`responsavel_id`).
 
-## 5. Cargos & Perfil
-
-- **Cargos**: remover lista "duplicada" — manter uma só lista unificada (já é "Cargos"). Permitir editar `label`/`description` dos cargos de sistema (admin/gestor/financeiro/colaborador) em uma tabela nova `system_role_labels` (não muda o enum). UI usa o label dessa tabela quando existir.
-- **Excluir usuário**: botão na linha do usuário em `acessos.tsx` chamando `admin_delete_user` (já existe), com confirmação.
-- **Perfil do usuário**: nova rota `_authenticated/perfil.tsx` acessível a todos. Editar `nome`, `email` (via `supabase.auth.updateUser`), alterar senha, avatar opcional (upload em `anexos/avatars/<uid>`). Atalho no menu/avatar do header.
-
-## 6. Realtime e infra
-
-- `ALTER PUBLICATION supabase_realtime ADD TABLE public.notifications;`
-- `useEffect` de subscribe no `NotificationsBell` (limpeza no unmount).
-
----
-
-### Detalhes técnicos resumidos
-- Migrations criadas com `CREATE TABLE` + `GRANT` + `ENABLE RLS` + políticas, conforme guidelines.
-- Triggers `SECURITY DEFINER` para inserir notificações sem violar RLS.
-- Nenhuma alteração nos arquivos auto-gerados do Supabase.
-- Permissões respeitam `effectivePerm` existente; módulo `documentos` adicionado ao array de módulos em `seed_default_perms_for_role` e em `permissions.ts`.
-
-### Arquivos a criar/editar
-- Migração SQL única com notifications, tarefas (colunas+triggers), contas_financeiras (escopo+RLS), documentos (tabelas+políticas storage), system_role_labels, módulo documentos no seed.
-- `src/components/NotificationsBell.tsx` (novo) e integração em `src/components/AppShell.tsx`.
-- `src/routes/_authenticated/tarefas.tsx` (atribuição + aceitar/recusar).
-- `src/routes/_authenticated/financeiro.tsx` (abas pessoal/obra).
-- `src/routes/_authenticated/documentos.tsx` (novo).
-- `src/routes/_authenticated/perfil.tsx` (novo).
-- `src/routes/_authenticated/acessos.tsx` (excluir usuário + editar labels de cargos de sistema).
-- `src/lib/permissions.ts` (módulo `documentos`).
+## Arquivos tocados
+- `supabase/migrations/<nova>.sql` (tabela perms de sistema, RPC, ajuste RLS de tarefas e notifications)
+- `src/routes/_authenticated/acessos.tsx`
+- `src/routes/_authenticated/tarefas.tsx`
+- `src/components/NotificationsBell.tsx`
