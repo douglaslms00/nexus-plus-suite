@@ -224,11 +224,12 @@ export function useModulePerm(module: AppModule): ModulePerm {
   const { data: overrides } = useMyModulePermissions();
   const { data: customRoles } = useMyCustomRoles();
   const { data: customPerms } = useAllCustomRolePerms();
+  const { data: systemPerms } = useAllSystemRolePerms();
   const o = overrides?.find((x) => x.module === module);
   if (o) return { can_view: o.can_view, can_edit: o.can_edit, can_delete: o.can_delete };
   const fromCustom = mergeCustomPerms(module, (customRoles ?? []).map((c) => c.id), customPerms);
   if (fromCustom) return fromCustom;
-  return defaultPerm(module, roles);
+  return defaultPerm(module, roles, systemPerms);
 }
 
 export function effectivePerm(
@@ -237,11 +238,12 @@ export function effectivePerm(
   overrides: ({ module: AppModule } & ModulePerm)[] | undefined,
   customRoleIds: string[] = [],
   customPerms: CustomRolePerm[] = [],
+  systemPerms: SystemRolePerm[] = [],
 ): ModulePerm {
   const o = overrides?.find((x) => x.module === module);
   if (o) return { can_view: o.can_view, can_edit: o.can_edit, can_delete: o.can_delete };
   const fromCustom = mergeCustomPerms(module, customRoleIds, customPerms);
   if (fromCustom) return fromCustom;
-  return defaultPerm(module, roles);
+  return defaultPerm(module, roles, systemPerms);
 }
 
