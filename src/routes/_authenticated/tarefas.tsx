@@ -343,6 +343,9 @@ function TarefasPage() {
                         <Button size="sm" variant="outline" onClick={() => respondAssignment.mutate({ id: t.id, decision: "recusada" })}>Recusar</Button>
                       </>
                     )}
+                    {t.created_by === user?.id && (!t.assigned_to || t.assignment_status === "pendente") && (
+                      <Button size="icon" variant="ghost" onClick={() => openEdit(t)} title="Editar"><Pencil className="h-4 w-4" /></Button>
+                    )}
                     <Button size="icon" variant="ghost" onClick={() => setDetailId(t.id)} title="Detalhes"><History className="h-4 w-4" /></Button>
                     {canDelete && <Button size="icon" variant="ghost" onClick={() => { if (confirm("Excluir tarefa?")) remove.mutate(t.id); }}><Trash2 className="h-4 w-4" /></Button>}
                   </div>
