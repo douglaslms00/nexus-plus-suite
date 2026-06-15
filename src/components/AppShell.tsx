@@ -23,6 +23,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { data: overrides } = useMyModulePermissions();
   const { data: myCustomRoles } = useMyCustomRoles();
   const { data: customRolePerms } = useAllCustomRolePerms();
+  const { data: systemRolePerms } = useAllSystemRolePerms();
   const { obraId, setObraId } = useObraAtual();
   const [open, setOpen] = useState(false); // mobile drawer
   const [collapsed, setCollapsed] = useState<boolean>(() => {
