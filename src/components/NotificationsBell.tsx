@@ -41,19 +41,35 @@ export function NotificationsBell() {
 
   useEffect(() => {
     if (!user?.id) return;
-    const channelName = `notifications-${user.id}-${Math.random().toString(36).slice(2)}`;
+    const myId = user.id;
+    const channelName = `notifications-${myId}-${Math.random().toString(36).slice(2)}`;
     const channel = supabase.channel(channelName);
     channel
       .on(
         "postgres_changes" as any,
-        { event: "*", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` },
-        () => qc.invalidateQueries({ queryKey: ["notifications", user.id] }),
+        { event: "*", schema: "public", table: "notifications", filter: `user_id=eq.${myId}` },
+        (payload: any) => {
+          // Defesa em profundidade: ignora qualquer payload que não pertença ao usuário atual
+          const row = payload?.new ?? payload?.old;
+          if (row && row.user_id && row.user_id !== myId) return;
+          qc.invalidateQueries({ queryKey: ["notifications", myId] });
+        },
       )
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
     };
   }, [user?.id, qc]);
+
+  // Limpa cache de notificações ao sair, evitando vazamento entre contas na mesma aba
+  useEffect(() => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_OUT") {
+        qc.removeQueries({ queryKey: ["notifications"] });
+      }
+    });
+    return () => sub.subscription.unsubscribe();
+  }, [qc]);
 
   const markRead = useMutation({
     mutationFn: async (id: string) => {
