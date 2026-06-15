@@ -62,7 +62,10 @@ function TarefasPage() {
 
   const filtered = useMemo(() => {
     return tarefas.filter((t: any) => {
-      if (onlyMine && user?.id && t.responsavel_id !== user.id && t.created_by !== user.id) return false;
+      if (onlyMine && user?.id
+        && t.responsavel_id !== user.id
+        && t.created_by !== user.id
+        && t.assigned_to !== user.id) return false;
       if (fStatus !== "todos" && t.status !== fStatus) return false;
       if (fPrio !== "todos" && t.prioridade !== fPrio) return false;
       if (busca && !`${t.titulo} ${t.descricao ?? ""}`.toLowerCase().includes(busca.toLowerCase())) return false;
