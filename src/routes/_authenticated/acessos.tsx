@@ -116,6 +116,8 @@ function AcessosPage() {
     qc.invalidateQueries({ queryKey: ["all-users-perms"] });
     qc.invalidateQueries({ queryKey: ["custom-roles-admin"] });
     qc.invalidateQueries({ queryKey: ["custom-role-perms-admin"] });
+    qc.invalidateQueries({ queryKey: ["system-role-perms-admin"] });
+    qc.invalidateQueries({ queryKey: ["all-system-role-perms"] });
     qc.invalidateQueries({ queryKey: ["permission-audit-log"] });
     qc.invalidateQueries({ queryKey: ["my-custom-roles"] });
     qc.invalidateQueries({ queryKey: ["all-custom-role-perms"] });
