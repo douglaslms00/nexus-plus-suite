@@ -450,7 +450,7 @@ function AcessosPage() {
               <div>
                 <h3 className="font-medium">Cargos</h3>
                 <p className="text-xs text-muted-foreground">
-                  Cargos do sistema (não editáveis) e cargos personalizados. Crie a partir de um <b>template</b> ou <b>herde</b> de outro.
+                  Edite rótulo, descrição e permissões dos cargos do sistema, ou crie cargos personalizados a partir de um <b>template</b> ou <b>herde</b> de outro.
                 </p>
               </div>
               <CreateCustomRoleDialog
