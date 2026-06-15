@@ -403,7 +403,7 @@ function AcessosPage() {
                         <tbody>
                           {ALL_MODULES.map((m) => {
                             const override = u.perms.find((p: any) => p.module === m.key);
-                            const eff = effectivePerm(m.key, u.roles, u.perms, u.customRoleIds, customRolePerms);
+                            const eff = effectivePerm(m.key, u.roles, u.perms, u.customRoleIds, customRolePerms, systemRolePerms);
                             const update = (patch: Partial<ModulePerm>) => {
                               const next: ModulePerm = { ...eff, ...patch };
                               setPerm.mutate({ user_id: u.id, module: m.key, perm: next });
