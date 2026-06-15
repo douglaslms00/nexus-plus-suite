@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   isAdmin, useUserRoles, ALL_MODULES, effectivePerm,
-  type AppRole, type AppModule, type ModulePerm, type CustomRole, type CustomRolePerm,
+  type AppRole, type AppModule, type ModulePerm, type CustomRole, type CustomRolePerm, type SystemRolePerm,
 } from "@/lib/permissions";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -88,6 +88,17 @@ function AcessosPage() {
     },
   });
 
+  const { data: systemRolePerms = [] } = useQuery({
+    queryKey: ["system-role-perms-admin"],
+    enabled: isAdmin(roles),
+    queryFn: async (): Promise<SystemRolePerm[]> => {
+      const { data } = await (supabase as any)
+        .from("system_role_module_permissions")
+        .select("role, module, can_view, can_edit, can_delete");
+      return data ?? [];
+    },
+  });
+
   const { data: auditLog = [] } = useQuery({
     queryKey: ["permission-audit-log"],
     enabled: isAdmin(roles),
@@ -105,6 +116,8 @@ function AcessosPage() {
     qc.invalidateQueries({ queryKey: ["all-users-perms"] });
     qc.invalidateQueries({ queryKey: ["custom-roles-admin"] });
     qc.invalidateQueries({ queryKey: ["custom-role-perms-admin"] });
+    qc.invalidateQueries({ queryKey: ["system-role-perms-admin"] });
+    qc.invalidateQueries({ queryKey: ["all-system-role-perms"] });
     qc.invalidateQueries({ queryKey: ["permission-audit-log"] });
     qc.invalidateQueries({ queryKey: ["my-custom-roles"] });
     qc.invalidateQueries({ queryKey: ["all-custom-role-perms"] });
@@ -249,6 +262,29 @@ function AcessosPage() {
     onError: (e: any) => toast.error(e.message),
   });
 
+  const setSystemRolePerm = useMutation({
+    mutationFn: async (p: { role: AppRole; module: AppModule; perm: ModulePerm }) => {
+      const { error } = await (supabase as any).rpc("admin_set_system_role_perm", {
+        _role: p.role, _module: p.module,
+        _can_view: p.perm.can_view, _can_edit: p.perm.can_edit, _can_delete: p.perm.can_delete,
+      });
+      if (error) throw error;
+    },
+    onSuccess: invalidateAll,
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const updateSystemRoleLabel = useMutation({
+    mutationFn: async (p: { role: AppRole; label: string; description: string }) => {
+      const { error } = await (supabase as any).rpc("admin_set_system_role_label", {
+        _role: p.role, _label: p.label, _description: p.description,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => { toast.success("Cargo do sistema atualizado"); invalidateAll(); },
+    onError: (e: any) => toast.error(e.message),
+  });
+
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   if (!isAdmin(roles)) {
@@ -367,7 +403,7 @@ function AcessosPage() {
                         <tbody>
                           {ALL_MODULES.map((m) => {
                             const override = u.perms.find((p: any) => p.module === m.key);
-                            const eff = effectivePerm(m.key, u.roles, u.perms, u.customRoleIds, customRolePerms);
+                            const eff = effectivePerm(m.key, u.roles, u.perms, u.customRoleIds, customRolePerms, systemRolePerms);
                             const update = (patch: Partial<ModulePerm>) => {
                               const next: ModulePerm = { ...eff, ...patch };
                               setPerm.mutate({ user_id: u.id, module: m.key, perm: next });
@@ -414,7 +450,7 @@ function AcessosPage() {
               <div>
                 <h3 className="font-medium">Cargos</h3>
                 <p className="text-xs text-muted-foreground">
-                  Cargos do sistema (não editáveis) e cargos personalizados. Crie a partir de um <b>template</b> ou <b>herde</b> de outro.
+                  Edite rótulo, descrição e permissões dos cargos do sistema, ou crie cargos personalizados a partir de um <b>template</b> ou <b>herde</b> de outro.
                 </p>
               </div>
               <CreateCustomRoleDialog
@@ -426,7 +462,13 @@ function AcessosPage() {
 
             <div className="space-y-4">
               {SYSTEM_ROLES.map((s) => (
-                <SystemRoleCard key={s.key} role={s} />
+                <SystemRoleCard
+                  key={s.key}
+                  role={s}
+                  perms={systemRolePerms.filter((p) => p.role === s.key)}
+                  onUpdateLabel={(p) => updateSystemRoleLabel.mutate(p)}
+                  onSetPerm={(perm) => setSystemRolePerm.mutate(perm)}
+                />
               ))}
               {customRoles.map((cr) => (
                 <CustomRoleCard
@@ -459,15 +501,61 @@ function AcessosPage() {
   );
 }
 
-function SystemRoleCard({ role }: { role: { key: AppRole; label: string; description: string } }) {
+function SystemRoleCard({ role, perms, onUpdateLabel, onSetPerm }: {
+  role: { key: AppRole; label: string; description: string };
+  perms: SystemRolePerm[];
+  onUpdateLabel: (p: { role: AppRole; label: string; description: string }) => void;
+  onSetPerm: (p: { role: AppRole; module: AppModule; perm: ModulePerm }) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [label, setLabel] = useState(role.label);
+  const [description, setDescription] = useState(role.description);
+
+  const save = () => {
+    onUpdateLabel({ role: role.key, label: label.trim(), description });
+    setEditing(false);
+  };
+
+  const permFor = (m: AppModule): ModulePerm => {
+    const found = perms.find((p) => p.module === m);
+    if (found) return { can_view: found.can_view, can_edit: found.can_edit, can_delete: found.can_delete };
+    return effectivePerm(m, [role.key], [], [], [], []);
+  };
+
   return (
     <Card className="p-4 bg-muted/30">
       <div className="flex items-start justify-between mb-3 gap-2 flex-wrap">
-        <div>
-          <p className="font-medium">{role.label} <span className="text-xs text-muted-foreground">(sistema · {role.key})</span></p>
-          <p className="text-xs text-muted-foreground">{role.description}</p>
+        {editing ? (
+          <div className="flex-1 space-y-2">
+            <div>
+              <Label className="text-xs">Rótulo</Label>
+              <Input value={label} onChange={(e) => setLabel(e.target.value)} />
+            </div>
+            <div>
+              <Label className="text-xs">Descrição</Label>
+              <Input value={description} onChange={(e) => setDescription(e.target.value)} />
+            </div>
+          </div>
+        ) : (
+          <div>
+            <p className="font-medium">{label} <span className="text-xs text-muted-foreground">(sistema · {role.key})</span></p>
+            <p className="text-xs text-muted-foreground">{description}</p>
+          </div>
+        )}
+        <div className="flex gap-1">
+          {editing ? (
+            <>
+              <Button size="sm" variant="ghost" onClick={save}><Save className="h-4 w-4" /></Button>
+              <Button size="sm" variant="ghost" onClick={() => { setLabel(role.label); setDescription(role.description); setEditing(false); }}>
+                <X className="h-4 w-4" />
+              </Button>
+            </>
+          ) : (
+            <Button size="sm" variant="ghost" onClick={() => setEditing(true)} title="Editar rótulo">
+              <Pencil className="h-4 w-4" />
+            </Button>
+          )}
         </div>
-        <span className="text-[10px] uppercase tracking-wider bg-secondary text-secondary-foreground px-2 py-1 rounded">Não editável</span>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
@@ -481,13 +569,18 @@ function SystemRoleCard({ role }: { role: { key: AppRole; label: string; descrip
           </thead>
           <tbody>
             {ALL_MODULES.map((m) => {
-              const p = effectivePerm(m.key, [role.key], []);
+              const p = permFor(m.key);
+              // admin sempre mantém acesso total a Acessos (guarda-corpo no servidor também)
+              const lockedAcessosAdmin = role.key === "admin" && m.key === "acessos";
+              const update = (patch: Partial<ModulePerm>) => {
+                onSetPerm({ role: role.key, module: m.key, perm: { ...p, ...patch } });
+              };
               return (
                 <tr key={m.key} className="border-b">
                   <td className="py-2 pr-3 font-medium">{m.label}</td>
-                  <td className="px-2"><Checkbox checked={p.can_view} disabled /></td>
-                  <td className="px-2"><Checkbox checked={p.can_edit} disabled /></td>
-                  <td className="px-2"><Checkbox checked={p.can_delete} disabled /></td>
+                  <td className="px-2"><Checkbox checked={p.can_view} disabled={lockedAcessosAdmin} onCheckedChange={(v) => update({ can_view: !!v })} /></td>
+                  <td className="px-2"><Checkbox checked={p.can_edit} disabled={lockedAcessosAdmin} onCheckedChange={(v) => update({ can_edit: !!v })} /></td>
+                  <td className="px-2"><Checkbox checked={p.can_delete} disabled={lockedAcessosAdmin} onCheckedChange={(v) => update({ can_delete: !!v })} /></td>
                 </tr>
               );
             })}

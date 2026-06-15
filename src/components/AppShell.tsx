@@ -1,6 +1,6 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
-import { useProfile, useUserRoles, useMyModulePermissions, useMyCustomRoles, useAllCustomRolePerms, effectivePerm, useAuthorizedObras, canManage, type AppModule } from "@/lib/permissions";
+import { useProfile, useUserRoles, useMyModulePermissions, useMyCustomRoles, useAllCustomRolePerms, useAllSystemRolePerms, effectivePerm, useAuthorizedObras, canManage, type AppModule } from "@/lib/permissions";
 import {
   LayoutDashboard, Users, CheckSquare, HardHat, Building2, LogOut,
   Boxes, Wrench, Package, Wallet, MapPin, ShieldCheck, Menu, X,
@@ -23,6 +23,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { data: overrides } = useMyModulePermissions();
   const { data: myCustomRoles } = useMyCustomRoles();
   const { data: customRolePerms } = useAllCustomRolePerms();
+  const { data: systemRolePerms } = useAllSystemRolePerms();
   const { obraId, setObraId } = useObraAtual();
   const [open, setOpen] = useState(false); // mobile drawer
   const [collapsed, setCollapsed] = useState<boolean>(() => {
@@ -71,7 +72,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     { to: "/acessos", label: "Acessos", icon: ShieldCheck, module: "acessos" },
   ];
 
-  const nav = items.filter((it) => effectivePerm(it.module, roles, overrides, (myCustomRoles ?? []).map((c) => c.id), customRolePerms ?? []).can_view);
+  const nav = items.filter((it) => effectivePerm(it.module, roles, overrides, (myCustomRoles ?? []).map((c) => c.id), customRolePerms ?? [], systemRolePerms ?? []).can_view);
 
   const renderSidebar = (mini: boolean) => (
     <aside

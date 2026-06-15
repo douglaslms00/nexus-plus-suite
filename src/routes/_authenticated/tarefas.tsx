@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -62,7 +62,10 @@ function TarefasPage() {
 
   const filtered = useMemo(() => {
     return tarefas.filter((t: any) => {
-      if (onlyMine && user?.id && t.responsavel_id !== user.id && t.created_by !== user.id) return false;
+      if (onlyMine && user?.id
+        && t.responsavel_id !== user.id
+        && t.created_by !== user.id
+        && t.assigned_to !== user.id) return false;
       if (fStatus !== "todos" && t.status !== fStatus) return false;
       if (fPrio !== "todos" && t.prioridade !== fPrio) return false;
       if (busca && !`${t.titulo} ${t.descricao ?? ""}`.toLowerCase().includes(busca.toLowerCase())) return false;
@@ -81,20 +84,65 @@ function TarefasPage() {
   });
 
   const [open, setOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<any>({ prioridade: "media", status: "pendente" });
+
+  const openCreate = () => {
+    setEditingId(null);
+    setForm({ prioridade: "media", status: "pendente" });
+    setOpen(true);
+  };
+
+  const openEdit = (t: any) => {
+    setEditingId(t.id);
+    setForm({
+      titulo: t.titulo,
+      descricao: t.descricao ?? "",
+      prioridade: t.prioridade,
+      status: t.status,
+      data_vencimento: t.data_vencimento ?? "",
+      assigned_to: t.assigned_to ?? "",
+    });
+    setOpen(true);
+  };
 
   const create = useMutation({
     mutationFn: async () => {
       const assigned = form.assigned_to || null;
-      const { error } = await supabase.from("tarefas").insert({
-        titulo: form.titulo, descricao: form.descricao, prioridade: form.prioridade,
-        status: form.status, responsavel_id: form.responsavel_id || assigned || null,
-        data_vencimento: form.data_vencimento || null,
-        ...(assigned ? { assigned_to: assigned, assignment_status: "pendente" } : {}),
-      } as any);
-      if (error) throw error;
+      if (editingId) {
+        const original = tarefas.find((x: any) => x.id === editingId);
+        const assignedChanged = original && original.assigned_to !== assigned;
+        const patch: any = {
+          titulo: form.titulo, descricao: form.descricao, prioridade: form.prioridade,
+          data_vencimento: form.data_vencimento || null,
+          assigned_to: assigned,
+        };
+        if (assignedChanged && assigned) {
+          patch.assignment_status = "pendente";
+          patch.assignment_response_at = null;
+          patch.assignment_response_note = null;
+          patch.responsavel_id = assigned;
+        } else if (assignedChanged && !assigned) {
+          patch.assignment_status = null;
+        }
+        const { error } = await supabase.from("tarefas").update(patch).eq("id", editingId);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("tarefas").insert({
+          titulo: form.titulo, descricao: form.descricao, prioridade: form.prioridade,
+          status: form.status, responsavel_id: form.responsavel_id || assigned || null,
+          data_vencimento: form.data_vencimento || null,
+          ...(assigned ? { assigned_to: assigned, assignment_status: "pendente" } : {}),
+        } as any);
+        if (error) throw error;
+      }
     },
-    onSuccess: () => { toast.success("Tarefa criada"); qc.invalidateQueries({ queryKey: ["tarefas"] }); setOpen(false); setForm({ prioridade: "media", status: "pendente" }); },
+    onSuccess: () => {
+      toast.success(editingId ? "Tarefa atualizada" : "Tarefa criada");
+      qc.invalidateQueries({ queryKey: ["tarefas"] });
+      setOpen(false); setEditingId(null);
+      setForm({ prioridade: "media", status: "pendente" });
+    },
     onError: (e: any) => toast.error(e.message),
   });
 
@@ -149,10 +197,10 @@ function TarefasPage() {
           <p className="text-muted-foreground">Atribua, acompanhe e conclua tarefas.</p>
         </div>
         {canCreate && (
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild><Button><Plus className="h-4 w-4" /> Nova tarefa</Button></DialogTrigger>
+          <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setEditingId(null); }}>
+            <Button onClick={openCreate}><Plus className="h-4 w-4" /> Nova tarefa</Button>
             <DialogContent>
-              <DialogHeader><DialogTitle>Nova tarefa</DialogTitle></DialogHeader>
+              <DialogHeader><DialogTitle>{editingId ? "Editar tarefa" : "Nova tarefa"}</DialogTitle></DialogHeader>
               <form onSubmit={(e) => { e.preventDefault(); create.mutate(); }} className="space-y-3">
                 <div className="space-y-1"><Label>Título *</Label><Input required value={form.titulo ?? ""} onChange={(e) => setForm({ ...form, titulo: e.target.value })} /></div>
                 <div className="space-y-1"><Label>Descrição</Label><Textarea value={form.descricao ?? ""} onChange={(e) => setForm({ ...form, descricao: e.target.value })} /></div>
@@ -178,9 +226,12 @@ function TarefasPage() {
                       {pessoas.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>)}
                     </SelectContent>
                   </Select>
+                  {editingId && form.assigned_to && (
+                    <p className="text-[11px] text-muted-foreground">Alterar o destinatário reenvia a tarefa para aceitar/recusar.</p>
+                  )}
                 </div>
 
-                <DialogFooter><Button type="submit" disabled={create.isPending}>{create.isPending ? "Salvando..." : "Criar"}</Button></DialogFooter>
+                <DialogFooter><Button type="submit" disabled={create.isPending}>{create.isPending ? "Salvando..." : editingId ? "Salvar" : "Criar"}</Button></DialogFooter>
               </form>
             </DialogContent>
           </Dialog>
@@ -291,6 +342,9 @@ function TarefasPage() {
                         <Button size="sm" variant="default" onClick={() => respondAssignment.mutate({ id: t.id, decision: "aceita" })}>Aceitar</Button>
                         <Button size="sm" variant="outline" onClick={() => respondAssignment.mutate({ id: t.id, decision: "recusada" })}>Recusar</Button>
                       </>
+                    )}
+                    {t.created_by === user?.id && (!t.assigned_to || t.assignment_status === "pendente") && (
+                      <Button size="icon" variant="ghost" onClick={() => openEdit(t)} title="Editar"><Pencil className="h-4 w-4" /></Button>
                     )}
                     <Button size="icon" variant="ghost" onClick={() => setDetailId(t.id)} title="Detalhes"><History className="h-4 w-4" /></Button>
                     {canDelete && <Button size="icon" variant="ghost" onClick={() => { if (confirm("Excluir tarefa?")) remove.mutate(t.id); }}><Trash2 className="h-4 w-4" /></Button>}
