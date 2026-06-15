@@ -1,6 +1,6 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
-import { useProfile, useUserRoles, useMyModulePermissions, useMyCustomRoles, useAllCustomRolePerms, effectivePerm, useAuthorizedObras, canManage, type AppModule } from "@/lib/permissions";
+import { useProfile, useUserRoles, useMyModulePermissions, useMyCustomRoles, useAllCustomRolePerms, useAllSystemRolePerms, effectivePerm, useAuthorizedObras, canManage, type AppModule } from "@/lib/permissions";
 import {
   LayoutDashboard, Users, CheckSquare, HardHat, Building2, LogOut,
   Boxes, Wrench, Package, Wallet, MapPin, ShieldCheck, Menu, X,
