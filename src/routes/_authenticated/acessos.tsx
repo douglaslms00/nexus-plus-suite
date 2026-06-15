@@ -462,7 +462,13 @@ function AcessosPage() {
 
             <div className="space-y-4">
               {SYSTEM_ROLES.map((s) => (
-                <SystemRoleCard key={s.key} role={s} />
+                <SystemRoleCard
+                  key={s.key}
+                  role={s}
+                  perms={systemRolePerms.filter((p) => p.role === s.key)}
+                  onUpdateLabel={(p) => updateSystemRoleLabel.mutate(p)}
+                  onSetPerm={(perm) => setSystemRolePerm.mutate(perm)}
+                />
               ))}
               {customRoles.map((cr) => (
                 <CustomRoleCard
