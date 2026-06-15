@@ -117,8 +117,22 @@ export function useAuthorizedObras() {
   });
 }
 
-// Default permissions per role per module (used when no override exists)
-function defaultPerm(module: AppModule, roles: AppRole[] | undefined): ModulePerm {
+export type SystemRolePerm = { role: AppRole; module: AppModule } & ModulePerm;
+
+export function useAllSystemRolePerms() {
+  return useQuery({
+    queryKey: ["all-system-role-perms"],
+    queryFn: async (): Promise<SystemRolePerm[]> => {
+      const { data, error } = await (supabase as any)
+        .from("system_role_module_permissions")
+        .select("role, module, can_view, can_edit, can_delete");
+      if (error) throw error;
+      return (data ?? []) as SystemRolePerm[];
+    },
+  });
+}
+
+function fallbackPerm(module: AppModule, roles: AppRole[] | undefined): ModulePerm {
   const r = roles ?? [];
   if (r.includes("admin")) return { can_view: true, can_edit: true, can_delete: true };
   if (module === "acessos") return { can_view: false, can_edit: false, can_delete: false };
@@ -127,9 +141,26 @@ function defaultPerm(module: AppModule, roles: AppRole[] | undefined): ModulePer
     if (module === "financeiro") return { can_view: true, can_edit: true, can_delete: false };
     return { can_view: true, can_edit: false, can_delete: false };
   }
-  // colaborador
   const baseView: AppModule[] = ["dashboard", "tarefas", "funcionarios", "epis", "documentos"];
   return { can_view: baseView.includes(module), can_edit: false, can_delete: false };
+}
+
+function defaultPerm(
+  module: AppModule,
+  roles: AppRole[] | undefined,
+  systemPerms?: SystemRolePerm[],
+): ModulePerm {
+  const r = roles ?? [];
+  if (!systemPerms?.length) return fallbackPerm(module, r);
+  // admin sempre tem tudo (guarda-corpo no servidor também)
+  if (r.includes("admin")) return { can_view: true, can_edit: true, can_delete: true };
+  const matches = systemPerms.filter((p) => p.module === module && r.includes(p.role));
+  if (!matches.length) return fallbackPerm(module, r);
+  return {
+    can_view: matches.some((m) => m.can_view),
+    can_edit: matches.some((m) => m.can_edit),
+    can_delete: matches.some((m) => m.can_delete),
+  };
 }
 
 
