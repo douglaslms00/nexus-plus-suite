@@ -1046,6 +1046,33 @@ export type Database = {
         }
         Relationships: []
       }
+      system_role_module_permissions: {
+        Row: {
+          can_delete: boolean
+          can_edit: boolean
+          can_view: boolean
+          module: string
+          role: Database["public"]["Enums"]["app_role"]
+          updated_at: string
+        }
+        Insert: {
+          can_delete?: boolean
+          can_edit?: boolean
+          can_view?: boolean
+          module: string
+          role: Database["public"]["Enums"]["app_role"]
+          updated_at?: string
+        }
+        Update: {
+          can_delete?: boolean
+          can_edit?: boolean
+          can_view?: boolean
+          module?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
       tarefa_execucoes: {
         Row: {
           created_at: string
@@ -1299,6 +1326,16 @@ export type Database = {
         Args: {
           _description: string
           _label: string
+          _role: Database["public"]["Enums"]["app_role"]
+        }
+        Returns: undefined
+      }
+      admin_set_system_role_perm: {
+        Args: {
+          _can_delete: boolean
+          _can_edit: boolean
+          _can_view: boolean
+          _module: string
           _role: Database["public"]["Enums"]["app_role"]
         }
         Returns: undefined
