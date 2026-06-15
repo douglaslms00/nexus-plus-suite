@@ -88,6 +88,17 @@ function AcessosPage() {
     },
   });
 
+  const { data: systemRolePerms = [] } = useQuery({
+    queryKey: ["system-role-perms-admin"],
+    enabled: isAdmin(roles),
+    queryFn: async (): Promise<SystemRolePerm[]> => {
+      const { data } = await (supabase as any)
+        .from("system_role_module_permissions")
+        .select("role, module, can_view, can_edit, can_delete");
+      return data ?? [];
+    },
+  });
+
   const { data: auditLog = [] } = useQuery({
     queryKey: ["permission-audit-log"],
     enabled: isAdmin(roles),
