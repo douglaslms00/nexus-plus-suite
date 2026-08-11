@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { canManage, isAdmin, useUserRoles } from "@/lib/permissions";
+import { canManage, isAdmin, useUserRoles, useModulePerm } from "@/lib/permissions";
 import { useObraAtual } from "@/lib/obra-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -55,8 +55,9 @@ function FuncionariosPage() {
   const qc = useQueryClient();
   const { data: roles } = useUserRoles();
   const { obraId } = useObraAtual();
-  const canEdit = canManage(roles);
-  const canDelete = isAdmin(roles);
+  const perm = useModulePerm("funcionarios");
+  const canEdit = perm.can_edit;
+  const canDelete = perm.can_delete;
 
   const { data: funcionarios = [], isLoading } = useQuery({
     queryKey: ["funcionarios", obraId],

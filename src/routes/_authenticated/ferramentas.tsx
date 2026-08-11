@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { canManage, isAdmin, useUserRoles, useCurrentUser } from "@/lib/permissions";
+import { canManage, isAdmin, useUserRoles, useCurrentUser, useModulePerm } from "@/lib/permissions";
 import { useObraAtual } from "@/lib/obra-context";
 import { uploadAnexo, getAnexoUrl } from "@/lib/upload";
 import { Button } from "@/components/ui/button";
@@ -25,8 +25,9 @@ function FerramentasPage() {
   const { obraId } = useObraAtual();
   const { data: user } = useCurrentUser();
   const { data: roles } = useUserRoles();
-  const canEdit = canManage(roles);
-  const canDelete = isAdmin(roles);
+  const perm = useModulePerm("ferramentas");
+  const canEdit = perm.can_edit;
+  const canDelete = perm.can_delete;
 
   const { data: ferramentas = [] } = useQuery({
     queryKey: ["ferramentas", obraId],

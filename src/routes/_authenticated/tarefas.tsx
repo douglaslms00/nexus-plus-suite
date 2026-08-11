@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { canManage, isAdmin, useCurrentUser, useUserRoles } from "@/lib/permissions";
+import { canManage, isAdmin, useCurrentUser, useUserRoles, useModulePerm } from "@/lib/permissions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -36,8 +36,9 @@ function TarefasPage() {
   const { data: user } = useCurrentUser();
   const { data: roles } = useUserRoles();
   const canCreate = true; // qualquer usuário pode criar/atribuir tarefas
-  const canDelete = isAdmin(roles);
-  const isGestor = canManage(roles);
+  const permTarefas = useModulePerm("tarefas");
+  const canDelete = permTarefas.can_delete;
+  const isGestor = canManage(roles) || permTarefas.can_edit;
 
 
   const [fStatus, setFStatus] = useState<string>("todos");
