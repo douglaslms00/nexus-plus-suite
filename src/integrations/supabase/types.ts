@@ -14,6 +14,109 @@ export type Database = {
   }
   public: {
     Tables: {
+      adiantamento_despesas: {
+        Row: {
+          adiantamento_id: string
+          categoria: string | null
+          created_at: string
+          created_by: string | null
+          cupom_url: string | null
+          data: string
+          descricao: string
+          id: string
+          observacoes: string | null
+          updated_at: string
+          valor: number
+        }
+        Insert: {
+          adiantamento_id: string
+          categoria?: string | null
+          created_at?: string
+          created_by?: string | null
+          cupom_url?: string | null
+          data?: string
+          descricao: string
+          id?: string
+          observacoes?: string | null
+          updated_at?: string
+          valor?: number
+        }
+        Update: {
+          adiantamento_id?: string
+          categoria?: string | null
+          created_at?: string
+          created_by?: string | null
+          cupom_url?: string | null
+          data?: string
+          descricao?: string
+          id?: string
+          observacoes?: string | null
+          updated_at?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "adiantamento_despesas_adiantamento_id_fkey"
+            columns: ["adiantamento_id"]
+            isOneToOne: false
+            referencedRelation: "adiantamentos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      adiantamentos: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          data: string
+          id: string
+          obra_id: string | null
+          observacoes: string | null
+          responsavel_id: string | null
+          responsavel_nome: string | null
+          status: string
+          titulo: string
+          updated_at: string
+          valor: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          data?: string
+          id?: string
+          obra_id?: string | null
+          observacoes?: string | null
+          responsavel_id?: string | null
+          responsavel_nome?: string | null
+          status?: string
+          titulo: string
+          updated_at?: string
+          valor?: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          data?: string
+          id?: string
+          obra_id?: string | null
+          observacoes?: string | null
+          responsavel_id?: string | null
+          responsavel_nome?: string | null
+          status?: string
+          titulo?: string
+          updated_at?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "adiantamentos_obra_id_fkey"
+            columns: ["obra_id"]
+            isOneToOne: false
+            referencedRelation: "obras"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ativo_emprestimos: {
         Row: {
           anexo_url: string | null
@@ -1348,6 +1451,10 @@ export type Database = {
           _name: string
         }
         Returns: undefined
+      }
+      can_module: {
+        Args: { _action: string; _module: string; _user_id: string }
+        Returns: boolean
       }
       has_obra_access: {
         Args: { _obra_id: string; _user_id: string }
