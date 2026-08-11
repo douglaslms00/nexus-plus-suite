@@ -4,7 +4,7 @@ import { useProfile, useUserRoles, useMyModulePermissions, useMyCustomRoles, use
 import {
   LayoutDashboard, Users, CheckSquare, HardHat, Building2, LogOut,
   Boxes, Wrench, Package, Wallet, MapPin, ShieldCheck, Menu, X,
-  PanelLeftClose, PanelLeftOpen, FolderOpen, UserCog,
+  PanelLeftClose, PanelLeftOpen, FolderOpen, UserCog, Receipt,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -68,6 +68,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     { to: "/materiais", label: "Materiais", icon: Package, module: "materiais" },
     { to: "/epis", label: "EPI / EPC", icon: HardHat, module: "epis" },
     { to: "/financeiro", label: "Financeiro", icon: Wallet, module: "financeiro" },
+    { to: "/prestacao", label: "Prestação de contas", icon: Receipt, module: "prestacao" },
     { to: "/documentos", label: "Documentos", icon: FolderOpen, module: "documentos" },
     { to: "/acessos", label: "Acessos", icon: ShieldCheck, module: "acessos" },
   ];

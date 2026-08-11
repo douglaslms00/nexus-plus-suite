@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { canManage, isAdmin, useUserRoles } from "@/lib/permissions";
+import { canManage, isAdmin, useUserRoles, useModulePerm } from "@/lib/permissions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,8 +18,9 @@ export const Route = createFileRoute("/_authenticated/obras")({ component: Obras
 function ObrasPage() {
   const qc = useQueryClient();
   const { data: roles } = useUserRoles();
-  const canCreate = canManage(roles);
-  const canDelete = isAdmin(roles);
+  const perm = useModulePerm("obras");
+  const canCreate = perm.can_edit;
+  const canDelete = perm.can_delete;
 
   const { data: obras = [] } = useQuery({
     queryKey: ["obras"],

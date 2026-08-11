@@ -13,6 +13,7 @@ export type AppModule =
   | "materiais"
   | "epis"
   | "financeiro"
+  | "prestacao"
   | "documentos"
   | "acessos";
 
@@ -26,6 +27,7 @@ export const ALL_MODULES: { key: AppModule; label: string }[] = [
   { key: "materiais", label: "Materiais" },
   { key: "epis", label: "EPI / EPC" },
   { key: "financeiro", label: "Financeiro" },
+  { key: "prestacao", label: "Prestação de contas" },
   { key: "documentos", label: "Documentos" },
   { key: "acessos", label: "Acessos" },
 ];
@@ -141,8 +143,8 @@ function fallbackPerm(module: AppModule, roles: AppRole[] | undefined): ModulePe
     if (module === "financeiro") return { can_view: true, can_edit: true, can_delete: false };
     return { can_view: true, can_edit: false, can_delete: false };
   }
-  const baseView: AppModule[] = ["dashboard", "tarefas", "funcionarios", "epis", "documentos"];
-  return { can_view: baseView.includes(module), can_edit: false, can_delete: false };
+  const baseView: AppModule[] = ["dashboard", "tarefas", "funcionarios", "epis", "documentos", "prestacao"];
+  return { can_view: baseView.includes(module), can_edit: module === "prestacao", can_delete: false };
 }
 
 function defaultPerm(
