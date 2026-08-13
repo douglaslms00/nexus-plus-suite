@@ -26,10 +26,13 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { data: systemRolePerms } = useAllSystemRolePerms();
   const { obraId, setObraId } = useObraAtual();
   const [open, setOpen] = useState(false); // mobile drawer
-  const [collapsed, setCollapsed] = useState<boolean>(() => {
-    if (typeof window === "undefined") return false;
-    return window.localStorage.getItem("sidebar-collapsed") === "1";
-  });
+  const [collapsed, setCollapsed] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setCollapsed(window.localStorage.getItem("sidebar-collapsed") === "1");
+    }
+  }, []);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
