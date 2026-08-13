@@ -66,10 +66,14 @@ export type Database = {
       }
       adiantamentos: {
         Row: {
+          aprovado_em: string | null
+          aprovado_por: string | null
           created_at: string
           created_by: string | null
           data: string
+          enviado_em: string | null
           id: string
+          motivo_rejeicao: string | null
           obra_id: string | null
           observacoes: string | null
           responsavel_id: string | null
@@ -80,10 +84,14 @@ export type Database = {
           valor: number
         }
         Insert: {
+          aprovado_em?: string | null
+          aprovado_por?: string | null
           created_at?: string
           created_by?: string | null
           data?: string
+          enviado_em?: string | null
           id?: string
+          motivo_rejeicao?: string | null
           obra_id?: string | null
           observacoes?: string | null
           responsavel_id?: string | null
@@ -94,10 +102,14 @@ export type Database = {
           valor?: number
         }
         Update: {
+          aprovado_em?: string | null
+          aprovado_por?: string | null
           created_at?: string
           created_by?: string | null
           data?: string
+          enviado_em?: string | null
           id?: string
+          motivo_rejeicao?: string | null
           obra_id?: string | null
           observacoes?: string | null
           responsavel_id?: string | null
@@ -1456,6 +1468,7 @@ export type Database = {
         Args: { _action: string; _module: string; _user_id: string }
         Returns: boolean
       }
+      gerar_notificacoes_vencimentos: { Args: never; Returns: number }
       has_obra_access: {
         Args: { _obra_id: string; _user_id: string }
         Returns: boolean
@@ -1475,6 +1488,18 @@ export type Database = {
           _details: Json
           _module: string
           _target_user_id: string
+        }
+        Returns: undefined
+      }
+      notify_managers: {
+        Args: {
+          _exclude?: string
+          _link: string
+          _mensagem: string
+          _ref_id: string
+          _ref_table: string
+          _tipo: string
+          _titulo: string
         }
         Returns: undefined
       }
