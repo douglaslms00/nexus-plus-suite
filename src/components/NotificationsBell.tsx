@@ -39,7 +39,22 @@ export function NotificationsBell() {
     },
   });
 
+  // Gera avisos de vencimentos (ASO, treinamentos, contas, manutenções) no máximo a cada 6h
   useEffect(() => {
+    if (!user?.id) return;
+    const key = `venc_check_${user.id}`;
+    const last = Number(localStorage.getItem(key) ?? 0);
+    if (Date.now() - last < 6 * 60 * 60 * 1000) return;
+    localStorage.setItem(key, String(Date.now()));
+    (supabase as any)
+      .rpc("gerar_notificacoes_vencimentos")
+      .then(({ data, error }: any) => {
+        if (!error && data > 0) qc.invalidateQueries({ queryKey: ["notifications", user.id] });
+      });
+  }, [user?.id, qc]);
+
+  useEffect(() => {
+
     if (!user?.id) return;
     const myId = user.id;
     const channelName = `notifications-${myId}-${Math.random().toString(36).slice(2)}`;
