@@ -110,15 +110,21 @@ function FuncionariosPage() {
   const openEdit = (f: Funcionario) => { setEditing(f); setFichaRegistro(null); setForm({ ...f }); setOpen(true); };
 
   const lerFicha = async (file: File) => {
-    if (!file.type.startsWith("image/")) {
-      toast.error("Envie a ficha como imagem (JPG, PNG ou WEBP) para a leitura automática.");
+    const isImagem = file.type.startsWith("image/");
+    const isPdf = file.type === "application/pdf";
+    if (!isImagem && !isPdf) {
+      toast.error("Envie a ficha em JPG, PNG, WEBP ou PDF.");
       return;
     }
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("A imagem deve ter no máximo 5 MB.");
+    if (file.size > (isPdf ? 50 : 5) * 1024 * 1024) {
+      toast.error(isPdf ? "O PDF deve ter no máximo 50 MB." : "A imagem deve ter no máximo 5 MB.");
       return;
     }
     setFichaRegistro(file);
+    if (isPdf) {
+      toast.success("PDF selecionado e será anexado ao cadastro. Para preencher automaticamente, envie a ficha como imagem.");
+      return;
+    }
     setLendoFicha(true);
     try {
       const imageDataUrl = await new Promise<string>((resolve, reject) => {
@@ -205,9 +211,9 @@ function FuncionariosPage() {
                   <div className="col-span-2 rounded-lg border border-dashed p-3 space-y-2 bg-muted/20">
                     <div>
                       <Label>Ficha de registro com leitura por IA</Label>
-                      <p className="text-xs text-muted-foreground mt-1">Envie uma foto ou digitalização (JPG, PNG ou WEBP). Os campos serão preenchidos automaticamente e a ficha será anexada ao cadastro.</p>
+                      <p className="text-xs text-muted-foreground mt-1">Envie uma foto/digitalização (JPG, PNG ou WEBP) para preencher os campos automaticamente, ou um PDF para anexar a ficha ao cadastro.</p>
                     </div>
-                    <Input type="file" accept="image/jpeg,image/png,image/webp" disabled={lendoFicha} onChange={(e) => { const file = e.target.files?.[0]; if (file) void lerFicha(file); e.target.value = ""; }} />
+                    <Input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" disabled={lendoFicha} onChange={(e) => { const file = e.target.files?.[0]; if (file) void lerFicha(file); e.target.value = ""; }} />
                     {lendoFicha && <p className="text-sm text-muted-foreground">Lendo ficha e preenchendo informações...</p>}
                     {!lendoFicha && fichaRegistro && <p className="text-sm text-success">Ficha selecionada: {fichaRegistro.name}</p>}
                   </div>
