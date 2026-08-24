@@ -36,7 +36,12 @@ export const ALL_MODULES: { key: AppModule; label: string }[] = [
 export function useCurrentUser() {
   return useQuery({
     queryKey: ["currentUser"],
-    queryFn: async () => (await supabase.auth.getUser()).data.user,
+    staleTime: 1000 * 60 * 5,
+    queryFn: async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) return session.user;
+      return (await supabase.auth.getUser()).data.user;
+    },
   });
 }
 
@@ -45,6 +50,7 @@ export function useUserRoles() {
   return useQuery({
     queryKey: ["userRoles", user?.id],
     enabled: !!user?.id,
+    staleTime: 1000 * 60 * 5,
     queryFn: async (): Promise<AppRole[]> => {
       const { data, error } = await supabase.from("user_roles").select("role").eq("user_id", user!.id);
       if (error) throw error;
@@ -58,6 +64,7 @@ export function useProfile() {
   return useQuery({
     queryKey: ["profile", user?.id],
     enabled: !!user?.id,
+    staleTime: 1000 * 60 * 5,
     queryFn: async () => {
       const { data, error } = await supabase.from("profiles").select("*").eq("id", user!.id).maybeSingle();
       if (error) throw error;
@@ -73,6 +80,7 @@ export function useMyModulePermissions() {
   return useQuery({
     queryKey: ["my-module-perms", user?.id],
     enabled: !!user?.id,
+    staleTime: 1000 * 60 * 5,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("user_module_permissions")
@@ -100,6 +108,7 @@ export function useAuthorizedObras() {
   return useQuery({
     queryKey: ["authorized-obras", user?.id, roles],
     enabled: !!user?.id && !!roles,
+    staleTime: 1000 * 60 * 5,
     queryFn: async (): Promise<{ id: string; nome: string }[]> => {
       if (canManage(roles)) {
         const { data, error } = await supabase.from("obras").select("id, nome").order("nome");
@@ -124,6 +133,7 @@ export type SystemRolePerm = { role: AppRole; module: AppModule } & ModulePerm;
 export function useAllSystemRolePerms() {
   return useQuery({
     queryKey: ["all-system-role-perms"],
+    staleTime: 1000 * 60 * 5,
     queryFn: async (): Promise<SystemRolePerm[]> => {
       const { data, error } = await (supabase as any)
         .from("system_role_module_permissions")
@@ -182,6 +192,7 @@ export function useMyCustomRoles() {
   return useQuery({
     queryKey: ["my-custom-roles", user?.id],
     enabled: !!user?.id,
+    staleTime: 1000 * 60 * 5,
     queryFn: async (): Promise<CustomRole[]> => {
       const { data, error } = await (supabase as any)
         .from("user_custom_roles")
@@ -196,6 +207,7 @@ export function useMyCustomRoles() {
 export function useAllCustomRolePerms() {
   return useQuery({
     queryKey: ["all-custom-role-perms"],
+    staleTime: 1000 * 60 * 5,
     queryFn: async (): Promise<CustomRolePerm[]> => {
       const { data, error } = await (supabase as any)
         .from("custom_role_module_permissions")

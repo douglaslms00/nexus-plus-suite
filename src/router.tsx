@@ -54,13 +54,23 @@ function DefaultNotFound() {
 }
 
 export const getRouter = () => {
-  const queryClient = new QueryClient();
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: {
+        staleTime: 1000 * 60 * 2, // 2 minutos de cache ativo
+        gcTime: 1000 * 60 * 15, // 15 minutos na memória
+        refetchOnWindowFocus: false,
+        retry: 1,
+      },
+    },
+  });
 
   const router = createRouter({
     routeTree,
     context: { queryClient },
     scrollRestoration: true,
-    defaultPreloadStaleTime: 0,
+    defaultPreload: "intent",
+    defaultPreloadStaleTime: 1000 * 30, // 30s de preload
     defaultErrorComponent: DefaultErrorFallback,
     defaultNotFoundComponent: DefaultNotFound,
   });
