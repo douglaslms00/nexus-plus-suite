@@ -12,11 +12,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Trash2, Pencil, FileText, Upload, Download } from "lucide-react";
 import { toast } from "sonner";
 import { uploadAnexo, getAnexoUrl } from "@/lib/upload";
 import { differenceInDays, parseISO, format, addMonths } from "date-fns";
 import { cn } from "@/lib/utils";
+import { lerFichaRegistro } from "@/lib/ocr.functions";
 
 export const Route = createFileRoute("/_authenticated/funcionarios")({
   component: FuncionariosPage,
@@ -84,6 +86,8 @@ function FuncionariosPage() {
   const [fObra, setFObra] = useState<string>("todas");
   const [fVenc, setFVenc] = useState<"todos" | "vencidos" | "proximos">("todos");
   const [docsFor, setDocsFor] = useState<Funcionario | null>(null);
+  const [fichaRegistro, setFichaRegistro] = useState<File | null>(null);
+  const [lendoFicha, setLendoFicha] = useState(false);
 
   const filtered = useMemo(() => {
     return funcionarios.filter((f: any) => {
@@ -102,18 +106,57 @@ function FuncionariosPage() {
     });
   }, [funcionarios, busca, fStatus, fObra, fVenc]);
 
-  const openNew = () => { setEditing(null); setForm({ ativo: true, experiencia_concluida: false }); setOpen(true); };
-  const openEdit = (f: Funcionario) => { setEditing(f); setForm({ ...f }); setOpen(true); };
+  const openNew = () => { setEditing(null); setFichaRegistro(null); setForm({ ativo: true, experiencia_concluida: false }); setOpen(true); };
+  const openEdit = (f: Funcionario) => { setEditing(f); setFichaRegistro(null); setForm({ ...f }); setOpen(true); };
+
+  const lerFicha = async (file: File) => {
+    if (!file.type.startsWith("image/")) {
+      toast.error("Envie a ficha como imagem (JPG, PNG ou WEBP) para a leitura automática.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("A imagem deve ter no máximo 5 MB.");
+      return;
+    }
+    setFichaRegistro(file);
+    setLendoFicha(true);
+    try {
+      const imageDataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = () => reject(new Error("Não foi possível ler o arquivo"));
+        reader.readAsDataURL(file);
+      });
+      const dados = await lerFichaRegistro({ data: { imageDataUrl } });
+      setForm((atual: any) => ({ ...atual, ...Object.fromEntries(Object.entries(dados).filter(([, value]) => value)) }));
+      toast.success("Ficha lida. Confira os dados antes de salvar.");
+    } catch (e: any) {
+      toast.error(e.message ?? "Não foi possível ler a ficha");
+    } finally {
+      setLendoFicha(false);
+    }
+  };
 
   const upsert = useMutation({
     mutationFn: async (payload: any) => {
       const data = { ...payload };
       Object.keys(data).forEach((k) => { if (data[k] === "") data[k] = null; });
+      let funcionarioId = editing?.id;
       if (editing) {
         const { error } = await supabase.from("funcionarios").update(data).eq("id", editing.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("funcionarios").insert(data);
+        const { data: novo, error } = await supabase.from("funcionarios").insert(data).select("id").single();
+        if (error) throw error;
+        funcionarioId = novo.id;
+      }
+      if (fichaRegistro && funcionarioId) {
+        const path = await uploadAnexo(fichaRegistro, `funcionarios/${funcionarioId}`);
+        const user = (await supabase.auth.getUser()).data.user;
+        const { error } = await (supabase as any).from("funcionario_documentos").insert({
+          funcionario_id: funcionarioId, nome: fichaRegistro.name, tipo: fichaRegistro.type || null,
+          storage_path: path, tamanho: fichaRegistro.size, uploaded_by: user?.id ?? null,
+        });
         if (error) throw error;
       }
     },
@@ -158,6 +201,17 @@ function FuncionariosPage() {
                 onSubmit={(e) => { e.preventDefault(); upsert.mutate(form); }}
                 className="grid grid-cols-2 gap-3"
               >
+                {!editing && (
+                  <div className="col-span-2 rounded-lg border border-dashed p-3 space-y-2 bg-muted/20">
+                    <div>
+                      <Label>Ficha de registro com leitura por IA</Label>
+                      <p className="text-xs text-muted-foreground mt-1">Envie uma foto ou digitalização (JPG, PNG ou WEBP). Os campos serão preenchidos automaticamente e a ficha será anexada ao cadastro.</p>
+                    </div>
+                    <Input type="file" accept="image/jpeg,image/png,image/webp" disabled={lendoFicha} onChange={(e) => { const file = e.target.files?.[0]; if (file) void lerFicha(file); e.target.value = ""; }} />
+                    {lendoFicha && <p className="text-sm text-muted-foreground">Lendo ficha e preenchendo informações...</p>}
+                    {!lendoFicha && fichaRegistro && <p className="text-sm text-success">Ficha selecionada: {fichaRegistro.name}</p>}
+                  </div>
+                )}
                 <div className="col-span-2 space-y-1">
                   <Label>Nome *</Label>
                   <Input required value={form.nome ?? ""} onChange={(e) => setForm({ ...form, nome: e.target.value })} />
@@ -168,6 +222,8 @@ function FuncionariosPage() {
                 <div className="space-y-1"><Label>Setor</Label><Input value={form.setor ?? ""} onChange={(e) => setForm({ ...form, setor: e.target.value })} /></div>
                 <div className="space-y-1"><Label>E-mail</Label><Input type="email" value={form.email ?? ""} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
                 <div className="space-y-1"><Label>Data admissão</Label><Input type="date" value={form.data_admissao ?? ""} onChange={(e) => setForm({ ...form, data_admissao: e.target.value })} /></div>
+                <div className="col-span-2 space-y-1"><Label>Endereço</Label><Input value={form.endereco ?? ""} onChange={(e) => setForm({ ...form, endereco: e.target.value })} /></div>
+                <div className="space-y-1"><Label>Cidade</Label><Input value={form.cidade ?? ""} onChange={(e) => setForm({ ...form, cidade: e.target.value })} /></div>
                 <div className="space-y-1">
                   <Label>Obra</Label>
                   <Select value={form.obra_id ?? ""} onValueChange={(v) => setForm({ ...form, obra_id: v })}>
@@ -252,22 +308,31 @@ function FuncionariosPage() {
         </div>
       </Card>
 
+      <Tabs defaultValue="cadastro" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="cadastro">Cadastro</TabsTrigger>
+          <TabsTrigger value="vencimentos">Vencimentos</TabsTrigger>
+        </TabsList>
+        <TabsContent value="cadastro">
       <Card>
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Nome</TableHead>
               <TableHead>Função / Setor</TableHead>
-              <TableHead>Obra</TableHead>
-              <TableHead>Experiência</TableHead>
-              {VENC.map(([k, l]) => <TableHead key={k}>{l}</TableHead>)}
+              <TableHead>Obras</TableHead>
+              <TableHead>CPF</TableHead>
+              <TableHead>Data de admissão</TableHead>
+              <TableHead>Telefone para contato</TableHead>
+              <TableHead>Endereço</TableHead>
+              <TableHead>Cidade</TableHead>
               <TableHead className="w-24 text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {isLoading && <TableRow><TableCell colSpan={11} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>}
+            {isLoading && <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>}
             {!isLoading && filtered.length === 0 && (
-              <TableRow><TableCell colSpan={11} className="text-center py-8 text-muted-foreground">Nenhum funcionário encontrado.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Nenhum funcionário encontrado.</TableCell></TableRow>
             )}
             {filtered.map((f: any) => (
               <TableRow key={f.id}>
@@ -282,24 +347,11 @@ function FuncionariosPage() {
                 <TableCell className="text-sm">
                   {obras.find((o: any) => o.id === f.obra_id)?.nome ?? <span className="text-muted-foreground">—</span>}
                 </TableCell>
-                <TableCell>
-                  {(() => {
-                    const concluida = isExperienciaConcluida(f);
-                    return (
-                      <span className={cn(
-                        "text-xs px-2 py-0.5 rounded",
-                        concluida ? "bg-success/15 text-success" : "bg-warning/15 text-warning"
-                      )}>
-                        {concluida ? "Concluída" : "Em curso"}
-                      </span>
-                    );
-                  })()}
-                </TableCell>
-                {VENC.map(([key]) => (
-                  <TableCell key={key} className={cn("text-xs whitespace-nowrap", vencColor(f[key]))}>
-                    {f[key] ? format(parseISO(f[key]), "dd/MM/yy") : "—"}
-                  </TableCell>
-                ))}
+                <TableCell>{f.cpf ?? "—"}</TableCell>
+                <TableCell className="whitespace-nowrap">{f.data_admissao ? format(parseISO(f.data_admissao), "dd/MM/yyyy") : "—"}</TableCell>
+                <TableCell>{f.telefone ?? "—"}</TableCell>
+                <TableCell>{f.endereco ?? "—"}</TableCell>
+                <TableCell>{f.cidade ?? "—"}</TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-1">
                     <Button size="icon" variant="ghost" title="Documentos" onClick={() => setDocsFor(f)}><FileText className="h-4 w-4" /></Button>
@@ -312,6 +364,33 @@ function FuncionariosPage() {
           </TableBody>
         </Table>
       </Card>
+        </TabsContent>
+        <TabsContent value="vencimentos">
+          <Card>
+            <Table>
+              <TableHeader><TableRow>
+                <TableHead>Nome</TableHead><TableHead>Função / Setor</TableHead><TableHead>Obra</TableHead>
+                <TableHead>ASO</TableHead><TableHead>Férias</TableHead><TableHead>Folgas</TableHead><TableHead>Treinamentos</TableHead>
+                <TableHead className="w-24 text-right">Ações</TableHead>
+              </TableRow></TableHeader>
+              <TableBody>
+                {isLoading && <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>}
+                {!isLoading && filtered.length === 0 && <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Nenhum funcionário encontrado.</TableCell></TableRow>}
+                {filtered.map((f: any) => <TableRow key={f.id}>
+                  <TableCell className="font-medium">{f.nome}</TableCell>
+                  <TableCell><div>{f.funcao ?? "—"}</div><div className="text-xs text-muted-foreground">{f.setor ?? "—"}</div></TableCell>
+                  <TableCell>{obras.find((o: any) => o.id === f.obra_id)?.nome ?? "—"}</TableCell>
+                  {["vencimento_aso", "vencimento_ferias", "vencimento_folga_campo", "vencimento_treinamento"].map((key) => <TableCell key={key} className={cn("text-xs whitespace-nowrap", vencColor(f[key]))}>{f[key] ? format(parseISO(f[key]), "dd/MM/yyyy") : "—"}</TableCell>)}
+                  <TableCell className="text-right"><div className="flex justify-end gap-1">
+                    <Button size="icon" variant="ghost" title="Documentos" onClick={() => setDocsFor(f)}><FileText className="h-4 w-4" /></Button>
+                    {canEdit && <Button size="icon" variant="ghost" title="Editar" onClick={() => openEdit(f)}><Pencil className="h-4 w-4" /></Button>}
+                  </div></TableCell>
+                </TableRow>)}
+              </TableBody>
+            </Table>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       <DocumentosDialog funcionario={docsFor} onClose={() => setDocsFor(null)} canEdit={canEdit} canDelete={canDelete} />
     </div>
