@@ -18,7 +18,7 @@ import { toast } from "sonner";
 import { uploadAnexo, getAnexoUrl } from "@/lib/upload";
 import { differenceInDays, parseISO, format, addMonths } from "date-fns";
 import { cn } from "@/lib/utils";
-import { lerFichaRegistro } from "@/lib/ocr.functions";
+import { lerFichaRegistro, lerFichaRegistroPdf } from "@/lib/ocr.functions";
 
 export const Route = createFileRoute("/_authenticated/funcionarios")({
   component: FuncionariosPage,
@@ -121,21 +121,24 @@ function FuncionariosPage() {
       return;
     }
     setFichaRegistro(file);
-    if (isPdf) {
-      toast.success("PDF selecionado e será anexado ao cadastro. Para preencher automaticamente, envie a ficha como imagem.");
-      return;
-    }
     setLendoFicha(true);
     try {
-      const imageDataUrl = await new Promise<string>((resolve, reject) => {
+      const fileDataUrl = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(String(reader.result));
         reader.onerror = () => reject(new Error("Não foi possível ler o arquivo"));
         reader.readAsDataURL(file);
       });
-      const dados = await lerFichaRegistro({ data: { imageDataUrl } });
+      let dados;
+      if (isPdf) {
+        // Extrai apenas a parte base64 do data URL (remove o prefixo "data:application/pdf;base64,")
+        const pdfBase64 = fileDataUrl.split(",")[1];
+        dados = await lerFichaRegistroPdf({ data: { pdfBase64 } });
+      } else {
+        dados = await lerFichaRegistro({ data: { imageDataUrl: fileDataUrl } });
+      }
       setForm((atual: any) => ({ ...atual, ...Object.fromEntries(Object.entries(dados).filter(([, value]) => value)) }));
-      toast.success("Ficha lida. Confira os dados antes de salvar.");
+      toast.success("Ficha lida com sucesso. Confira os dados antes de salvar.");
     } catch (e: any) {
       toast.error(e.message ?? "Não foi possível ler a ficha");
     } finally {
@@ -205,77 +208,90 @@ function FuncionariosPage() {
               </DialogHeader>
               <form
                 onSubmit={(e) => { e.preventDefault(); upsert.mutate(form); }}
-                className="grid grid-cols-2 gap-3"
+                className="space-y-4"
               >
                 {!editing && (
-                  <div className="col-span-2 rounded-lg border border-dashed p-3 space-y-2 bg-muted/20">
+                  <div className="rounded-lg border border-dashed p-3 space-y-2 bg-muted/20">
                     <div>
                       <Label>Ficha de registro com leitura por IA</Label>
-                      <p className="text-xs text-muted-foreground mt-1">Envie uma foto/digitalização (JPG, PNG ou WEBP) para preencher os campos automaticamente, ou um PDF para anexar a ficha ao cadastro.</p>
+                      <p className="text-xs text-muted-foreground mt-1">Envie uma foto/digitalização (JPG, PNG ou WEBP) ou um <strong>PDF</strong> para preencher os campos automaticamente por IA.</p>
                     </div>
                     <Input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" disabled={lendoFicha} onChange={(e) => { const file = e.target.files?.[0]; if (file) void lerFicha(file); e.target.value = ""; }} />
-                    {lendoFicha && <p className="text-sm text-muted-foreground">Lendo ficha e preenchendo informações...</p>}
-                    {!lendoFicha && fichaRegistro && <p className="text-sm text-success">Ficha selecionada: {fichaRegistro.name}</p>}
+                    {lendoFicha && <p className="text-sm text-muted-foreground animate-pulse">🤖 Analisando documento com IA e preenchendo informações...</p>}
+                    {!lendoFicha && fichaRegistro && <p className="text-sm text-success">✅ Ficha selecionada: {fichaRegistro.name}</p>}
                   </div>
                 )}
-                <div className="col-span-2 space-y-1">
-                  <Label>Nome *</Label>
-                  <Input required value={form.nome ?? ""} onChange={(e) => setForm({ ...form, nome: e.target.value })} />
-                </div>
-                <div className="space-y-1"><Label>CPF</Label><Input value={form.cpf ?? ""} onChange={(e) => setForm({ ...form, cpf: e.target.value })} /></div>
-                <div className="space-y-1"><Label>Telefone</Label><Input value={form.telefone ?? ""} onChange={(e) => setForm({ ...form, telefone: e.target.value })} /></div>
-                <div className="space-y-1"><Label>Função</Label><Input value={form.funcao ?? ""} onChange={(e) => setForm({ ...form, funcao: e.target.value })} /></div>
-                <div className="space-y-1"><Label>Setor</Label><Input value={form.setor ?? ""} onChange={(e) => setForm({ ...form, setor: e.target.value })} /></div>
-                <div className="space-y-1"><Label>E-mail</Label><Input type="email" value={form.email ?? ""} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
-                <div className="space-y-1"><Label>Data admissão</Label><Input type="date" value={form.data_admissao ?? ""} onChange={(e) => setForm({ ...form, data_admissao: e.target.value })} /></div>
-                <div className="col-span-2 space-y-1"><Label>Endereço</Label><Input value={form.endereco ?? ""} onChange={(e) => setForm({ ...form, endereco: e.target.value })} /></div>
-                <div className="space-y-1"><Label>Cidade</Label><Input value={form.cidade ?? ""} onChange={(e) => setForm({ ...form, cidade: e.target.value })} /></div>
-                <div className="space-y-1">
-                  <Label>Obra</Label>
-                  <Select value={form.obra_id ?? ""} onValueChange={(v) => setForm({ ...form, obra_id: v })}>
-                    <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                    <SelectContent>{obras.map((o: any) => <SelectItem key={o.id} value={o.id}>{o.nome}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
 
-                <div className="col-span-2 pt-2 border-t">
-                  <p className="text-sm font-medium mb-2">Validades</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                    {VENC.map(([key, label, mesesKey]) => {
-                      const meses = mesesKey ? (form[mesesKey] ?? "") : "";
-                      const onMeses = (v: string) => {
-                        if (!mesesKey) return;
-                        const next: any = { ...form, [mesesKey]: v ? Number(v) : null };
-                        const base = form.data_admissao ? parseISO(form.data_admissao) : new Date();
-                        if (v) next[key] = format(addMonths(base, Number(v)), "yyyy-MM-dd");
-                        setForm(next);
-                      };
-                      return (
-                        <div key={key} className="rounded border p-2 space-y-1">
-                          <Label className="text-xs">{label}</Label>
-                          {mesesKey && (
-                            <Input type="number" min={1} placeholder="meses" value={meses} onChange={(e) => onMeses(e.target.value)} />
-                          )}
-                          <Input type="date" value={form[key] ?? ""} onChange={(e) => setForm({ ...form, [key]: e.target.value })} />
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
+                <Tabs defaultValue="dados" className="w-full">
+                  <TabsList className="w-full">
+                    <TabsTrigger value="dados" className="flex-1">Dados</TabsTrigger>
+                    <TabsTrigger value="treinamentos" className="flex-1">Treinamentos</TabsTrigger>
+                  </TabsList>
 
+                  <TabsContent value="dados" className="mt-4">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="col-span-2 space-y-1">
+                        <Label>Nome *</Label>
+                        <Input required value={form.nome ?? ""} onChange={(e) => setForm({ ...form, nome: e.target.value })} />
+                      </div>
+                      <div className="space-y-1"><Label>CPF</Label><Input value={form.cpf ?? ""} onChange={(e) => setForm({ ...form, cpf: e.target.value })} /></div>
+                      <div className="space-y-1"><Label>Telefone</Label><Input value={form.telefone ?? ""} onChange={(e) => setForm({ ...form, telefone: e.target.value })} /></div>
+                      <div className="space-y-1"><Label>Função</Label><Input value={form.funcao ?? ""} onChange={(e) => setForm({ ...form, funcao: e.target.value })} /></div>
+                      <div className="space-y-1"><Label>Setor</Label><Input value={form.setor ?? ""} onChange={(e) => setForm({ ...form, setor: e.target.value })} /></div>
+                      <div className="space-y-1"><Label>E-mail</Label><Input type="email" value={form.email ?? ""} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
+                      <div className="space-y-1"><Label>Data admissão</Label><Input type="date" value={form.data_admissao ?? ""} onChange={(e) => setForm({ ...form, data_admissao: e.target.value })} /></div>
+                      <div className="col-span-2 space-y-1"><Label>Endereço</Label><Input value={form.endereco ?? ""} onChange={(e) => setForm({ ...form, endereco: e.target.value })} /></div>
+                      <div className="space-y-1"><Label>Cidade</Label><Input value={form.cidade ?? ""} onChange={(e) => setForm({ ...form, cidade: e.target.value })} /></div>
+                      <div className="space-y-1">
+                        <Label>Obra</Label>
+                        <Select value={form.obra_id ?? ""} onValueChange={(v) => setForm({ ...form, obra_id: v })}>
+                          <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                          <SelectContent>{obras.map((o: any) => <SelectItem key={o.id} value={o.id}>{o.nome}</SelectItem>)}</SelectContent>
+                        </Select>
+                      </div>
 
-                <div className="col-span-2 flex items-center gap-6 pt-2">
-                  <label className="flex items-center gap-2 text-sm">
-                    <Checkbox checked={!!form.experiencia_concluida} onCheckedChange={(v) => setForm({ ...form, experiencia_concluida: !!v })} />
-                    Experiência concluída
-                  </label>
-                  <label className="flex items-center gap-2 text-sm">
-                    <Checkbox checked={!!form.ativo} onCheckedChange={(v) => setForm({ ...form, ativo: !!v })} />
-                    Ativo
-                  </label>
-                </div>
+                      <div className="col-span-2 flex items-center gap-6 pt-2 border-t">
+                        <label className="flex items-center gap-2 text-sm">
+                          <Checkbox checked={!!form.experiencia_concluida} onCheckedChange={(v) => setForm({ ...form, experiencia_concluida: !!v })} />
+                          Experiência concluída
+                        </label>
+                        <label className="flex items-center gap-2 text-sm">
+                          <Checkbox checked={!!form.ativo} onCheckedChange={(v) => setForm({ ...form, ativo: !!v })} />
+                          Ativo
+                        </label>
+                      </div>
+                    </div>
+                  </TabsContent>
 
-                <DialogFooter className="col-span-2">
+                  <TabsContent value="treinamentos" className="mt-4">
+                    <div className="space-y-3">
+                      <p className="text-sm font-medium text-muted-foreground">Defina os prazos de validade para cada item. Informe a quantidade de meses ou a data diretamente.</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        {VENC.map(([key, label, mesesKey]) => {
+                          const meses = mesesKey ? (form[mesesKey] ?? "") : "";
+                          const onMeses = (v: string) => {
+                            if (!mesesKey) return;
+                            const next: any = { ...form, [mesesKey]: v ? Number(v) : null };
+                            const base = form.data_admissao ? parseISO(form.data_admissao) : new Date();
+                            if (v) next[key] = format(addMonths(base, Number(v)), "yyyy-MM-dd");
+                            setForm(next);
+                          };
+                          return (
+                            <div key={key} className="rounded border p-2 space-y-1">
+                              <Label className="text-xs">{label}</Label>
+                              {mesesKey && (
+                                <Input type="number" min={1} placeholder="meses" value={meses} onChange={(e) => onMeses(e.target.value)} />
+                              )}
+                              <Input type="date" value={form[key] ?? ""} onChange={(e) => setForm({ ...form, [key]: e.target.value })} />
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </TabsContent>
+                </Tabs>
+
+                <DialogFooter>
                   <Button type="submit" disabled={upsert.isPending}>{upsert.isPending ? "Salvando..." : "Salvar"}</Button>
                 </DialogFooter>
               </form>
