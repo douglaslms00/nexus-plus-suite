@@ -29,9 +29,13 @@ const VENC: ReadonlyArray<readonly [string, string, string | null]> = [
   ["vencimento_ficha_epi", "Ficha EPI", "validade_meses_ficha_epi"],
   ["vencimento_folga_campo", "Folga Campo", "validade_meses_folga_campo"],
   ["vencimento_ferias", "Férias", "validade_meses_ferias"],
-  ["vencimento_treinamento", "Treinamento", "validade_meses_treinamento"],
   ["vencimento_experiencia", "Experiência", "validade_meses_experiencia"],
 ] as const;
+
+type TreinamentoItem = { id: string; nome: string; data_realizacao: string; data_validade: string; };
+function novoTreinamento(): TreinamentoItem {
+  return { id: crypto.randomUUID(), nome: "", data_realizacao: "", data_validade: "" };
+}
 
 type Funcionario = any;
 
@@ -88,6 +92,7 @@ function FuncionariosPage() {
   const [docsFor, setDocsFor] = useState<Funcionario | null>(null);
   const [fichaRegistro, setFichaRegistro] = useState<File | null>(null);
   const [lendoFicha, setLendoFicha] = useState(false);
+  const [treinamentos, setTreinamentos] = useState<TreinamentoItem[]>([novoTreinamento()]);
 
   const filtered = useMemo(() => {
     return funcionarios.filter((f: any) => {
@@ -106,8 +111,16 @@ function FuncionariosPage() {
     });
   }, [funcionarios, busca, fStatus, fObra, fVenc]);
 
-  const openNew = () => { setEditing(null); setFichaRegistro(null); setForm({ ativo: true, experiencia_concluida: false }); setOpen(true); };
-  const openEdit = (f: Funcionario) => { setEditing(f); setFichaRegistro(null); setForm({ ...f }); setOpen(true); };
+  const openNew = () => { setEditing(null); setFichaRegistro(null); setForm({ ativo: true, experiencia_concluida: false }); setTreinamentos([novoTreinamento()]); setOpen(true); };
+  const openEdit = async (f: Funcionario) => {
+    setEditing(f); setFichaRegistro(null); setForm({ ...f });
+    // Carrega treinamentos existentes do funcionário
+    try {
+      const { data } = await (supabase as any).from("funcionario_treinamentos").select("*").eq("funcionario_id", f.id).order("created_at");
+      setTreinamentos(data && data.length > 0 ? data.map((t: any) => ({ id: t.id, nome: t.nome ?? "", data_realizacao: t.data_realizacao ?? "", data_validade: t.data_validade ?? "" })) : [novoTreinamento()]);
+    } catch { setTreinamentos([novoTreinamento()]); }
+    setOpen(true);
+  };
 
   const lerFicha = async (file: File) => {
     const isImagem = file.type.startsWith("image/");
@@ -146,18 +159,62 @@ function FuncionariosPage() {
     }
   };
 
+  // Colunas conhecidas da tabela funcionarios (exclui colunas que podem não existir ainda)
+  const COLUNAS_FUNC = [
+    "nome","cpf","telefone","email","funcao","setor","data_admissao",
+    "endereco","cidade","obra_id","ativo","experiencia_concluida",
+    "vencimento_aso","validade_meses_aso",
+    "vencimento_ficha_epi","validade_meses_ficha_epi",
+    "vencimento_folga_campo","validade_meses_folga_campo",
+    "vencimento_ferias","validade_meses_ferias",
+    "vencimento_treinamento","validade_meses_treinamento",
+    "vencimento_experiencia","validade_meses_experiencia",
+  ];
+
   const upsert = useMutation({
     mutationFn: async (payload: any) => {
-      const data = { ...payload };
-      Object.keys(data).forEach((k) => { if (data[k] === "") data[k] = null; });
+      // Filtra apenas colunas conhecidas e remove strings vazias
+      const data: any = {};
+      COLUNAS_FUNC.forEach((k) => { if (k in payload) data[k] = payload[k] === "" ? null : payload[k]; });
       let funcionarioId = editing?.id;
       if (editing) {
         const { error } = await supabase.from("funcionarios").update(data).eq("id", editing.id);
-        if (error) throw error;
+        if (error) {
+          // Se colunas ainda não existem no banco, tenta sem elas
+          if (error.message?.includes("cidade") || error.message?.includes("endereco")) {
+            const { cidade: _c, endereco: _e, ...dataFallback } = data;
+            const { error: e2 } = await supabase.from("funcionarios").update(dataFallback).eq("id", editing.id);
+            if (e2) throw e2;
+          } else throw error;
+        }
       } else {
         const { data: novo, error } = await supabase.from("funcionarios").insert(data).select("id").single();
-        if (error) throw error;
-        funcionarioId = novo.id;
+        if (error) {
+          if (error.message?.includes("cidade") || error.message?.includes("endereco")) {
+            const { cidade: _c, endereco: _e, ...dataFallback } = data;
+            const { data: novo2, error: e2 } = await supabase.from("funcionarios").insert(dataFallback).select("id").single();
+            if (e2) throw e2;
+            funcionarioId = novo2.id;
+          } else throw error;
+        } else {
+          funcionarioId = novo.id;
+        }
+      }
+      // Salva treinamentos dinâmicos
+      if (funcionarioId) {
+        const treinamentosValidos = treinamentos.filter((t) => t.nome.trim());
+        if (treinamentosValidos.length > 0) {
+          // Remove treinamentos antigos e reinserir
+          await (supabase as any).from("funcionario_treinamentos").delete().eq("funcionario_id", funcionarioId);
+          const rows = treinamentosValidos.map((t) => ({
+            funcionario_id: funcionarioId,
+            nome: t.nome.trim(),
+            data_realizacao: t.data_realizacao || null,
+            data_validade: t.data_validade || null,
+          }));
+          const { error: te } = await (supabase as any).from("funcionario_treinamentos").insert(rows);
+          if (te) console.warn("Treinamentos não salvos:", te.message);
+        }
       }
       if (fichaRegistro && funcionarioId) {
         const path = await uploadAnexo(fichaRegistro, `funcionarios/${funcionarioId}`);
@@ -264,28 +321,41 @@ function FuncionariosPage() {
                   </TabsContent>
 
                   <TabsContent value="treinamentos" className="mt-4">
-                    <div className="space-y-3">
-                      <p className="text-sm font-medium text-muted-foreground">Defina os prazos de validade para cada item. Informe a quantidade de meses ou a data diretamente.</p>
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                        {VENC.map(([key, label, mesesKey]) => {
-                          const meses = mesesKey ? (form[mesesKey] ?? "") : "";
-                          const onMeses = (v: string) => {
-                            if (!mesesKey) return;
-                            const next: any = { ...form, [mesesKey]: v ? Number(v) : null };
-                            const base = form.data_admissao ? parseISO(form.data_admissao) : new Date();
-                            if (v) next[key] = format(addMonths(base, Number(v)), "yyyy-MM-dd");
-                            setForm(next);
-                          };
-                          return (
-                            <div key={key} className="rounded border p-2 space-y-1">
-                              <Label className="text-xs">{label}</Label>
-                              {mesesKey && (
-                                <Input type="number" min={1} placeholder="meses" value={meses} onChange={(e) => onMeses(e.target.value)} />
+                    <div className="space-y-4">
+                      {/* Lista dinâmica de treinamentos */}
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-semibold">Treinamentos realizados</p>
+                        <Button type="button" size="sm" variant="outline" onClick={() => setTreinamentos((prev) => [...prev, novoTreinamento()])}>
+                          <Plus className="h-3 w-3 mr-1" /> Adicionar treinamento
+                        </Button>
+                      </div>
+                      <div className="space-y-2">
+                        {treinamentos.map((t, i) => (
+                          <div key={t.id} className="rounded-lg border p-3 space-y-2 bg-muted/10 relative">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-xs font-medium text-muted-foreground">Treinamento {i + 1}</span>
+                              {treinamentos.length > 1 && (
+                                <Button type="button" size="icon" variant="ghost" className="h-6 w-6" onClick={() => setTreinamentos((prev) => prev.filter((_, idx) => idx !== i))}>
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
                               )}
-                              <Input type="date" value={form[key] ?? ""} onChange={(e) => setForm({ ...form, [key]: e.target.value })} />
                             </div>
-                          );
-                        })}
+                            <div className="space-y-1">
+                              <Label className="text-xs">Nome do treinamento</Label>
+                              <Input placeholder="Ex: NR-35, Primeiros Socorros..." value={t.nome} onChange={(e) => setTreinamentos((prev) => prev.map((x, idx) => idx === i ? { ...x, nome: e.target.value } : x))} />
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                              <div className="space-y-1">
+                                <Label className="text-xs">Data de realização</Label>
+                                <Input type="date" value={t.data_realizacao} onChange={(e) => setTreinamentos((prev) => prev.map((x, idx) => idx === i ? { ...x, data_realizacao: e.target.value } : x))} />
+                              </div>
+                              <div className="space-y-1">
+                                <Label className="text-xs">Data de validade</Label>
+                                <Input type="date" value={t.data_validade} onChange={(e) => setTreinamentos((prev) => prev.map((x, idx) => idx === i ? { ...x, data_validade: e.target.value } : x))} />
+                              </div>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   </TabsContent>
