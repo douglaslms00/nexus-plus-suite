@@ -62,17 +62,17 @@ export function AppShell({ children }: { children: ReactNode }) {
     navigate({ to: "/auth", replace: true });
   };
 
-  const items: { to: string; label: string; icon: any; module: AppModule }[] = [
+  const items: { to: string; label: string; icon: any; module: AppModule; externalLink?: string }[] = [
     { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, module: "dashboard" },
     { to: "/funcionarios", label: "Funcionários", icon: Users, module: "funcionarios" },
     { to: "/tarefas", label: "Tarefas", icon: CheckSquare, module: "tarefas" },
     { to: "/obras", label: "Obras", icon: MapPin, module: "obras" },
     { to: "/ativos", label: "Ativos", icon: Boxes, module: "ativos" },
-    { to: "/ferramentas", label: "Ferramentas", icon: Wrench, module: "ferramentas" },
+    { to: "/ferramentas", label: "Ferramentas", icon: FerramentasIcon, module: "ferramentas" },
     { to: "/materiais", label: "Materiais", icon: Package, module: "materiais" },
     { to: "/epis", label: "EPI / EPC", icon: HardHat, module: "epis" },
     { to: "/financeiro", label: "Financeiro", icon: Wallet, module: "financeiro" },
-    { to: "/prestacao", label: "Prestação de contas", icon: Receipt, module: "prestacao" },
+    { to: "/prestacao", label: "Prestação de contas", icon: Receipt, module: "prestacao", externalLink: "https://prestacontasms.lovable.app/" },
     { to: "/documentos", label: "Documentos", icon: FolderOpen, module: "documentos" },
     { to: "/acessos", label: "Acessos", icon: ShieldCheck, module: "acessos" },
   ];
@@ -108,24 +108,46 @@ export function AppShell({ children }: { children: ReactNode }) {
           {nav.map((item) => {
             const active = location.pathname.startsWith(item.to);
             const Icon = item.icon;
-            const link = (
+            
+            const linkClass = cn(
+              "flex items-center rounded-md text-sm transition-colors",
+              mini ? "justify-center h-10 w-10 mx-auto" : "gap-3 px-3 py-2",
+              active
+                ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+            );
+
+            const linkContent = (
+              <>
+                <Icon className="h-4 w-4 shrink-0" />
+                {!mini && <span className="truncate">{item.label}</span>}
+              </>
+            );
+
+            const link = item.externalLink ? (
+              <a
+                key={item.to}
+                href={item.externalLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setOpen(false)}
+                className={linkClass}
+                aria-label={item.label}
+              >
+                {linkContent}
+              </a>
+            ) : (
               <Link
                 key={item.to}
                 to={item.to}
                 onClick={() => setOpen(false)}
-                className={cn(
-                  "flex items-center rounded-md text-sm transition-colors",
-                  mini ? "justify-center h-10 w-10 mx-auto" : "gap-3 px-3 py-2",
-                  active
-                    ? "bg-sidebar-primary text-sidebar-primary-foreground"
-                    : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                )}
+                className={linkClass}
                 aria-label={item.label}
               >
-                <Icon className="h-4 w-4 shrink-0" />
-                {!mini && <span className="truncate">{item.label}</span>}
+                {linkContent}
               </Link>
             );
+
             return mini ? (
               <Tooltip key={item.to}>
                 <TooltipTrigger asChild>{link}</TooltipTrigger>
