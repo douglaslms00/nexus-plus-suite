@@ -112,9 +112,9 @@ function FuncionariosPage() {
     });
   }, [funcionarios, busca, fStatus, fObra, fVenc]);
 
-  const openNew = () => { setEditing(null); setFichaRegistro(null); setForm({ ativo: true, experiencia_concluida: false }); setTreinamentos([novoTreinamento()]); setOpen(true); };
+  const openNew = () => { setEditing(null); setAbaForm("dados"); setFichaRegistro(null); setForm({ ativo: true, experiencia_concluida: false }); setTreinamentos([novoTreinamento()]); setOpen(true); };
   const openEdit = async (f: Funcionario) => {
-    setEditing(f); setFichaRegistro(null); setForm({ ...f });
+    setEditing(f); setAbaForm("dados"); setFichaRegistro(null); setForm({ ...f });
     // Carrega treinamentos existentes do funcionário
     try {
       const { data } = await (supabase as any).from("funcionario_treinamentos").select("*").eq("funcionario_id", f.id).order("created_at");
