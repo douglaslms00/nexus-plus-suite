@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.15"
+    PostgrestVersion: "14.5"
   }
   public: {
     Tables: {
@@ -817,13 +817,11 @@ export type Database = {
       funcionarios: {
         Row: {
           ativo: boolean
-          cidade: string | null
           cpf: string | null
           created_at: string
           created_by: string | null
           data_admissao: string | null
           email: string | null
-          endereco: string | null
           experiencia_concluida: boolean
           funcao: string | null
           id: string
@@ -848,13 +846,11 @@ export type Database = {
         }
         Insert: {
           ativo?: boolean
-          cidade?: string | null
           cpf?: string | null
           created_at?: string
           created_by?: string | null
           data_admissao?: string | null
           email?: string | null
-          endereco?: string | null
           experiencia_concluida?: boolean
           funcao?: string | null
           id?: string
@@ -879,13 +875,11 @@ export type Database = {
         }
         Update: {
           ativo?: boolean
-          cidade?: string | null
           cpf?: string | null
           created_at?: string
           created_by?: string | null
           data_admissao?: string | null
           email?: string | null
-          endereco?: string | null
           experiencia_concluida?: boolean
           funcao?: string | null
           id?: string
@@ -1474,6 +1468,7 @@ export type Database = {
         Args: { _action: string; _module: string; _user_id: string }
         Returns: boolean
       }
+      ensure_profile: { Args: never; Returns: undefined }
       gerar_notificacoes_vencimentos: { Args: never; Returns: number }
       has_obra_access: {
         Args: { _obra_id: string; _user_id: string }

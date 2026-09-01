@@ -33,6 +33,8 @@ export function AppShell({ children }: { children: ReactNode }) {
     if (typeof window !== "undefined") {
       setCollapsed(window.localStorage.getItem("sidebar-collapsed") === "1");
     }
+    // Garante que o perfil do usuário exista (para aparecer nas listas de usuários)
+    void (supabase as any).rpc("ensure_profile");
   }, []);
 
   useEffect(() => {
