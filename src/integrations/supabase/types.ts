@@ -1468,6 +1468,7 @@ export type Database = {
         Args: { _action: string; _module: string; _user_id: string }
         Returns: boolean
       }
+      ensure_profile: { Args: never; Returns: undefined }
       gerar_notificacoes_vencimentos: { Args: never; Returns: number }
       has_obra_access: {
         Args: { _obra_id: string; _user_id: string }
