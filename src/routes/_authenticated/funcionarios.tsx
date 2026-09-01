@@ -268,7 +268,7 @@ function FuncionariosPage() {
                 onSubmit={(e) => { e.preventDefault(); upsert.mutate(form); }}
                 className="space-y-4"
               >
-                {!editing && (
+                {!editing && abaForm === "dados" && (
                   <div className="rounded-lg border border-dashed p-3 space-y-2 bg-muted/20">
                     <div>
                       <Label>Ficha de registro com leitura por IA</Label>
@@ -280,7 +280,7 @@ function FuncionariosPage() {
                   </div>
                 )}
 
-                <Tabs defaultValue="dados" className="w-full">
+                <Tabs value={abaForm} onValueChange={(v) => setAbaForm(v as "dados" | "treinamentos")} className="w-full">
                   <TabsList className="w-full">
                     <TabsTrigger value="dados" className="flex-1">Dados</TabsTrigger>
                     <TabsTrigger value="treinamentos" className="flex-1">Treinamentos</TabsTrigger>
