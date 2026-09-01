@@ -817,11 +817,13 @@ export type Database = {
       funcionarios: {
         Row: {
           ativo: boolean
+          cidade: string | null
           cpf: string | null
           created_at: string
           created_by: string | null
           data_admissao: string | null
           email: string | null
+          endereco: string | null
           experiencia_concluida: boolean
           funcao: string | null
           id: string
@@ -846,11 +848,13 @@ export type Database = {
         }
         Insert: {
           ativo?: boolean
+          cidade?: string | null
           cpf?: string | null
           created_at?: string
           created_by?: string | null
           data_admissao?: string | null
           email?: string | null
+          endereco?: string | null
           experiencia_concluida?: boolean
           funcao?: string | null
           id?: string
@@ -875,11 +879,13 @@ export type Database = {
         }
         Update: {
           ativo?: boolean
+          cidade?: string | null
           cpf?: string | null
           created_at?: string
           created_by?: string | null
           data_admissao?: string | null
           email?: string | null
+          endereco?: string | null
           experiencia_concluida?: boolean
           funcao?: string | null
           id?: string
@@ -1403,7 +1409,27 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      profiles_basico: {
+        Row: {
+          avatar_url: string | null
+          id: string | null
+          nome: string | null
+          setor: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          id?: string | null
+          nome?: string | null
+          setor?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          id?: string | null
+          nome?: string | null
+          setor?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       admin_bulk_set_custom_role: {
