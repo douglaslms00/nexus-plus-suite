@@ -93,6 +93,7 @@ function FuncionariosPage() {
   const [fichaRegistro, setFichaRegistro] = useState<File | null>(null);
   const [lendoFicha, setLendoFicha] = useState(false);
   const [treinamentos, setTreinamentos] = useState<TreinamentoItem[]>([novoTreinamento()]);
+  const [abaForm, setAbaForm] = useState<"dados" | "treinamentos">("dados");
 
   const filtered = useMemo(() => {
     return funcionarios.filter((f: any) => {
