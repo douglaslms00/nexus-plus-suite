@@ -180,8 +180,8 @@ function FuncionariosPage() {
       if (editing) {
         const { error } = await supabase.from("funcionarios").update(data).eq("id", editing.id);
         if (error) {
-          // Se colunas ainda não existem no banco, tenta sem elas
           if (error.message?.includes("cidade") || error.message?.includes("endereco")) {
+            toast.warning("Colunas 'cidade' e/o 'endereco' não existem no Supabase. Atualize o banco de dados.");
             const { cidade: _c, endereco: _e, ...dataFallback } = data;
             const { error: e2 } = await supabase.from("funcionarios").update(dataFallback).eq("id", editing.id);
             if (e2) throw e2;
@@ -191,6 +191,7 @@ function FuncionariosPage() {
         const { data: novo, error } = await supabase.from("funcionarios").insert(data).select("id").single();
         if (error) {
           if (error.message?.includes("cidade") || error.message?.includes("endereco")) {
+            toast.warning("Colunas 'cidade' e/o 'endereco' não existem no Supabase. Atualize o banco de dados.");
             const { cidade: _c, endereco: _e, ...dataFallback } = data;
             const { data: novo2, error: e2 } = await supabase.from("funcionarios").insert(dataFallback).select("id").single();
             if (e2) throw e2;

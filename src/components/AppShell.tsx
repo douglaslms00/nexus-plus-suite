@@ -68,7 +68,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     { to: "/tarefas", label: "Tarefas", icon: CheckSquare, module: "tarefas" },
     { to: "/obras", label: "Obras", icon: MapPin, module: "obras" },
     { to: "/ativos", label: "Ativos", icon: Boxes, module: "ativos" },
-    { to: "/ferramentas", label: "Ferramentas", icon: FerramentasIcon, module: "ferramentas" },
+    { to: "/ferramentas", label: "Ferramentas", icon: Wrench, module: "ferramentas" },
     { to: "/materiais", label: "Materiais", icon: Package, module: "materiais" },
     { to: "/epis", label: "EPI / EPC", icon: HardHat, module: "epis" },
     { to: "/financeiro", label: "Financeiro", icon: Wallet, module: "financeiro" },
