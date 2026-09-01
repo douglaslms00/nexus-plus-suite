@@ -1138,7 +1138,7 @@ function BulkAssignPanel({
           <tbody>
             {filtered.map((u) => {
               const userCargos = allCargos.filter((c) =>
-                c.system ? u.roles.includes(c.ref.key) : u.customRoleIds.includes((c.ref as any).id)
+                c.system ? u.roles.includes((c.ref as any).key) : u.customRoleIds.includes((c.ref as any).id)
               );
 
               return (
