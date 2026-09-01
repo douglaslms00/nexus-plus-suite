@@ -1,6 +1,6 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
-import { useProfile, useUserRoles, useMyModulePermissions, useMyCustomRoles, useAllCustomRolePerms, useAllSystemRolePerms, effectivePerm, useAuthorizedObras, canManage, type AppModule } from "@/lib/permissions";
+import { useProfile, useCurrentUser, useUserRoles, useMyModulePermissions, useMyCustomRoles, useAllCustomRolePerms, useAllSystemRolePerms, effectivePerm, useAuthorizedObras, canManage, type AppModule } from "@/lib/permissions";
 import {
   LayoutDashboard, Users, CheckSquare, HardHat, Building2, LogOut,
   Boxes, Wrench, Package, Wallet, MapPin, ShieldCheck, Menu, X,
@@ -20,6 +20,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { location } = useRouterState();
   const navigate = useNavigate();
   const { data: profile } = useProfile();
+  const { data: authUser } = useCurrentUser();
   const { data: roles } = useUserRoles();
   const { data: overrides } = useMyModulePermissions();
   const { data: myCustomRoles } = useMyCustomRoles();
@@ -166,7 +167,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         {!mini && (
           <div>
             <p className="text-sm font-medium truncate">{profile?.nome ?? "Usuário"}</p>
-            <p className="text-xs opacity-70 truncate">{profile?.email}</p>
+            <p className="text-xs opacity-70 truncate">{authUser?.email}</p>
             <div className="mt-1 flex flex-wrap gap-1">
               {(roles ?? []).map((r) => (
                 <span key={r} className="text-[10px] uppercase tracking-wide bg-sidebar-accent text-sidebar-accent-foreground px-2 py-0.5 rounded">

@@ -817,11 +817,13 @@ export type Database = {
       funcionarios: {
         Row: {
           ativo: boolean
+          cidade: string | null
           cpf: string | null
           created_at: string
           created_by: string | null
           data_admissao: string | null
           email: string | null
+          endereco: string | null
           experiencia_concluida: boolean
           funcao: string | null
           id: string
@@ -846,11 +848,13 @@ export type Database = {
         }
         Insert: {
           ativo?: boolean
+          cidade?: string | null
           cpf?: string | null
           created_at?: string
           created_by?: string | null
           data_admissao?: string | null
           email?: string | null
+          endereco?: string | null
           experiencia_concluida?: boolean
           funcao?: string | null
           id?: string
@@ -875,11 +879,13 @@ export type Database = {
         }
         Update: {
           ativo?: boolean
+          cidade?: string | null
           cpf?: string | null
           created_at?: string
           created_by?: string | null
           data_admissao?: string | null
           email?: string | null
+          endereco?: string | null
           experiencia_concluida?: boolean
           funcao?: string | null
           id?: string
@@ -1429,6 +1435,13 @@ export type Database = {
         Returns: string
       }
       admin_delete_user: { Args: { _user_id: string }; Returns: undefined }
+      admin_list_profile_emails: {
+        Args: never
+        Returns: {
+          email: string
+          id: string
+        }[]
+      }
       admin_set_role: {
         Args: {
           _grant: boolean

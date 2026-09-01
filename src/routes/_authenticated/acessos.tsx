@@ -61,15 +61,18 @@ function AcessosPage() {
     enabled: isAdmin(roles),
     staleTime: 1000 * 60 * 2,
     queryFn: async () => {
-      const [{ data: profs }, { data: r }, { data: perms }, { data: uobras }, { data: ucroles }] = await Promise.all([
-        supabase.from("profiles").select("id, nome, email"),
+      const [{ data: profs }, { data: r }, { data: perms }, { data: uobras }, { data: ucroles }, { data: emails }] = await Promise.all([
+        supabase.from("profiles").select("id, nome"),
         supabase.from("user_roles").select("user_id, role"),
         supabase.from("user_module_permissions").select("user_id, module, can_view, can_edit, can_delete"),
         supabase.from("user_obras").select("user_id, obra_id"),
         (supabase as any).from("user_custom_roles").select("user_id, custom_role_id"),
+        (supabase as any).rpc("admin_list_profile_emails"),
       ]);
       return (profs ?? []).map((p: any) => ({
         ...p,
+        email: (emails ?? []).find((e: any) => e.id === p.id)?.email ?? null,
+
         roles: (r ?? []).filter((x: any) => x.user_id === p.id).map((x: any) => x.role) as AppRole[],
         perms: (perms ?? []).filter((x: any) => x.user_id === p.id) as ({ module: AppModule } & ModulePerm)[],
         obras: (uobras ?? []).filter((x: any) => x.user_id === p.id).map((x: any) => x.obra_id) as string[],
