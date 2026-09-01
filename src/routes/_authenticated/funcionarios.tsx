@@ -93,6 +93,7 @@ function FuncionariosPage() {
   const [fichaRegistro, setFichaRegistro] = useState<File | null>(null);
   const [lendoFicha, setLendoFicha] = useState(false);
   const [treinamentos, setTreinamentos] = useState<TreinamentoItem[]>([novoTreinamento()]);
+  const [abaForm, setAbaForm] = useState<"dados" | "treinamentos">("dados");
 
   const filtered = useMemo(() => {
     return funcionarios.filter((f: any) => {
@@ -111,9 +112,9 @@ function FuncionariosPage() {
     });
   }, [funcionarios, busca, fStatus, fObra, fVenc]);
 
-  const openNew = () => { setEditing(null); setFichaRegistro(null); setForm({ ativo: true, experiencia_concluida: false }); setTreinamentos([novoTreinamento()]); setOpen(true); };
+  const openNew = () => { setEditing(null); setAbaForm("dados"); setFichaRegistro(null); setForm({ ativo: true, experiencia_concluida: false }); setTreinamentos([novoTreinamento()]); setOpen(true); };
   const openEdit = async (f: Funcionario) => {
-    setEditing(f); setFichaRegistro(null); setForm({ ...f });
+    setEditing(f); setAbaForm("dados"); setFichaRegistro(null); setForm({ ...f });
     // Carrega treinamentos existentes do funcionário
     try {
       const { data } = await (supabase as any).from("funcionario_treinamentos").select("*").eq("funcionario_id", f.id).order("created_at");
@@ -268,7 +269,7 @@ function FuncionariosPage() {
                 onSubmit={(e) => { e.preventDefault(); upsert.mutate(form); }}
                 className="space-y-4"
               >
-                {!editing && (
+                {!editing && abaForm === "dados" && (
                   <div className="rounded-lg border border-dashed p-3 space-y-2 bg-muted/20">
                     <div>
                       <Label>Ficha de registro com leitura por IA</Label>
@@ -280,7 +281,7 @@ function FuncionariosPage() {
                   </div>
                 )}
 
-                <Tabs defaultValue="dados" className="w-full">
+                <Tabs value={abaForm} onValueChange={(v) => setAbaForm(v as "dados" | "treinamentos")} className="w-full">
                   <TabsList className="w-full">
                     <TabsTrigger value="dados" className="flex-1">Dados</TabsTrigger>
                     <TabsTrigger value="treinamentos" className="flex-1">Treinamentos</TabsTrigger>
