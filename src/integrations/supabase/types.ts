@@ -1409,27 +1409,7 @@ export type Database = {
       }
     }
     Views: {
-      profiles_basico: {
-        Row: {
-          avatar_url: string | null
-          id: string | null
-          nome: string | null
-          setor: string | null
-        }
-        Insert: {
-          avatar_url?: string | null
-          id?: string | null
-          nome?: string | null
-          setor?: string | null
-        }
-        Update: {
-          avatar_url?: string | null
-          id?: string | null
-          nome?: string | null
-          setor?: string | null
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Functions: {
       admin_bulk_set_custom_role: {
@@ -1455,6 +1435,13 @@ export type Database = {
         Returns: string
       }
       admin_delete_user: { Args: { _user_id: string }; Returns: undefined }
+      admin_list_profile_emails: {
+        Args: never
+        Returns: {
+          email: string
+          id: string
+        }[]
+      }
       admin_set_role: {
         Args: {
           _grant: boolean
