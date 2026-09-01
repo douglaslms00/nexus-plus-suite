@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { useEffect, useState, type ReactNode } from "react";
 import { useObraAtual } from "@/lib/obra-context";
 import { NotificationsBell } from "@/components/NotificationsBell";
+import { GlobalFloatingActions } from "@/components/GlobalFloatingActions";
 
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -227,6 +228,8 @@ export function AppShell({ children }: { children: ReactNode }) {
 
 
         <div className="max-w-7xl mx-auto w-full p-4 lg:p-8">{children}</div>
+        
+        <GlobalFloatingActions />
       </main>
     </div>
   );
