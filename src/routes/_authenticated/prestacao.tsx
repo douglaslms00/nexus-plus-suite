@@ -18,7 +18,7 @@ function PrestacaoPage() {
     
     // We append the access token to the URL so the target Lovable app can read it and authenticate automatically
     // The target app needs to extract this token and set it using supabase.auth.setSession()
-    let url = "https://prestacontasms.lovable.app/";
+    let url = "https://prestacontasms.lovable.app/auth";
     if (session?.access_token) {
       url += `?access_token=${session.access_token}&refresh_token=${session.refresh_token}`;
     }
