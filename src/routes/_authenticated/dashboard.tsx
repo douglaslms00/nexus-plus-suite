@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Users, CheckSquare, HardHat, AlertTriangle, Package, CalendarClock, Wallet, ShieldCheck, MapPin,
-  ClipboardCheck, FileDown, FileText, ArrowUpDown, CheckCircle2, XCircle,
+  ClipboardCheck, FileDown, FileText, ArrowUpDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { parseISO, format } from "date-fns";
@@ -16,7 +16,7 @@ import { isAdmin, useUserRoles } from "@/lib/permissions";
 import { useObraAtual } from "@/lib/obra-context";
 import { exportCSV, exportPDF } from "@/lib/exports";
 import {
-  VENC_FIELDS, computeConformidade, countAlertasVencimento, statusFromDays, type Status,
+  VENC_FIELDS, computeConformidade, type Status,
 } from "@/lib/conformidade";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({ component: DashboardPage });
@@ -86,11 +86,6 @@ function DashboardPage() {
   const matAbaixoMin = materiais.filter((m: any) => Number(m.estoque_atual) < Number(m.estoque_minimo));
   const contasPagar = contas.filter((c: any) => c.tipo === "pagar");
   const alertasAtivos = alertasVencimento.length + epiAbaixoMin.length + matAbaixoMin.length;
-
-  // Validação visível
-  const somaItens = countAlertasVencimento(conformidade) + epiAbaixoMin.length + matAbaixoMin.length;
-  const contadorOk = somaItens === alertasAtivos;
-  const coresOk = alertasVencimento.every((a) => statusFromDays(a.dias) === a.status);
 
   const pendentes = conformidade.filter((c) => c.pior !== "verde");
   const emDia = conformidade.filter((c) => c.pior === "verde");
@@ -176,26 +171,6 @@ function DashboardPage() {
           </Card>
         ))}
       </div>
-
-      <Card className={cn("border-l-4", contadorOk && coresOk ? "border-l-success" : "border-l-destructive")}>
-        <CardHeader className="pb-2">
-          <CardTitle className="flex items-center gap-2 text-base">
-            <ShieldCheck className="h-4 w-4" /> Validação automática
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="grid sm:grid-cols-2 gap-2 text-sm">
-          <div className="flex items-center gap-2">
-            {contadorOk ? <CheckCircle2 className="h-4 w-4 text-success" /> : <XCircle className="h-4 w-4 text-destructive" />}
-            <span>Contador de Alertas Ativos = soma dos itens</span>
-            <span className="text-xs text-muted-foreground ml-auto">{alertasAtivos} = {somaItens}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            {coresOk ? <CheckCircle2 className="h-4 w-4 text-success" /> : <XCircle className="h-4 w-4 text-destructive" />}
-            <span>Cores de vencimento (verde / amarelo / vermelho) corretas</span>
-            <span className="text-xs text-muted-foreground ml-auto">{alertasVencimento.length} verificados</span>
-          </div>
-        </CardContent>
-      </Card>
 
       <Card>
         <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
