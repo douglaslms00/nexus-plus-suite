@@ -47,7 +47,7 @@ function FinanceiroPage() {
 
   const { data: profiles = [] } = useQuery({
     queryKey: ["profiles-fin"],
-    queryFn: async () => (await supabase.from("profiles").select("id, nome")).data ?? [],
+    queryFn: async () => (await (supabase as any).rpc("list_profile_directory")).data ?? [],
     enabled: canEdit,
   });
 

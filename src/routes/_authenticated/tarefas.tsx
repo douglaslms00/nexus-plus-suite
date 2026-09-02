@@ -128,7 +128,8 @@ function TarefasPage() {
       const ids = Array.from(new Set((data ?? []).map((t: any) => t.responsavel_id).filter(Boolean)));
       let nameMap = new Map<string, string>();
       if (ids.length) {
-        const { data: profs } = await supabase.from("profiles").select("id, nome").in("id", ids);
+        const { data: allProfs } = await (supabase as any).rpc("list_profile_directory");
+        const profs = (allProfs ?? []).filter((p: any) => ids.includes(p.id));
         nameMap = new Map((profs ?? []).map((p: any) => [p.id, p.nome]));
       }
       return (data ?? []).map((t: any) => ({ ...t, responsavel: t.responsavel_id ? { nome: nameMap.get(t.responsavel_id) ?? "—" } : null }));
@@ -159,7 +160,7 @@ function TarefasPage() {
 
   const { data: pessoas = [] } = useQuery({
     queryKey: ["profiles-min"],
-    queryFn: async () => (await supabase.from("profiles").select("id, nome")).data ?? [],
+    queryFn: async () => (await (supabase as any).rpc("list_profile_directory")).data ?? [],
   });
 
   const [open, setOpen] = useState(false);
