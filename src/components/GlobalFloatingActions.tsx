@@ -119,7 +119,7 @@ export function GlobalFloatingActions() {
       </Dialog>
 
       {aiOpen && (
-        <Card className="fixed bottom-28 right-6 w-[340px] sm:w-[380px] shadow-2xl z-50 flex flex-col h-[500px] animate-in slide-in-from-bottom-5">
+        <Card className="fixed bottom-8 right-6 w-full sm:w-[360px] max-w-full shadow-2xl z-50 flex flex-col h-auto animate-in slide-in-from-bottom-5">
           <CardHeader className="bg-indigo-600 text-white rounded-t-lg px-4 py-3 flex flex-row items-center justify-between space-y-0">
             <div className="flex items-center gap-2">
               <Bot className="h-5 w-5" />

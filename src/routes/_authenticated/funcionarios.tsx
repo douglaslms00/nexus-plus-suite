@@ -37,6 +37,50 @@ function novoTreinamento(): TreinamentoItem {
   return { id: crypto.randomUUID(), nome: "", data_realizacao: "", data_validade: "" };
 }
 
+// Novos treinamentos NRs (Normas Regulamentadoras)
+const treinamentosNRs: TreinamentoItem[] = [
+  { id: crypto.randomUUID(), nome: "NR-1 - Disposições Gerais e Gerenciamento de Riscos Ocupacionais", data_realizacao: "", data_validade: "" },
+  { id: crypto.randomUUID(), nome: "NR-2 - Inspeção Prévia (Revogada)", data_realizacao: "", data_validade: "" },
+  { id: crypto.randomUUID(), nome: "NR-3 - Embargo e Interdição", data_realizacao: "", data_validade: "" },
+  { id: crypto.randomUUID(), nome: "NR-4 - Serviços Especializados em Segurança e em Medicina do Trabalho", data_realizacao: "", data_validade: "" },
+  { id: crypto.randomUUID(), nome: "NR-5 - Comissão Interna de Prevenção de Acidentes e de Assédio - CIPA", data_realizacao: "", data_validade: "" },
+  { id: crypto.randomUUID(), nome: "NR-6 - Equipamento de Proteção Individual - EPI", data_realizacao: "", data_validade: "" },
+  { id: crypto.randomUUID(), nome: "NR-7 - Programa de Controle Médico de Saúde Ocupacional", data_realizacao: "", data_validade: "" },
+  { id: crypto.randomUUID(), nome: "NR-8 - Edificações", data_realizacao: "", data_validade: "" },
+  { id: crypto.randomUUID(), nome: "NR-9 - Avaliação e Controle das Exposições Ocupacionais a Agentes Físicos, Químicos e Biológicos", data_realizacao: "", data_validade: "" },
+  { id: crypto.randomUUID(), nome: "NR-10 - Segurança em Instalações e Serviços em Eletricidade", data_realizacao: "", data_validade: "" },
+  { id: crypto.randomUUID(), nome: "NR-11 - Transporte, Movimentação, Armazenagem e Manuseio de Materiais", data_realizacao: "", data_validade: "" },
+  { id: crypto.randomUUID(), nome: "NR-12 - Segurança no Trabalho em Máquinas e Equipamentos", data_realizacao: "", data_validade: "" },
+  { id: crypto.randomUUID(), nome: "NR-13 - Caldeiras, Vasos de Pressão e Tubulações e Tanques Metálicos de Armazenamento", data_realizacao: "", data_validade: "" },
+  { id: crypto.randomUUID(), nome: "NR-14 - Fornos", data_realizacao: "", data_validade: "" },
+  { id: crypto.randomUUID(), nome: "NR-15 - Atividades e Operações Insalubres", data_realizacao: "", data_validade: "" },
+  { id: crypto.randomUUID(), nome: "NR-16 - Atividades e Operações Perigosas", data_realizacao: "", data_validade: "" },
+  { id: crypto.randomUUID(), nome: "NR-17 - Ergonomia", data_realizacao: "", data_validade: "" },
+  { id: crypto.randomUUID(), nome: "NR-18 - Segurança e Saúde no Trabalho na Indústria da Construção", data_realizacao: "", data_validade: "" },
+  { id: crypto.randomUUID(), nome: "NR-19 - Explosivos", data_realizacao: "", data_validade: "" },
+  { id: crypto.randomUUID(), nome: "NR-20 - Segurança e Saúde no Trabalho com Inflamáveis e Combustíveis", data_realizacao: "", data_validade: "" },
+  { id: crypto.randomUUID(), nome: "NR-21 - Trabalhos a Céu Aberto", data_realizacao: "", data_validade: "" },
+  { id: crypto.randomUUID(), nome: "NR-22 - Segurança e Saúde Ocupacional na Mineração", data_realizacao: "", data_validade: "" },
+  { id: crypto.randomUUID(), nome: "NR-23 - Proteção Contra Incêndios", data_realizacao: "", data_validade: "" },
+  { id: crypto.randomUUID(), nome: "NR-24 - Condições Sanitárias e de Conforto nos Locais de Trabalho", data_realizacao: "", data_validade: "" },
+  { id: crypto.randomUUID(), nome: "NR-25 - Resíduos Industriais", data_realizacao: "", data_validade: "" },
+  { id: crypto.randomUUID(), nome: "NR-26 - Sinalização de Segurança", data_realizacao: "", data_validade: "" },
+  { id: crypto.randomUUID(), nome: "NR-27 - Registro Profissional do Técnico de Segurança do Trabalho (Revogada)", data_realizacao: "", data_validade: "" },
+  { id: crypto.randomUUID(), nome: "NR-28 - Fiscalização e Penalidades", data_realizacao: "", data_validade: "" },
+  { id: crypto.randomUUID(), nome: "NR-29 - Norma Regulamentadora de Segurança e Saúde no Trabalho Portuário", data_realizacao: "", data_validade: "" },
+  { id: crypto.randomUUID(), nome: "NR-30 - Segurança e Saúde no Trabalho Aquaviário", data_realizacao: "", data_validade: "" },
+  { id: crypto.randomUUID(), nome: "NR-31 - Segurança e Saúde no Trabalho na Agricultura, Pecuária, Silvicultura, Exploração Florestal e Aquicultura", data_realizacao: "", data_validade: "" },
+  { id: crypto.randomUUID(), nome: "NR-32 - Segurança e Saúde no Trabalho em Serviços de Saúde", data_realizacao: "", data_validade: "" },
+  { id: crypto.randomUUID(), nome: "NR-33 - Segurança e Saúde nos Trabalhos em Espaços Confinados", data_realizacao: "", data_validade: "" },
+  { id: crypto.randomUUID(), nome: "NR-34 - Condições e Meio Ambiente de Trabalho na Indústria da Construção, Reparação e Desmonte Naval", data_realizacao: "", data_validade: "" },
+  { id: crypto.randomUUID(), nome: "NR-35 - Trabalho em Altura", data_realizacao: "", data_validade: "" },
+  { id: crypto.randomUUID(), nome: "NR-36 - Segurança e Saúde no Trabalho em Empresas de Abate e Processamento de Carnes e Derivados", data_realizacao: "", data_validade: "" },
+  { id: crypto.randomUUID(), nome: "NR-37 - Segurança e Saúde em Plataformas de Petróleo", data_realizacao: "", data_validade: "" },
+  { id: crypto.randomUUID(), nome: "NR-38 - Segurança e Saúde no Trabalho nas Atividades de Limpeza Urbana e Manuseio de Resíduos Sólidos", data_realizacao: "", data_validade: "" },
+  { id: crypto.randomUUID(), nome: "Primeiros Socorros", data_realizacao: "", data_validade: "" },
+  { id: crypto.randomUUID(), nome: "Brigada de Incêndio", data_realizacao: "", data_validade: "" },
+] as const;
+
 type Funcionario = any;
 
 function vencColor(date?: string | null) {
@@ -122,7 +166,7 @@ function FuncionariosPage() {
     });
   }, [funcionarios, busca, fStatus, fObra, fVenc]);
 
-  const openNew = () => { setEditing(null); setAbaForm("dados"); setFichaRegistro(null); setForm({ ativo: true, experiencia_concluida: false }); setTreinamentos([novoTreinamento()]); setOpen(true); };
+  const openNew = () => { setEditing(null); setAbaForm("dados"); setFichaRegistro(null); setForm({ ativo: true, experiencia_concluida: false }); setTreinamentos([...treinamentosNRs, novoTreinamento()]); setOpen(true); };
   const openEdit = async (f: Funcionario) => {
     setEditing(f); setAbaForm("dados"); setFichaRegistro(null); setForm({ ...f });
     // Carrega treinamentos existentes do funcionário
