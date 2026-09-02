@@ -96,7 +96,7 @@ function FuncionariosPage() {
 
   const filtered = useMemo(() => {
     return funcionarios.filter((f: any) => {
-      if (busca && !`${f.nome ?? ""} ${f.funcao ?? ""} ${f.setor ?? ""} ${f.cpf ?? ""}`.toLowerCase().includes(busca.toLowerCase())) return false;
+      if (busca && !`${f.nome ?? ""} ${f.funcao ?? ""} ${f.setor ?? ""} ${f.cpf ?? ""} ${f.matricula ?? ""}`.toLowerCase().includes(busca.toLowerCase())) return false;
       if (fStatus === "ativos" && !f.ativo) return false;
       if (fStatus === "inativos" && f.ativo) return false;
       if (fObra !== "todas" && f.obra_id !== fObra) return false;
@@ -162,7 +162,7 @@ function FuncionariosPage() {
   // Colunas conhecidas da tabela funcionarios (exclui colunas que podem não existir ainda)
   const COLUNAS_FUNC = [
     "nome","cpf","telefone","email","funcao","setor","data_admissao",
-    "endereco","cidade","obra_id","ativo","experiencia_concluida",
+    "endereco","cidade","matricula","obra_id","ativo","experiencia_concluida",
     "vencimento_aso","validade_meses_aso",
     "vencimento_ficha_epi","validade_meses_ficha_epi",
     "vencimento_folga_campo","validade_meses_folga_campo",
@@ -298,6 +298,7 @@ function FuncionariosPage() {
                       <div className="space-y-1"><Label>Setor</Label><Input value={form.setor ?? ""} onChange={(e) => setForm({ ...form, setor: e.target.value })} /></div>
                       <div className="space-y-1"><Label>E-mail</Label><Input type="email" value={form.email ?? ""} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
                       <div className="space-y-1"><Label>Data admissão</Label><Input type="date" value={form.data_admissao ?? ""} onChange={(e) => setForm({ ...form, data_admissao: e.target.value })} /></div>
+                      <div className="space-y-1"><Label>Matrícula</Label><Input value={form.matricula ?? ""} onChange={(e) => setForm({ ...form, matricula: e.target.value })} /></div>
                       <div className="col-span-2 space-y-1"><Label>Endereço</Label><Input value={form.endereco ?? ""} onChange={(e) => setForm({ ...form, endereco: e.target.value })} /></div>
                       <div className="space-y-1"><Label>Cidade</Label><Input value={form.cidade ?? ""} onChange={(e) => setForm({ ...form, cidade: e.target.value })} /></div>
                       <div className="space-y-1">
@@ -417,7 +418,7 @@ function FuncionariosPage() {
               <TableHead>CPF</TableHead>
               <TableHead>Data de admissão</TableHead>
               <TableHead>Telefone para contato</TableHead>
-              <TableHead>Endereço</TableHead>
+              <TableHead>Matrícula</TableHead>
               <TableHead>Cidade</TableHead>
               <TableHead className="w-24 text-right">Ações</TableHead>
             </TableRow>
@@ -443,7 +444,7 @@ function FuncionariosPage() {
                 <TableCell>{f.cpf ?? "—"}</TableCell>
                 <TableCell className="whitespace-nowrap">{f.data_admissao ? format(parseISO(f.data_admissao), "dd/MM/yyyy") : "—"}</TableCell>
                 <TableCell>{f.telefone ?? "—"}</TableCell>
-                <TableCell>{f.endereco ?? "—"}</TableCell>
+                <TableCell>{f.matricula ?? "—"}</TableCell>
                 <TableCell>{f.cidade ?? "—"}</TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-1">
