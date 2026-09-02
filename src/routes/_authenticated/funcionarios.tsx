@@ -372,7 +372,6 @@ function FuncionariosPage() {
                         <Select value={form.treinamentoSelecionado ?? ""} onValueChange={(v) => { setForm({ ...form, treinamentoSelecionado: v }); if (v && v !== "outro" && v !== "") setTreinamentos((prev) => [...prev, novoTreinamentoWithNome(v)]); }} >
                           <SelectTrigger><SelectValue placeholder="Selecione um treinamento" /></SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="">Selecione um treinamento</SelectItem>
                             <SelectItem value="NR-1">NR-1 - Disposições Gerais e Gerenciamento de Riscos Ocupacionais</SelectItem>
                             <SelectItem value="NR-2">NR-2 - Inspeção Prévia (Revogada)</SelectItem>
                             <SelectItem value="NR-3">NR-3 - Embargo e Interdição</SelectItem>
