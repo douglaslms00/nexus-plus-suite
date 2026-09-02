@@ -239,7 +239,7 @@ function FinanceiroPage() {
               return (
                 <TabsContent key={tab} value={tab} className="space-y-2">
                   {list.map((c: any) => {
-                    const dias = differenceInDays(parseISO(c.data_vencimento), new Date());
+                    const dias = c.data_vencimento ? differenceInDays(parseISO(c.data_vencimento), new Date()) : 0;
                     const atrasado = c.status !== "pago" && dias < 0;
                     const isOwner = c.user_id === user?.id;
                     const podeMarcar = escopoAtivo === "pessoal" ? isOwner : canEdit;

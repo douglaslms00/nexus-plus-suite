@@ -1171,7 +1171,7 @@ function TarefaDetailDialog({
                       <div className="font-medium">
                         {nome}{" "}
                         <span className="text-muted-foreground font-normal">
-                          — {format(parseISO(e.executado_em), "dd/MM/yyyy HH:mm")}
+                          — {e.executado_em ? format(parseISO(e.executado_em), "dd/MM/yyyy HH:mm") : "—"}
                         </span>
                       </div>
                       {e.observacao && <div className="text-muted-foreground mt-0.5 whitespace-pre-wrap">{e.observacao}</div>}
