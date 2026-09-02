@@ -62,7 +62,7 @@ function AcessosPage() {
     staleTime: 1000 * 60 * 2,
     queryFn: async () => {
       const [{ data: profs }, { data: r }, { data: perms }, { data: uobras }, { data: ucroles }, { data: emails }] = await Promise.all([
-        supabase.from("profiles").select("id, nome"),
+        (supabase as any).rpc("list_profile_directory"),
         supabase.from("user_roles").select("user_id, role"),
         supabase.from("user_module_permissions").select("user_id, module, can_view, can_edit, can_delete"),
         supabase.from("user_obras").select("user_id, obra_id"),
