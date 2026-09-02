@@ -87,11 +87,6 @@ function DashboardPage() {
   const contasPagar = contas.filter((c: any) => c.tipo === "pagar");
   const alertasAtivos = alertasVencimento.length + epiAbaixoMin.length + matAbaixoMin.length;
 
-  // Validação visível
-  const somaItens = countAlertasVencimento(conformidade) + epiAbaixoMin.length + matAbaixoMin.length;
-  const contadorOk = somaItens === alertasAtivos;
-  const coresOk = alertasVencimento.every((a) => statusFromDays(a.dias) === a.status);
-
   const pendentes = conformidade.filter((c) => c.pior !== "verde");
   const emDia = conformidade.filter((c) => c.pior === "verde");
   const base = confTab === "pendentes" ? pendentes : confTab === "em_dia" ? emDia : conformidade;
