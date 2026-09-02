@@ -814,6 +814,50 @@ export type Database = {
           },
         ]
       }
+      funcionario_treinamentos: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          data_realizacao: string | null
+          data_validade: string | null
+          funcionario_id: string
+          id: string
+          nome: string
+          observacoes: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          data_realizacao?: string | null
+          data_validade?: string | null
+          funcionario_id: string
+          id?: string
+          nome: string
+          observacoes?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          data_realizacao?: string | null
+          data_validade?: string | null
+          funcionario_id?: string
+          id?: string
+          nome?: string
+          observacoes?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "funcionario_treinamentos_funcionario_id_fkey"
+            columns: ["funcionario_id"]
+            isOneToOne: false
+            referencedRelation: "funcionarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       funcionarios: {
         Row: {
           ativo: boolean
