@@ -57,6 +57,16 @@ function isExperienciaConcluida(f: any) {
   return false;
 }
 
+// Extrai do erro do Supabase as colunas que não existem no schema do banco
+// (ex.: "Could not find the 'data_aso' column of 'funcionarios' in the schema cache").
+function colunasMissing(msg: string): string[] {
+  const out: string[] = [];
+  const re = /Could not find the '([^']+)' column of '[^']+'\s*in the schema cache/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(msg))) out.push(m[1]);
+  return out;
+}
+
 function FuncionariosPage() {
   const qc = useQueryClient();
   const { data: roles } = useUserRoles();
@@ -181,9 +191,11 @@ function FuncionariosPage() {
       if (editing) {
         const { error } = await supabase.from("funcionarios").update(data).eq("id", editing.id);
         if (error) {
-          if (error.message?.includes("cidade") || error.message?.includes("endereco")) {
-            toast.warning("Colunas 'cidade' e/o 'endereco' não existem no Supabase. Atualize o banco de dados.");
-            const { cidade: _c, endereco: _e, ...dataFallback } = data;
+          const faltantes = colunasMissing(error.message ?? "");
+          if (faltantes.length > 0) {
+            toast.warning(`Colunas ainda não existem no Supabase: ${faltantes.join(", ")}. Aplique a migration para salvar esses campos.`);
+            const dataFallback = { ...data };
+            faltantes.forEach((c) => delete dataFallback[c]);
             const { error: e2 } = await supabase.from("funcionarios").update(dataFallback).eq("id", editing.id);
             if (e2) throw e2;
           } else throw error;
@@ -191,9 +203,11 @@ function FuncionariosPage() {
       } else {
         const { data: novo, error } = await supabase.from("funcionarios").insert(data).select("id").single();
         if (error) {
-          if (error.message?.includes("cidade") || error.message?.includes("endereco")) {
-            toast.warning("Colunas 'cidade' e/o 'endereco' não existem no Supabase. Atualize o banco de dados.");
-            const { cidade: _c, endereco: _e, ...dataFallback } = data;
+          const faltantes = colunasMissing(error.message ?? "");
+          if (faltantes.length > 0) {
+            toast.warning(`Colunas ainda não existem no Supabase: ${faltantes.join(", ")}. Aplique a migration para salvar esses campos.`);
+            const dataFallback = { ...data };
+            faltantes.forEach((c) => delete dataFallback[c]);
             const { data: novo2, error: e2 } = await supabase.from("funcionarios").insert(dataFallback).select("id").single();
             if (e2) throw e2;
             funcionarioId = novo2.id;
