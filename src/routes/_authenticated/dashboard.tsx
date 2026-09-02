@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Users, CheckSquare, HardHat, AlertTriangle, Package, CalendarClock, Wallet, ShieldCheck, MapPin,
-  ClipboardCheck, FileDown, FileText, ArrowUpDown, CheckCircle2, XCircle,
+  ClipboardCheck, FileDown, FileText, ArrowUpDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { parseISO, format } from "date-fns";
@@ -16,7 +16,7 @@ import { isAdmin, useUserRoles } from "@/lib/permissions";
 import { useObraAtual } from "@/lib/obra-context";
 import { exportCSV, exportPDF } from "@/lib/exports";
 import {
-  VENC_FIELDS, computeConformidade, countAlertasVencimento, statusFromDays, type Status,
+  VENC_FIELDS, computeConformidade, type Status,
 } from "@/lib/conformidade";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({ component: DashboardPage });
