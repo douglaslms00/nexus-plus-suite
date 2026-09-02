@@ -129,17 +129,21 @@ function MateriaisPage() {
       m.data, m.material?.nome ?? "", m.tipo, Number(m.quantidade).toFixed(3),
       m.material?.unidade ?? "", m.obra?.nome ?? "", m.observacoes ?? "",
     ]);
-    kind === "csv"
-      ? exportCSV(`movimentos-materiais-${new Date().toISOString().slice(0,10)}`, headers, rows)
-      : exportPDF("Movimentos de materiais", headers, rows);
+    if (kind === "csv") {
+      exportCSV(`movimentos-materiais-${new Date().toISOString().slice(0,10)}`, headers, rows);
+    } else {
+      exportPDF("Movimentos de materiais", headers, rows);
+    }
   };
 
   const exportConsumo = (kind: "csv" | "pdf") => {
     const headers = ["Material", "Entradas", "Saídas", "Saldo período"];
     const rows = consumo.map((c) => [c.nome, c.entrada.toFixed(2), c.saida.toFixed(2), (c.entrada - c.saida).toFixed(2)]);
-    kind === "csv"
-      ? exportCSV(`consumo-materiais-${new Date().toISOString().slice(0,10)}`, headers, rows)
-      : exportPDF("Relatório de consumo de materiais", headers, rows);
+    if (kind === "csv") {
+      exportCSV(`consumo-materiais-${new Date().toISOString().slice(0,10)}`, headers, rows);
+    } else {
+      exportPDF("Relatório de consumo de materiais", headers, rows);
+    }
   };
 
   if (!perm.can_view) {

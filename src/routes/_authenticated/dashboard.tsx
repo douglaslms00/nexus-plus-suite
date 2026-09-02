@@ -28,6 +28,7 @@ function StatusDot({ status }: { status: Status }) {
 
 const PAGE_SIZE = 10;
 type SortKey = "nome" | "status";
+const PIOR_RANK: Record<Status, number> = { vermelho: 0, amarelo: 1, verde: 2 };
 
 function DashboardPage() {
   const { data: roles } = useUserRoles();
@@ -91,13 +92,12 @@ function DashboardPage() {
   const emDia = conformidade.filter((c) => c.pior === "verde");
   const base = confTab === "pendentes" ? pendentes : confTab === "em_dia" ? emDia : conformidade;
 
-  const piorRank: Record<Status, number> = { vermelho: 0, amarelo: 1, verde: 2 };
   const sorted = useMemo(() => {
     const arr = [...base];
     arr.sort((a, b) => {
       let cmp = 0;
       if (sortKey === "nome") cmp = (a.funcionario.nome ?? "").localeCompare(b.funcionario.nome ?? "");
-      else cmp = piorRank[a.pior] - piorRank[b.pior];
+      else cmp = PIOR_RANK[a.pior] - PIOR_RANK[b.pior];
       return sortDir === "asc" ? cmp : -cmp;
     });
     return arr;

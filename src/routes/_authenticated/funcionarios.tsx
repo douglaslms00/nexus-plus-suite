@@ -188,33 +188,31 @@ function FuncionariosPage() {
       const data: any = {};
       COLUNAS_FUNC.forEach((k) => { if (k in payload) data[k] = payload[k] === "" ? null : payload[k]; });
       let funcionarioId = editing?.id;
+      const faltantes = new Set<string>();
+      // Tenta salvar; se o Supabase indicar colunas que ainda não existem no schema
+      // (ex.: data_aso, data_ferias, data_folga_campo), remove-as e tenta novamente em loop.
+      const salvar = async (isUpdate: boolean) => {
+        for (let i = 0; i <= COLUNAS_FUNC.length; i++) {
+          const fn = isUpdate
+            ? () => supabase.from("funcionarios").update(data).eq("id", editing!.id)
+            : () => supabase.from("funcionarios").insert(data).select("id").single();
+          const { error, data: res } = await fn();
+          if (!error) return res;
+          const miss = colunasMissing(error.message ?? "");
+          if (miss.length === 0 || miss.every((m) => faltantes.has(m))) throw error;
+          miss.forEach((m) => faltantes.add(m));
+          miss.forEach((m) => delete data[m]);
+        }
+        throw new Error("Não foi possível salvar após remover as colunas ausentes.");
+      };
       if (editing) {
-        const { error } = await supabase.from("funcionarios").update(data).eq("id", editing.id);
-        if (error) {
-          const faltantes = colunasMissing(error.message ?? "");
-          if (faltantes.length > 0) {
-            toast.warning(`Colunas ainda não existem no Supabase: ${faltantes.join(", ")}. Aplique a migration para salvar esses campos.`);
-            const dataFallback = { ...data };
-            faltantes.forEach((c) => delete dataFallback[c]);
-            const { error: e2 } = await supabase.from("funcionarios").update(dataFallback).eq("id", editing.id);
-            if (e2) throw e2;
-          } else throw error;
-        }
+        await salvar(true);
       } else {
-        const { data: novo, error } = await supabase.from("funcionarios").insert(data).select("id").single();
-        if (error) {
-          const faltantes = colunasMissing(error.message ?? "");
-          if (faltantes.length > 0) {
-            toast.warning(`Colunas ainda não existem no Supabase: ${faltantes.join(", ")}. Aplique a migration para salvar esses campos.`);
-            const dataFallback = { ...data };
-            faltantes.forEach((c) => delete dataFallback[c]);
-            const { data: novo2, error: e2 } = await supabase.from("funcionarios").insert(dataFallback).select("id").single();
-            if (e2) throw e2;
-            funcionarioId = novo2.id;
-          } else throw error;
-        } else {
-          funcionarioId = novo.id;
-        }
+        const res = await salvar(false);
+        funcionarioId = res?.id;
+      }
+      if (faltantes.size > 0) {
+        toast.warning(`Colunas ainda não existem no Supabase: ${[...faltantes].join(", ")}. Aplique a migration para salvar esses campos.`);
       }
       // Salva treinamentos dinâmicos
       if (funcionarioId) {

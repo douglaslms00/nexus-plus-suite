@@ -127,9 +127,11 @@ function FinanceiroPage() {
       c.data_vencimento, c.tipo, c.descricao, c.categoria ?? "",
       Number(c.valor).toFixed(2), c.status, c.data_pagamento ?? "",
     ]);
-    kind === "csv"
-      ? exportCSV(`fluxo-${escopoAtivo}-${new Date().toISOString().slice(0,10)}`, headers, rows)
-      : exportPDF(`Fluxo de caixa (${escopoAtivo})`, headers, rows);
+    if (kind === "csv") {
+      exportCSV(`fluxo-${escopoAtivo}-${new Date().toISOString().slice(0,10)}`, headers, rows);
+    } else {
+      exportPDF(`Fluxo de caixa (${escopoAtivo})`, headers, rows);
+    }
   };
 
   if (!perm.can_view) {
