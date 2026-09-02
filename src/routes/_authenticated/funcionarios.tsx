@@ -164,10 +164,10 @@ function FuncionariosPage() {
   const COLUNAS_FUNC = [
     "nome","cpf","telefone","email","funcao","setor","data_admissao",
     "endereco","cidade","matricula","obra_id","ativo","experiencia_concluida",
-    "vencimento_aso","validade_meses_aso",
+    "vencimento_aso","validade_meses_aso","data_aso",
     "vencimento_ficha_epi","validade_meses_ficha_epi",
-    "vencimento_folga_campo","validade_meses_folga_campo",
-    "vencimento_ferias","validade_meses_ferias",
+    "vencimento_folga_campo","validade_meses_folga_campo","data_folga_campo",
+    "vencimento_ferias","validade_meses_ferias","data_ferias",
     "vencimento_treinamento","validade_meses_treinamento",
     "vencimento_experiencia","validade_meses_experiencia",
   ];
@@ -308,6 +308,29 @@ function FuncionariosPage() {
                           <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                           <SelectContent>{obras.map((o: any) => <SelectItem key={o.id} value={o.id}>{o.nome}</SelectItem>)}</SelectContent>
                         </Select>
+                      </div>
+
+                      <div className="col-span-2 pt-2 border-t">
+                        <p className="text-sm font-semibold mb-2">Documentação e validades</p>
+                        <div className="grid grid-cols-3 gap-3">
+                          {([
+                            ["ASO", "data_aso", "vencimento_aso"],
+                            ["Férias", "data_ferias", "vencimento_ferias"],
+                            ["Folga de campo", "data_folga_campo", "vencimento_folga_campo"],
+                          ] as const).map(([rotulo, keyData, keyVenc]) => (
+                            <div key={rotulo} className="rounded-lg border p-3 space-y-2 bg-muted/10">
+                              <span className="text-xs font-medium text-muted-foreground">{rotulo}</span>
+                              <div className="space-y-1">
+                                <Label className="text-xs">Data</Label>
+                                <Input type="date" value={form[keyData] ?? ""} onChange={(e) => setForm({ ...form, [keyData]: e.target.value })} />
+                              </div>
+                              <div className="space-y-1">
+                                <Label className="text-xs">Validade</Label>
+                                <Input type="date" value={form[keyVenc] ?? ""} onChange={(e) => setForm({ ...form, [keyVenc]: e.target.value })} />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       </div>
 
                       <div className="col-span-2 flex items-center gap-6 pt-2 border-t">
