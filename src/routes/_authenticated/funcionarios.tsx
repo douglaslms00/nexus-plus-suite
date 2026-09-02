@@ -128,7 +128,10 @@ function FuncionariosPage() {
     });
   }, [funcionarios, busca, fStatus, fObra, fVenc]);
 
-  const openNew = () => { setEditing(null); setAbaForm("dados"); setFichaRegistro(null); setForm({ ativo: true, experiencia_concluida: false }); setTreinamentos([novoTreinamento()]); setOpen(true); };
+  const openNew = () => { setEditing(null); setAbaForm("dados"); setFichaRegistro(null); 
+  const validaExp = form.validade_experiencia ? differenceInDays(parseISO(form.validade_experiencia), new Date()) < 0 : false;
+  setForm({ ativo: true, experiencia_concluida: validaExp }); 
+  setTreinamentos([novoTreinamento()]); setOpen(true); };
   const openEdit = async (f: Funcionario) => {
     setEditing(f); setAbaForm("dados"); setFichaRegistro(null); setForm({ ...f });
     // Carrega treinamentos existentes do funcionário
@@ -328,34 +331,35 @@ function FuncionariosPage() {
                         </Select>
                       </div>
 
-                      <div className="col-span-2 pt-2 border-t">
-                        <p className="text-sm font-semibold mb-2">Documentação e validades</p>
-                        <div className="grid grid-cols-3 gap-3">
-                          {([
-                            ["ASO", "data_aso", "vencimento_aso"],
-                            ["Férias", "data_ferias", "vencimento_ferias"],
-                            ["Folga de campo", "data_folga_campo", "vencimento_folga_campo"],
-                          ] as const).map(([rotulo, keyData, keyVenc]) => (
-                            <div key={rotulo} className="rounded-lg border p-3 space-y-2 bg-muted/10">
-                              <span className="text-xs font-medium text-muted-foreground">{rotulo}</span>
-                              <div className="space-y-1">
-                                <Label className="text-xs">Data</Label>
-                                <Input type="date" value={form[keyData] ?? ""} onChange={(e) => setForm({ ...form, [keyData]: e.target.value })} />
+<div className="col-span-2 pt-2 border-t">
+                          <p className="text-sm font-semibold mb-2">Documentação e validades</p>
+                          <div className="grid grid-cols-3 gap-3">
+                            {([
+                              ["ASO", "data_aso", "vencimento_aso"],
+                              ["Férias", "data_ferias", "vencimento_ferias"],
+                              ["Folga de campo", "data_folga_campo", "vencimento_folga_campo"],
+                              ["Experiência", "validade_experiencia", "vencimento_experiencia"],
+                            ] as const).map(([rotulo, keyData, keyVenc]) => (
+                              <div key={rotulo} className="rounded-lg border p-3 space-y-2 bg-muted/10">
+                                <span className="text-xs font-medium text-muted-foreground">{rotulo}</span>
+                                <div className="space-y-1">
+                                  <Label className="text-xs">Data</Label>
+                                  <Input type="date" value={form[keyData] ?? ""} onChange={(e) => setForm({ ...form, [keyData]: e.target.value })} />
+                                </div>
+                                <div className="space-y-1">
+                                  <Label className="text-xs">Validade</Label>
+                                  <Input type="date" value={form[keyVenc] ?? ""} onChange={(e) => setForm({ ...form, [keyVenc]: e.target.value })} />
+                                </div>
                               </div>
-                              <div className="space-y-1">
-                                <Label className="text-xs">Validade</Label>
-                                <Input type="date" value={form[keyVenc] ?? ""} onChange={(e) => setForm({ ...form, [keyVenc]: e.target.value })} />
-                              </div>
-                            </div>
-                          ))}
+                            ))}
+                          </div>
                         </div>
-                      </div>
 
-                      <div className="col-span-2 flex items-center gap-6 pt-2 border-t">
-                        <label className="flex items-center gap-2 text-sm">
-                          <Checkbox checked={!!form.experiencia_concluida} onCheckedChange={(v) => setForm({ ...form, experiencia_concluida: !!v })} />
-                          Experiência concluída
-                        </label>
+                        <div className="col-span-2 flex items-center gap-6 pt-2 border-t">
+                          <label className="flex items-center gap-2 text-sm">
+                            <Checkbox checked={!!form.experiencia_concluida} onCheckedChange={(v) => setForm({ ...form, experiencia_concluida: !!v })} />
+                            Experiência concluída
+                          </label>
                         <label className="flex items-center gap-2 text-sm">
                           <Checkbox checked={!!form.ativo} onCheckedChange={(v) => setForm({ ...form, ativo: !!v })} />
                           Ativo
