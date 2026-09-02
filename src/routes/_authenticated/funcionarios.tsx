@@ -37,49 +37,11 @@ function novoTreinamento(): TreinamentoItem {
   return { id: crypto.randomUUID(), nome: "", data_realizacao: "", data_validade: "" };
 }
 
-// Novos treinamentos NRs (Normas Regulamentadoras)
-const treinamentosNRs: TreinamentoItem[] = [
-  { id: crypto.randomUUID(), nome: "NR-1 - Disposições Gerais e Gerenciamento de Riscos Ocupacionais", data_realizacao: "", data_validade: "" },
-  { id: crypto.randomUUID(), nome: "NR-2 - Inspeção Prévia (Revogada)", data_realizacao: "", data_validade: "" },
-  { id: crypto.randomUUID(), nome: "NR-3 - Embargo e Interdição", data_realizacao: "", data_validade: "" },
-  { id: crypto.randomUUID(), nome: "NR-4 - Serviços Especializados em Segurança e em Medicina do Trabalho", data_realizacao: "", data_validade: "" },
-  { id: crypto.randomUUID(), nome: "NR-5 - Comissão Interna de Prevenção de Acidentes e de Assédio - CIPA", data_realizacao: "", data_validade: "" },
-  { id: crypto.randomUUID(), nome: "NR-6 - Equipamento de Proteção Individual - EPI", data_realizacao: "", data_validade: "" },
-  { id: crypto.randomUUID(), nome: "NR-7 - Programa de Controle Médico de Saúde Ocupacional", data_realizacao: "", data_validade: "" },
-  { id: crypto.randomUUID(), nome: "NR-8 - Edificações", data_realizacao: "", data_validade: "" },
-  { id: crypto.randomUUID(), nome: "NR-9 - Avaliação e Controle das Exposições Ocupacionais a Agentes Físicos, Químicos e Biológicos", data_realizacao: "", data_validade: "" },
-  { id: crypto.randomUUID(), nome: "NR-10 - Segurança em Instalações e Serviços em Eletricidade", data_realizacao: "", data_validade: "" },
-  { id: crypto.randomUUID(), nome: "NR-11 - Transporte, Movimentação, Armazenagem e Manuseio de Materiais", data_realizacao: "", data_validade: "" },
-  { id: crypto.randomUUID(), nome: "NR-12 - Segurança no Trabalho em Máquinas e Equipamentos", data_realizacao: "", data_validade: "" },
-  { id: crypto.randomUUID(), nome: "NR-13 - Caldeiras, Vasos de Pressão e Tubulações e Tanques Metálicos de Armazenamento", data_realizacao: "", data_validade: "" },
-  { id: crypto.randomUUID(), nome: "NR-14 - Fornos", data_realizacao: "", data_validade: "" },
-  { id: crypto.randomUUID(), nome: "NR-15 - Atividades e Operações Insalubres", data_realizacao: "", data_validade: "" },
-  { id: crypto.randomUUID(), nome: "NR-16 - Atividades e Operações Perigosas", data_realizacao: "", data_validade: "" },
-  { id: crypto.randomUUID(), nome: "NR-17 - Ergonomia", data_realizacao: "", data_validade: "" },
-  { id: crypto.randomUUID(), nome: "NR-18 - Segurança e Saúde no Trabalho na Indústria da Construção", data_realizacao: "", data_validade: "" },
-  { id: crypto.randomUUID(), nome: "NR-19 - Explosivos", data_realizacao: "", data_validade: "" },
-  { id: crypto.randomUUID(), nome: "NR-20 - Segurança e Saúde no Trabalho com Inflamáveis e Combustíveis", data_realizacao: "", data_validade: "" },
-  { id: crypto.randomUUID(), nome: "NR-21 - Trabalhos a Céu Aberto", data_realizacao: "", data_validade: "" },
-  { id: crypto.randomUUID(), nome: "NR-22 - Segurança e Saúde Ocupacional na Mineração", data_realizacao: "", data_validade: "" },
-  { id: crypto.randomUUID(), nome: "NR-23 - Proteção Contra Incêndios", data_realizacao: "", data_validade: "" },
-  { id: crypto.randomUUID(), nome: "NR-24 - Condições Sanitárias e de Conforto nos Locais de Trabalho", data_realizacao: "", data_validade: "" },
-  { id: crypto.randomUUID(), nome: "NR-25 - Resíduos Industriais", data_realizacao: "", data_validade: "" },
-  { id: crypto.randomUUID(), nome: "NR-26 - Sinalização de Segurança", data_realizacao: "", data_validade: "" },
-  { id: crypto.randomUUID(), nome: "NR-27 - Registro Profissional do Técnico de Segurança do Trabalho (Revogada)", data_realizacao: "", data_validade: "" },
-  { id: crypto.randomUUID(), nome: "NR-28 - Fiscalização e Penalidades", data_realizacao: "", data_validade: "" },
-  { id: crypto.randomUUID(), nome: "NR-29 - Norma Regulamentadora de Segurança e Saúde no Trabalho Portuário", data_realizacao: "", data_validade: "" },
-  { id: crypto.randomUUID(), nome: "NR-30 - Segurança e Saúde no Trabalho Aquaviário", data_realizacao: "", data_validade: "" },
-  { id: crypto.randomUUID(), nome: "NR-31 - Segurança e Saúde no Trabalho na Agricultura, Pecuária, Silvicultura, Exploração Florestal e Aquicultura", data_realizacao: "", data_validade: "" },
-  { id: crypto.randomUUID(), nome: "NR-32 - Segurança e Saúde no Trabalho em Serviços de Saúde", data_realizacao: "", data_validade: "" },
-  { id: crypto.randomUUID(), nome: "NR-33 - Segurança e Saúde nos Trabalhos em Espaços Confinados", data_realizacao: "", data_validade: "" },
-  { id: crypto.randomUUID(), nome: "NR-34 - Condições e Meio Ambiente de Trabalho na Indústria da Construção, Reparação e Desmonte Naval", data_realizacao: "", data_validade: "" },
-  { id: crypto.randomUUID(), nome: "NR-35 - Trabalho em Altura", data_realizacao: "", data_validade: "" },
-  { id: crypto.randomUUID(), nome: "NR-36 - Segurança e Saúde no Trabalho em Empresas de Abate e Processamento de Carnes e Derivados", data_realizacao: "", data_validade: "" },
-  { id: crypto.randomUUID(), nome: "NR-37 - Segurança e Saúde em Plataformas de Petróleo", data_realizacao: "", data_validade: "" },
-  { id: crypto.randomUUID(), nome: "NR-38 - Segurança e Saúde no Trabalho nas Atividades de Limpeza Urbana e Manuseio de Resíduos Sólidos", data_realizacao: "", data_validade: "" },
-  { id: crypto.randomUUID(), nome: "Primeiros Socorros", data_realizacao: "", data_validade: "" },
-  { id: crypto.randomUUID(), nome: "Brigada de Incêndio", data_realizacao: "", data_validade: "" },
-] as const;
+function novoTreinamentoWithNome(nome: string): TreinamentoItem {
+  return { id: crypto.randomUUID(), nome, data_realizacao: "", data_validade: "" };
+}
+
+
 
 type Funcionario = any;
 
@@ -166,7 +128,7 @@ function FuncionariosPage() {
     });
   }, [funcionarios, busca, fStatus, fObra, fVenc]);
 
-  const openNew = () => { setEditing(null); setAbaForm("dados"); setFichaRegistro(null); setForm({ ativo: true, experiencia_concluida: false }); setTreinamentos([...treinamentosNRs, novoTreinamento()]); setOpen(true); };
+  const openNew = () => { setEditing(null); setAbaForm("dados"); setFichaRegistro(null); setForm({ ativo: true, experiencia_concluida: false }); setTreinamentos([novoTreinamento()]); setOpen(true); };
   const openEdit = async (f: Funcionario) => {
     setEditing(f); setAbaForm("dados"); setFichaRegistro(null); setForm({ ...f });
     // Carrega treinamentos existentes do funcionário
@@ -404,6 +366,56 @@ function FuncionariosPage() {
 
                   <TabsContent value="treinamentos" className="mt-4">
                     <div className="space-y-4">
+                      {/* Seleção de treinamento NR */}
+                      <div className="space-y-2">
+                        <Label>Selecionar treinamento</Label>
+                        <Select value={form.treinamentoSelecionado ?? ""} onValueChange={(v) => { setForm({ ...form, treinamentoSelecionado: v }); if (v && v !== "outro" && v !== "") setTreinamentos((prev) => [...prev, novoTreinamentoWithNome(v)]); }} >
+                          <SelectTrigger><SelectValue placeholder="Selecione um treinamento" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="">Selecione um treinamento</SelectItem>
+                            <SelectItem value="NR-1">NR-1 - Disposições Gerais e Gerenciamento de Riscos Ocupacionais</SelectItem>
+                            <SelectItem value="NR-2">NR-2 - Inspeção Prévia (Revogada)</SelectItem>
+                            <SelectItem value="NR-3">NR-3 - Embargo e Interdição</SelectItem>
+                            <SelectItem value="NR-4">NR-4 - Serviços Especializados em Segurança e em Medicina do Trabalho</SelectItem>
+                            <SelectItem value="NR-5">NR-5 - Comissão Interna de Prevenção de Acidentes e de Assédio - CIPA</SelectItem>
+                            <SelectItem value="NR-6">NR-6 - Equipamento de Proteção Individual - EPI</SelectItem>
+                            <SelectItem value="NR-7">NR-7 - Programa de Controle Médico de Saúde Ocupacional</SelectItem>
+                            <SelectItem value="NR-8">NR-8 - Edificações</SelectItem>
+                            <SelectItem value="NR-9">NR-9 - Avaliação e Controle das Exposições Ocupacionais a Agentes Físicos, Químicos e Biológicos</SelectItem>
+                            <SelectItem value="NR-10">NR-10 - Segurança em Instalações e Serviços em Eletricidade</SelectItem>
+                            <SelectItem value="NR-11">NR-11 - Transporte, Movimentação, Armazenagem e Manuseio de Materiais</SelectItem>
+                            <SelectItem value="NR-12">NR-12 - Segurança no Trabalho em Máquinas e Equipamentos</SelectItem>
+                            <SelectItem value="NR-13">NR-13 - Caldeiras, Vasos de Pressão e Tubulações e Tanques Metálicos de Armazenamento</SelectItem>
+                            <SelectItem value="NR-14">NR-14 - Fornos</SelectItem>
+                            <SelectItem value="NR-15">NR-15 - Atividades e Operações Insalubres</SelectItem>
+                            <SelectItem value="NR-16">NR-16 - Atividades e Operações Perigosas</SelectItem>
+                            <SelectItem value="NR-17">NR-17 - Ergonomia</SelectItem>
+                            <SelectItem value="NR-18">NR-18 - Segurança e Saúde no Trabalho na Indústria da Construção</SelectItem>
+                            <SelectItem value="NR-19">NR-19 - Explosivos</SelectItem>
+                            <SelectItem value="NR-20">NR-20 - Segurança e Saúde no Trabalho com Inflamáveis e Combustíveis</SelectItem>
+                            <SelectItem value="NR-21">NR-21 - Trabalhos a Céu Aberto</SelectItem>
+                            <SelectItem value="NR-22">NR-22 - Segurança e Saúde Ocupacional na Mineração</SelectItem>
+                            <SelectItem value="NR-23">NR-23 - Proteção Contra Incêndios</SelectItem>
+                            <SelectItem value="NR-24">NR-24 - Condições Sanitárias e de Conforto nos Locais de Trabalho</SelectItem>
+                            <SelectItem value="NR-25">NR-25 - Resíduos Industriais</SelectItem>
+                            <SelectItem value="NR-26">NR-26 - Sinalização de Segurança</SelectItem>
+                            <SelectItem value="NR-27">NR-27 - Registro Profissional do Técnico de Segurança do Trabalho (Revogada)</SelectItem>
+                            <SelectItem value="NR-28">NR-28 - Fiscalização e Penalidades</SelectItem>
+                            <SelectItem value="NR-29">NR-29 - Norma Regulamentadora de Segurança e Saúde no Trabalho Portuário</SelectItem>
+                            <SelectItem value="NR-30">NR-30 - Segurança e Saúde no Trabalho Aquaviário</SelectItem>
+                            <SelectItem value="NR-31">NR-31 - Segurança e Saúde no Trabalho na Agricultura, Pecuária, Silvicultura, Exploração Florestal e Aquicultura</SelectItem>
+                            <SelectItem value="NR-32">NR-32 - Segurança e Saúde no Trabalho em Serviços de Saúde</SelectItem>
+                            <SelectItem value="NR-33">NR-33 - Segurança e Saúde nos Trabalhos em Espaços Confinados</SelectItem>
+                            <SelectItem value="NR-34">NR-34 - Condições e Meio Ambiente de Trabalho na Indústria da Construção, Reparação e Desmonte Naval</SelectItem>
+                            <SelectItem value="NR-35">NR-35 - Trabalho em Altura</SelectItem>
+                            <SelectItem value="NR-36">NR-36 - Segurança e Saúde no Trabalho em Empresas de Abate e Processamento de Carnes e Derivados</SelectItem>
+                            <SelectItem value="NR-37">NR-37 - Segurança e Saúde em Plataformas de Petróleo</SelectItem>
+                            <SelectItem value="NR-38">NR-38 - Segurança e Saúde no Trabalho nas Atividades de Limpeza Urbana e Manuseio de Resíduos Sólidos</SelectItem>
+                            <SelectItem value="outro">Outro (Personalizado)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
                       {/* Lista dinâmica de treinamentos */}
                       <div className="flex items-center justify-between">
                         <p className="text-sm font-semibold">Treinamentos realizados</p>
