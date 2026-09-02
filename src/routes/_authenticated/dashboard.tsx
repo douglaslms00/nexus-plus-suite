@@ -177,26 +177,6 @@ function DashboardPage() {
         ))}
       </div>
 
-      <Card className={cn("border-l-4", contadorOk && coresOk ? "border-l-success" : "border-l-destructive")}>
-        <CardHeader className="pb-2">
-          <CardTitle className="flex items-center gap-2 text-base">
-            <ShieldCheck className="h-4 w-4" /> Validação automática
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="grid sm:grid-cols-2 gap-2 text-sm">
-          <div className="flex items-center gap-2">
-            {contadorOk ? <CheckCircle2 className="h-4 w-4 text-success" /> : <XCircle className="h-4 w-4 text-destructive" />}
-            <span>Contador de Alertas Ativos = soma dos itens</span>
-            <span className="text-xs text-muted-foreground ml-auto">{alertasAtivos} = {somaItens}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            {coresOk ? <CheckCircle2 className="h-4 w-4 text-success" /> : <XCircle className="h-4 w-4 text-destructive" />}
-            <span>Cores de vencimento (verde / amarelo / vermelho) corretas</span>
-            <span className="text-xs text-muted-foreground ml-auto">{alertasVencimento.length} verificados</span>
-          </div>
-        </CardContent>
-      </Card>
-
       <Card>
         <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <CardTitle className="flex items-center gap-2 text-base">
