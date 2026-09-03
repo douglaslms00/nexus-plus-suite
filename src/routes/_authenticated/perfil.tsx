@@ -11,7 +11,6 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Upload } from "lucide-react";
 import { toast } from "sonner";
-import { Lock, Shield, MessageCircle } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/perfil")({ component: PerfilPage });
 
@@ -36,6 +35,21 @@ function PerfilPage() {
     }
   }, [profile, user?.email]);
 
+  const validarSenha = (senha: string) => {
+    let pontos = 0;
+    const requisitos = {
+      minuscula: /[a-z]/.test(senha),
+      maiuscula: /[A-Z]/.test(senha),
+      numero: /[0-9]/.test(senha),
+      especial: /[!@#$%^&*(),.?":{}|<>]/.test(senha),
+    };
+    Object.values(requisitos).forEach((válido) => { if (válido) pontos++; });
+
+    if (senha.length >= 8 && pontos >= 3) return { strength: "forte", requisitos };
+    if (senha.length >= 6 && pontos >= 2) return { strength: "media", requisitos };
+    return { strength: "fraca", requisitos };
+  };
+
   const saveProfile = useMutation({
     mutationFn: async () => {
       const { error } = await supabase.from("profiles")
@@ -55,27 +69,12 @@ function PerfilPage() {
     onError: (e: any) => toast.error(e.message),
   });
 
-  const validarSenha = (senha: string) => {
-    let pontos = 0;
-    const requisitos = {
-      minuscula: /[a-z]/.test(senha),
-      maiuscula: /[A-Z]/.test(senha),
-      numero: /[0-9]/.test(senha),
-      especial: /[!@#$%^&*(),.?":{}|<>]/.test(senha),
-    };
-    Object.values(requisitos).forEach((válido) => { if (válido) pontos++; });
-
-    if (senha.length >= 8 && pontos >= 3) return "forte";
-    if (senha.length >= 6 && pontos >= 2) return "media";
-    return "fraca";
-  };
-
   const changePwd = useMutation({
     mutationFn: async () => {
-      const requisitos = validarSenha(pwd);
+      const { strength, requisitos } = validarSenha(pwd);
       if (pwd.length < 6) throw new Error("Senha precisa ter ao menos 6 caracteres");
       if (pwd !== pwd2) throw new Error("Senhas não conferem");
-      if (requisitos === "fraca") throw new Error("Senha fraca: deve ter no mínimo 8 caracteres, letras maiúsculas e minúsculas, números e caracteres especiais");
+      if (strength === "fraca") throw new Error("Senha fraca: deve ter no mínimo 8 caracteres, letras maiúsculas e minúsculas, números e caracteres especiais");
       const { error } = await supabase.auth.updateUser({ password: pwd });
       if (error) throw error;
     },
@@ -132,6 +131,22 @@ function PerfilPage() {
           <Card className="p-6 space-y-4">
             <div><Label>Nova senha</Label><Input type="password" value={pwd} onChange={(e) => setPwd(e.target.value)} /></div>
             <div><Label>Confirmar senha</Label><Input type="password" value={pwd2} onChange={(e) => setPwd2(e.target.value)} /></div>
+<div className="text-xs mt-1">
+              <span className={validarSenha(pwd).strength === "forte" ? "text-success" : validarSenha(pwd).strength === "media" ? "text-warning" : "text-destructive">
+                {validarSenha(pwd).strength}
+              </span>
+              <div className="mt-1 grid grid-cols-2 gap-1">
+                {validarSenha(pwd).requisitos.minuscula && <span className="text-success">✓ Letra minúscula</span>}
+                {!validarSenha(pwd).requisitos.minuscula && <span className="text-destructive">✗ Letra minúscula</span>}
+                {validarSenha(pwd).requisitos.maiuscula && <span className="text-success">✓ Letra maiúscula</span>}
+                {!validarSenha(pwd).requisitos.maiuscula && <span className="text-destructive">✗ Letra maiúscula</span>}
+                {validarSenha(pwd).requisitos.numero && <span className="text-success">✓ Número</span>}
+                {!validarSenha(pwd).requisitos.numero && <span className="text-destructive">✗ Número</span>}
+                {validarSenha(pwd).requisitos.especial && <span className="text-success">✓ Caracteres especiais</span>}
+                {!validarSenha(pwd).requisitos.especial && <span className="text-destructive">✗ Caracteres especiais</span>}
+              </div>
+            </div>
+            </div>
             <Button onClick={() => changePwd.mutate()} disabled={changePwd.isPending}>
               {changePwd.isPending ? "Alterando..." : "Alterar senha"}
             </Button>
