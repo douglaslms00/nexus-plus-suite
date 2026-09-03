@@ -215,6 +215,7 @@ function FuncionariosPage() {
   // Colunas conhecidas da tabela funcionarios (exclui colunas que podem não existir ainda)
   const COLUNAS_FUNC = [
     "nome","cpf","telefone","email","funcao","setor","data_admissao",
+    "data_nascimento",
     "endereco","cidade","matricula","obra_id","ativo","experiencia_concluida",
     "vencimento_aso","validade_meses_aso","data_aso",
     "vencimento_ficha_epi","validade_meses_ficha_epi",
@@ -353,6 +354,7 @@ function FuncionariosPage() {
                       <div className="space-y-1"><Label>Setor</Label><Input value={form.setor ?? ""} onChange={(e) => setForm({ ...form, setor: e.target.value })} /></div>
                       <div className="space-y-1"><Label>E-mail</Label><Input type="email" value={form.email ?? ""} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
                       <div className="space-y-1"><Label>Data admissão</Label><Input type="date" value={form.data_admissao ?? ""} onChange={(e) => setForm({ ...form, data_admissao: e.target.value })} /></div>
+                      <div className="space-y-1"><Label>Data de nascimento</Label><Input type="date" value={form.data_nascimento ?? ""} onChange={(e) => setForm({ ...form, data_nascimento: e.target.value })} /></div>
                       <div className="space-y-1"><Label>Matrícula</Label><Input value={form.matricula ?? ""} onChange={(e) => setForm({ ...form, matricula: e.target.value })} /></div>
                       <div className="col-span-2 space-y-1"><Label>Endereço</Label><Input value={form.endereco ?? ""} onChange={(e) => setForm({ ...form, endereco: e.target.value })} /></div>
                       <div className="space-y-1"><Label>Cidade</Label><Input value={form.cidade ?? ""} onChange={(e) => setForm({ ...form, cidade: e.target.value })} /></div>
