@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Building2, Eye, EyeOff } from "lucide-react";
+import { Building2, Eye, EyeOff, Lock, Shield, MessageCircle } from "lucide-react";
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
@@ -21,6 +21,8 @@ function AuthPage() {
   const [password, setPassword] = useState("");
   const [nome, setNome] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [passwordStrength, setPasswordStrength] = useState("fraca");
+  const [passwordVisible, setPasswordVisible] = useState(false);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -51,6 +53,24 @@ function AuthPage() {
     setLoading(false);
     if (error) return toast.error(error.message);
     toast.success("Conta criada! Verifique seu e-mail para confirmar.");
+  };
+
+  const validarSenha = (senha: string) => {
+    let pontos = 0;
+    const requisitos = {
+      minuscula: /[a-z]/.test(senha),
+      maiuscula: /[A-Z]/.test(senha),
+      numero: /[0-9]/.test(senha),
+      especial: /[!@#$%^&*(),.?":{}|<>]/.test(senha),
+    };
+    Object.values(requisitos).forEach((válido) => { if (válido) pontos++; });
+
+    if (senha.length >= 8 && pontos >= 3) setPasswordStrength("forte");
+    else if (senha.length >= 6 && pontos >= 2) setPasswordStrength("media");
+    else if (senha.length >= 4) setPasswordStrength("fraca");
+    else setPasswordStrength("fraca");
+
+    return requisitos;
   };
 
   const handleForgotPassword = async () => {
@@ -120,10 +140,28 @@ function AuthPage() {
                 <div className="space-y-2">
                   <Label htmlFor="signup-password">Senha</Label>
                   <div className="relative">
-                    <Input id="signup-password" type={showPassword ? "text" : "password"} required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} />
+                    <Input id="signup-password" type={showPassword ? "text" : "password"} required minLength={6} value={password} onChange={(e) => { setPassword(e.target.value); validarSenha(e.target.value); }} />
                     <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent" onClick={() => setShowPassword(!showPassword)}>
                       {showPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
                     </Button>
+                  </div>
+                  <div className="text-xs mt-1">
+                    <span className={passwordStrength === "forte" ? "text-success" : passwordStrength === "media" ? "text-warning" : "text-destructive"}>
+                      {passwordStrength}
+                    </span>
+                    <div className="mt-1 grid grid-cols-2 gap-1">
+                      {validarSenha(password).minuscula && <span className="text-success">✓ Letra minúscula</span>}
+                      {!validarSenha(password).minuscula && <span className="text-destructive">✗ Letra minúscula</span>}
+                      {validarSenha(password).maiuscula && <span className="text-success">✓ Letra maiúscula</span>}
+                      {!validarSenha(password).maiuscula && <span className="text-destructive">✗ Letra maiúscula</span>}
+                      {validarSenha(password).numero && <span className="text-success">✓ Número</span>}
+                      {!validarSenha(password).numero && <span className="text-destructive">✗ Número</span>}
+                      {validarSenha(password).especial && <span className="text-success">✓ Caracteres especiais</span>}
+                      {!validarSenha(password).especial && <span className="text-destructive">✗ Caracteres especiais</span>}
+                    </div>
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Mínimo 6 caracteres, no máximo 20. Deve conter letras maiúsculas, minúsculas, números e caracteres especiais.
                   </div>
                 </div>
                 <Button type="submit" className="w-full mt-2" disabled={loading}>

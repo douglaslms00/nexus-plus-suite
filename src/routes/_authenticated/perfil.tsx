@@ -11,6 +11,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Upload } from "lucide-react";
 import { toast } from "sonner";
+import { Lock, Shield, MessageCircle } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/perfil")({ component: PerfilPage });
 
@@ -54,10 +55,27 @@ function PerfilPage() {
     onError: (e: any) => toast.error(e.message),
   });
 
+  const validarSenha = (senha: string) => {
+    let pontos = 0;
+    const requisitos = {
+      minuscula: /[a-z]/.test(senha),
+      maiuscula: /[A-Z]/.test(senha),
+      numero: /[0-9]/.test(senha),
+      especial: /[!@#$%^&*(),.?":{}|<>]/.test(senha),
+    };
+    Object.values(requisitos).forEach((válido) => { if (válido) pontos++; });
+
+    if (senha.length >= 8 && pontos >= 3) return "forte";
+    if (senha.length >= 6 && pontos >= 2) return "media";
+    return "fraca";
+  };
+
   const changePwd = useMutation({
     mutationFn: async () => {
+      const requisitos = validarSenha(pwd);
       if (pwd.length < 6) throw new Error("Senha precisa ter ao menos 6 caracteres");
       if (pwd !== pwd2) throw new Error("Senhas não conferem");
+      if (requisitos === "fraca") throw new Error("Senha fraca: deve ter no mínimo 8 caracteres, letras maiúsculas e minúsculas, números e caracteres especiais");
       const { error } = await supabase.auth.updateUser({ password: pwd });
       if (error) throw error;
     },

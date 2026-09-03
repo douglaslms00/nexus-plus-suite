@@ -320,23 +320,10 @@ function FuncionariosPage() {
               <DialogHeader>
                 <DialogTitle>{editing ? "Editar funcionário" : "Novo funcionário"}</DialogTitle>
               </DialogHeader>
-              <form
+<form
                 onSubmit={(e) => { e.preventDefault(); upsert.mutate(form); }}
                 className="space-y-4"
               >
-                {!editing && abaForm === "dados" && (
-                  <div className="rounded-lg border border-dashed p-3 space-y-2 bg-muted/20">
-                    <div>
-                      <Label>Ficha de registro com leitura por IA</Label>
-                      <p className="text-xs text-muted-foreground mt-1">Envie uma foto/digitalização (JPG, PNG ou WEBP) ou um <strong>PDF</strong> para preencher os campos automaticamente por IA.</p>
-                    </div>
-                    <Input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" disabled={lendoFicha} onChange={(e) => { const file = e.target.files?.[0]; if (file) void lerFicha(file); e.target.value = ""; }} />
-                    {lendoFicha && <p className="text-sm text-muted-foreground animate-pulse">🤖 Analisando documento com IA e preenchendo informações...</p>}
-                    {!lendoFicha && fichaRegistro && <p className="text-sm text-success">✅ Ficha selecionada: {fichaRegistro.name}</p>}
-                  </div>
-                )}
-
-                <Tabs value={abaForm} onValueChange={(v) => setAbaForm(v as "dados" | "treinamentos")} className="w-full">
                   <TabsList className="w-full">
                     <TabsTrigger value="dados" className="flex-1">Dados</TabsTrigger>
                     <TabsTrigger value="treinamentos" className="flex-1">Treinamentos</TabsTrigger>
