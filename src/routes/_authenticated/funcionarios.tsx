@@ -53,6 +53,39 @@ function vencColor(date?: string | null) {
   return "text-success";
 }
 
+function diasParaVencimento(dateInput: string | Date | null): number {
+  if (!dateInput) return 9999;
+  const date = typeof dateInput === "string" ? parseISO(dateInput) : dateInput;
+  return differenceInDays(date, new Date());
+}
+
+function countVencimentosAbertos(func: any): { proximos: number; vencidos: number } {
+  let proximos = 0;
+  let vencidos = 0;
+  const hoje = new Date();
+  for (const [_, _, keyVenc] of VENC) {
+    const date = func[keyVenc];
+    if (!date) continue;
+    const dias = differenceInDays(parseISO(date), hoje);
+    if (dias < 0) vencidos++;
+    else if (dias <= 30) proximos++;
+  }
+  return { proximos, vencidos };
+}
+
+function countTreinamentosAbertos(treinamentos: readonly TreinamentoItem[]): { proximos: number; vencidos: number } {
+  let proximos = 0;
+  let vencidos = 0;
+  const hoje = new Date();
+  for (const t of treinamentos) {
+    if (!t.data_validade || !t.nome.trim()) continue;
+    const dias = differenceInDays(parseISO(t.data_validade), hoje);
+    if (dias < 0) vencidos++;
+    else if (dias <= 30) proximos++;
+  }
+  return { proximos, vencidos };
+}
+
 // Experiência é considerada concluída automaticamente quando passa da data de vencimento
 // ou quando o flag manual experiencia_concluida está marcado.
 function isExperienciaConcluida(f: any) {
@@ -426,34 +459,39 @@ function FuncionariosPage() {
                           <Plus className="h-3 w-3 mr-1" /> Adicionar treinamento
                         </Button>
                       </div>
-                      <div className="space-y-2">
-                        {treinamentos.map((t, i) => (
-                          <div key={t.id} className="rounded-lg border p-3 space-y-2 bg-muted/10 relative">
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="text-xs font-medium text-muted-foreground">Treinamento {i + 1}</span>
-                              {treinamentos.length > 1 && (
-                                <Button type="button" size="icon" variant="ghost" className="h-6 w-6" onClick={() => setTreinamentos((prev) => prev.filter((_, idx) => idx !== i))}>
-                                  <Trash2 className="h-3 w-3" />
-                                </Button>
-                              )}
+<div className="space-y-2">
+                      {treinamentos.map((t, i) => (
+                        <div key={t.id} className="rounded-lg border p-3 space-y-2 bg-muted/10 relative">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-xs font-medium text-muted-foreground">Treinamento {i + 1}</span>
+                            {treinamentos.length > 1 && (
+                              <Button type="button" size="icon" variant="ghost" className="h-6 w-6" onClick={() => setTreinamentos((prev) => prev.filter((_, idx) => idx !== i))}>
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            )}
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Nome do treinamento</Label>
+                            <Input placeholder="Ex: NR-35, Primeiros Socorros..." value={t.nome} onChange={(e) => setTreinamentos((prev) => prev.map((x, idx) => idx === i ? { ...x, nome: e.target.value } : x))} />
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="space-y-1">
+                              <Label className="text-xs">Data de realização</Label>
+                              <Input type="date" value={t.data_realizacao} onChange={(e) => setTreinamentos((prev) => prev.map((x, idx) => idx === i ? { ...x, data_realizacao: e.target.value } : x))} />
                             </div>
                             <div className="space-y-1">
-                              <Label className="text-xs">Nome do treinamento</Label>
-                              <Input placeholder="Ex: NR-35, Primeiros Socorros..." value={t.nome} onChange={(e) => setTreinamentos((prev) => prev.map((x, idx) => idx === i ? { ...x, nome: e.target.value } : x))} />
-                            </div>
-                            <div className="grid grid-cols-2 gap-2">
-                              <div className="space-y-1">
-                                <Label className="text-xs">Data de realização</Label>
-                                <Input type="date" value={t.data_realizacao} onChange={(e) => setTreinamentos((prev) => prev.map((x, idx) => idx === i ? { ...x, data_realizacao: e.target.value } : x))} />
-                              </div>
-                              <div className="space-y-1">
-                                <Label className="text-xs">Data de validade</Label>
-                                <Input type="date" value={t.data_validade} onChange={(e) => setTreinamentos((prev) => prev.map((x, idx) => idx === i ? { ...x, data_validade: e.target.value } : x))} />
-                              </div>
+                              <Label className="text-xs">Data de validade</Label>
+                              <Input type="date" value={t.data_validade} onChange={(e) => setTreinamentos((prev) => prev.map((x, idx) => idx === i ? { ...x, data_validade: e.target.value } : x))} />
+                              {t.data_validade && (
+                                <span className={diasParaVencimento(t.data_validade) <= -1 ? "text-destructive" : diasParaVencimento(t.data_validade) <= 30 ? "text-warning" : "text-success"}>
+                                  {(diasParaVencimento(t.data_validade) <= -1 ? "EXPIRADO" : "") + (diasParaVencimento(t.data_validade) <= 30 && diasParaVencimento(t.data_validade) > -1 ? " (vence em breve)" : "")}
+                                </span>
+                              )}
                             </div>
                           </div>
-                        ))}
-                      </div>
+                        </div>
+                      ))}
+                    </div>
                     </div>
                   </TabsContent>
                 </Tabs>
@@ -523,33 +561,47 @@ function FuncionariosPage() {
             {!isLoading && filtered.length === 0 && (
               <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Nenhum funcionário encontrado.</TableCell></TableRow>
             )}
-            {filtered.map((f: any) => (
-              <TableRow key={f.id}>
-                <TableCell>
-                  <div className="font-medium">{f.nome}</div>
-                  <div className="text-xs text-muted-foreground">{f.email}</div>
-                </TableCell>
-                <TableCell>
-                  <div>{f.funcao ?? "—"}</div>
-                  <div className="text-xs text-muted-foreground">{f.setor}</div>
-                </TableCell>
-                <TableCell className="text-sm">
-                  {obras.find((o: any) => o.id === f.obra_id)?.nome ?? <span className="text-muted-foreground">—</span>}
-                </TableCell>
-                <TableCell>{f.cpf ?? "—"}</TableCell>
-                <TableCell className="whitespace-nowrap">{f.data_admissao ? format(parseISO(f.data_admissao), "dd/MM/yyyy") : "—"}</TableCell>
-                <TableCell>{f.telefone ?? "—"}</TableCell>
-                <TableCell>{f.matricula ?? "—"}</TableCell>
-                <TableCell>{f.cidade ?? "—"}</TableCell>
-                <TableCell className="text-right">
-                  <div className="flex justify-end gap-1">
-                    <Button size="icon" variant="ghost" title="Documentos" onClick={() => setDocsFor(f)}><FileText className="h-4 w-4" /></Button>
-                    {canEdit && <Button size="icon" variant="ghost" title="Editar" onClick={() => openEdit(f)}><Pencil className="h-4 w-4" /></Button>}
-                    {canDelete && <Button size="icon" variant="ghost" title="Excluir" onClick={() => { if (confirm(`Excluir ${f.nome}?`)) remove.mutate(f.id); }}><Trash2 className="h-4 w-4" /></Button>}
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
+            {filtered.map((f: any) => {
+                const abertos = countVencimentosAbertos(f);
+                const treinAbertos = countTreinamentosAbertos(treinamentos);
+                return (
+                  <TableRow key={f.id}>
+                    <TableCell>
+                      <div className="font-medium">{f.nome}</div>
+                      <div className="text-xs text-muted-foreground">{f.email}</div>
+                    </TableCell>
+                    <TableCell>
+                      <div>{f.funcao ?? "—"}</div>
+                      <div className="text-xs text-muted-foreground">{f.setor}</div>
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {obras.find((o: any) => o.id === f.obra_id)?.nome ?? <span className="text-muted-foreground">—</span>}
+                    </TableCell>
+                    <TableCell>{f.cpf ?? "—"}</TableCell>
+                    <TableCell className="whitespace-nowrap">{f.data_admissao ? format(parseISO(f.data_admissao), "dd/MM/yyyy") : "—"}</TableCell>
+                    <TableCell>{f.telefone ?? "—"}</TableCell>
+                    <TableCell>{f.matricula ?? "—"}</TableCell>
+                    <TableCell>{f.cidade ?? "—"}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex flex-col items-end gap-1">
+                        <span className="text-xs">
+                          {abertos.proximos > 0 && (
+                            <span className="text-warning">🔔 {abertos.proximos}</span>
+                          )}
+                          {abertos.vencidos > 0 && (
+                            <span className="text-destructive">⚠️ {abertos.vencidos}</span>
+                          )}
+                          {abertos.proximos === 0 && abertos.vencidos === 0 && "—"}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+{treinAbertos.proximos > 0 && <span className="text-warning">📋 {treinAbertos.proximos}</span>}
+                          {treinAbertos.vencidos > 0 && <span className="text-destructive">⚠️ {treinAbertos.vencidos}</span>}
+                        </span>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
           </TableBody>
         </Table>
       </Card>
