@@ -31,7 +31,8 @@ export function NotificationsBell() {
     queryFn: async (): Promise<Notif[]> => {
       const { data, error } = await supabase
         .from("notifications" as any)
-        .select("id, tipo, titulo, mensagem, link, lida, created_at")
+        .select("id, tipo, titulo, mensagem, link, lida, created_at, user_id")
+        .eq("user_id", user?.id)
         .order("created_at", { ascending: false })
         .limit(50);
       if (error) throw error;
@@ -88,21 +89,24 @@ export function NotificationsBell() {
 
   const markRead = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("notifications" as any).update({ lida: true }).eq("id", id);
+      if (!user?.id) return;
+      const { error } = await supabase.from("notifications" as any).update({ lida: true }).eq("id", id).eq("user_id", user.id);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["notifications", user?.id] }),
   });
   const markAllRead = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from("notifications" as any).update({ lida: true }).eq("lida", false);
+      if (!user?.id) return;
+      const { error } = await supabase.from("notifications" as any).update({ lida: true }).eq("user_id", user.id).eq("lida", false);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["notifications", user?.id] }),
   });
   const remove = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("notifications" as any).delete().eq("id", id);
+      if (!user?.id) return;
+      const { error } = await supabase.from("notifications" as any).delete().eq("id", id).eq("user_id", user.id);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["notifications", user?.id] }),

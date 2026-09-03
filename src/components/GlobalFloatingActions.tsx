@@ -7,10 +7,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Bot, Plus, Send, Sparkles, X } from "lucide-react";
+import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { useCurrentUser } from "@/lib/permissions";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 
 export function GlobalFloatingActions() {
   const qc = useQueryClient();
