@@ -373,7 +373,7 @@ function FuncionariosPage() {
                       {/* Seleção de treinamento NR */}
                       <div className="space-y-2">
                         <Label>Selecionar treinamento</Label>
-                        <Select value={form.treinamentoSelecionado ?? ""} onValueChange={(v) => { setForm({ ...form, treinamentoSelecionado: v }); if (v && v !== "outro" && v !== "") setTreinamentos((prev) => [...prev, novoTreinamentoWithNome(v)]); }} >
+                        <Select value={form.treinamentoSelecionado ?? ""} onValueChange={(v) => { setForm({ ...form, treinamentoSelecionado: v }); }} >
                           <SelectTrigger><SelectValue placeholder="Selecione um treinamento" /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="NR-1">NR-1 - Disposições Gerais e Gerenciamento de Riscos Ocupacionais</SelectItem>
