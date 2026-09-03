@@ -63,7 +63,9 @@ function countVencimentosAbertos(func: any): { proximos: number; vencidos: numbe
   let proximos = 0;
   let vencidos = 0;
   const hoje = new Date();
-  for (const [_, _, keyVenc] of VENC) {
+  for (const item of VENC) {
+    const keyVenc = item[2];
+    if (!keyVenc) continue;
     const date = func[keyVenc];
     if (!date) continue;
     const dias = differenceInDays(parseISO(date), hoje);
@@ -324,6 +326,7 @@ function FuncionariosPage() {
                 onSubmit={(e) => { e.preventDefault(); upsert.mutate(form); }}
                 className="space-y-4"
               >
+                <Tabs value={abaForm} onValueChange={(v) => setAbaForm(v as "dados" | "treinamentos")}>
                   <TabsList className="w-full">
                     <TabsTrigger value="dados" className="flex-1">Dados</TabsTrigger>
                     <TabsTrigger value="treinamentos" className="flex-1">Treinamentos</TabsTrigger>
