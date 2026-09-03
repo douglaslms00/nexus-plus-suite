@@ -575,20 +575,22 @@ function FuncionariosPage() {
                     <TableCell>{f.matricula ?? "—"}</TableCell>
                     <TableCell>{f.cidade ?? "—"}</TableCell>
                     <TableCell className="text-right">
-                      <div className="flex flex-col items-end gap-1">
-                        <span className="text-xs">
-                          {abertos.proximos > 0 && (
-                            <span className="text-warning">🔔 {abertos.proximos}</span>
-                          )}
-                          {abertos.vencidos > 0 && (
-                            <span className="text-destructive">⚠️ {abertos.vencidos}</span>
-                          )}
-                          {abertos.proximos === 0 && abertos.vencidos === 0 && "—"}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-{treinAbertos.proximos > 0 && <span className="text-warning">📋 {treinAbertos.proximos}</span>}
-                          {treinAbertos.vencidos > 0 && <span className="text-destructive">⚠️ {treinAbertos.vencidos}</span>}
-                        </span>
+                      <div className="flex items-center justify-end gap-1">
+                        {(abertos.proximos > 0 || abertos.vencidos > 0 || treinAbertos.proximos > 0 || treinAbertos.vencidos > 0) && (
+                          <span className="text-xs mr-1">
+                            {abertos.proximos > 0 && <span className="text-warning">🔔 {abertos.proximos}</span>}
+                            {abertos.vencidos > 0 && <span className="text-destructive">⚠️ {abertos.vencidos}</span>}
+                            {treinAbertos.proximos > 0 && <span className="text-warning">📋 {treinAbertos.proximos}</span>}
+                            {treinAbertos.vencidos > 0 && <span className="text-destructive">⚠️ {treinAbertos.vencidos}</span>}
+                          </span>
+                        )}
+                        <Button size="icon" variant="ghost" title="Documentos" onClick={() => setDocsFor(f)}><FileText className="h-4 w-4" /></Button>
+                        {canEdit && <Button size="icon" variant="ghost" title="Editar" onClick={() => openEdit(f)}><Pencil className="h-4 w-4" /></Button>}
+                        {canDelete && (
+                          <Button size="icon" variant="ghost" title="Excluir" onClick={() => { if (confirm(`Excluir ${f.nome}?`)) remove.mutate(f.id); }}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
