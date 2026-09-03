@@ -587,7 +587,7 @@ function FuncionariosPage() {
                         <Button size="icon" variant="ghost" title="Documentos" onClick={() => setDocsFor(f)}><FileText className="h-4 w-4" /></Button>
                         {canEdit && <Button size="icon" variant="ghost" title="Editar" onClick={() => openEdit(f)}><Pencil className="h-4 w-4" /></Button>}
                         {canDelete && (
-                          <Button size="icon" variant="ghost" title="Excluir" onClick={() => { if (confirm(`Excluir ${f.nome}?`)) del.mutate(f.id); }}>
+                          <Button size="icon" variant="ghost" title="Excluir" onClick={() => { if (confirm(`Excluir ${f.nome}?`)) remove.mutate(f.id); }}>
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         )}
