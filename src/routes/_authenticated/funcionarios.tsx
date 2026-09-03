@@ -3,13 +3,33 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { canManage, isAdmin, useUserRoles, useModulePerm } from "@/lib/permissions";
-import { useObraAtual } from "@/lib/obra-context";
+import { useObraAtual } from "@/lib/obra-context.types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -32,7 +52,7 @@ const VENC: ReadonlyArray<readonly [string, string, string | null]> = [
   ["vencimento_experiencia", "Experiência", "validade_meses_experiencia"],
 ] as const;
 
-type TreinamentoItem = { id: string; nome: string; data_realizacao: string; data_validade: string; };
+type TreinamentoItem = { id: string; nome: string; data_realizacao: string; data_validade: string };
 function novoTreinamento(): TreinamentoItem {
   return { id: crypto.randomUUID(), nome: "", data_realizacao: "", data_validade: "" };
 }
@@ -40,8 +60,6 @@ function novoTreinamento(): TreinamentoItem {
 function novoTreinamentoWithNome(nome: string): TreinamentoItem {
   return { id: crypto.randomUUID(), nome, data_realizacao: "", data_validade: "" };
 }
-
-
 
 type Funcionario = any;
 
@@ -75,7 +93,10 @@ function countVencimentosAbertos(func: any): { proximos: number; vencidos: numbe
   return { proximos, vencidos };
 }
 
-function countTreinamentosAbertos(treinamentos: readonly TreinamentoItem[]): { proximos: number; vencidos: number } {
+function countTreinamentosAbertos(treinamentos: readonly TreinamentoItem[]): {
+  proximos: number;
+  vencidos: number;
+} {
   let proximos = 0;
   let vencidos = 0;
   const hoje = new Date();
@@ -132,7 +153,6 @@ function FuncionariosPage() {
     queryFn: async () => (await supabase.from("obras").select("id, nome").order("nome")).data ?? [],
   });
 
-
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Funcionario | null>(null);
   const [form, setForm] = useState<any>({});
@@ -148,14 +168,23 @@ function FuncionariosPage() {
 
   const filtered = useMemo(() => {
     return funcionarios.filter((f: any) => {
-      if (busca && !`${f.nome ?? ""} ${f.funcao ?? ""} ${f.setor ?? ""} ${f.cpf ?? ""} ${f.matricula ?? ""}`.toLowerCase().includes(busca.toLowerCase())) return false;
+      if (
+        busca &&
+        !`${f.nome ?? ""} ${f.funcao ?? ""} ${f.setor ?? ""} ${f.cpf ?? ""} ${f.matricula ?? ""}`
+          .toLowerCase()
+          .includes(busca.toLowerCase())
+      )
+        return false;
       if (fStatus === "ativos" && !f.ativo) return false;
       if (fStatus === "inativos" && f.ativo) return false;
       if (fObra !== "todas" && f.obra_id !== fObra) return false;
       if (fVenc !== "todos") {
         const dates = VENC.map(([k]) => f[k]).filter(Boolean) as string[];
         const hasOverdue = dates.some((d) => differenceInDays(safeParseISO(d), new Date()) < 0);
-        const hasSoon = dates.some((d) => { const x = differenceInDays(safeParseISO(d), new Date()); return x >= 0 && x <= 30; });
+        const hasSoon = dates.some((d) => {
+          const x = differenceInDays(safeParseISO(d), new Date());
+          return x >= 0 && x <= 30;
+        });
         if (fVenc === "vencidos" && !hasOverdue) return false;
         if (fVenc === "proximos" && !hasSoon) return false;
       }
@@ -163,17 +192,42 @@ function FuncionariosPage() {
     });
   }, [funcionarios, busca, fStatus, fObra, fVenc]);
 
-  const openNew = () => { setEditing(null); setAbaForm("dados"); setFichaRegistro(null); 
-  const validaExp = form.validade_experiencia ? differenceInDays(safeParseISO(form.validade_experiencia), new Date()) < 0 : false;
-  setForm({ ativo: true, experiencia_concluida: validaExp }); 
-  setTreinamentos([novoTreinamento()]); setOpen(true); };
+  const openNew = () => {
+    setEditing(null);
+    setAbaForm("dados");
+    setFichaRegistro(null);
+    const validaExp = form.validade_experiencia
+      ? differenceInDays(safeParseISO(form.validade_experiencia), new Date()) < 0
+      : false;
+    setForm({ ativo: true, experiencia_concluida: validaExp });
+    setTreinamentos([novoTreinamento()]);
+    setOpen(true);
+  };
   const openEdit = async (f: Funcionario) => {
-    setEditing(f); setAbaForm("dados"); setFichaRegistro(null); setForm({ ...f });
+    setEditing(f);
+    setAbaForm("dados");
+    setFichaRegistro(null);
+    setForm({ ...f });
     // Carrega treinamentos existentes do funcionário
     try {
-      const { data } = await (supabase as any).from("funcionario_treinamentos").select("*").eq("funcionario_id", f.id).order("created_at");
-      setTreinamentos(data && data.length > 0 ? data.map((t: any) => ({ id: t.id, nome: t.nome ?? "", data_realizacao: t.data_realizacao ?? "", data_validade: t.data_validade ?? "" })) : [novoTreinamento()]);
-    } catch { setTreinamentos([novoTreinamento()]); }
+      const { data } = await (supabase as any)
+        .from("funcionario_treinamentos")
+        .select("*")
+        .eq("funcionario_id", f.id)
+        .order("created_at");
+      setTreinamentos(
+        data && data.length > 0
+          ? data.map((t: any) => ({
+              id: t.id,
+              nome: t.nome ?? "",
+              data_realizacao: t.data_realizacao ?? "",
+              data_validade: t.data_validade ?? "",
+            }))
+          : [novoTreinamento()],
+      );
+    } catch {
+      setTreinamentos([novoTreinamento()]);
+    }
     setOpen(true);
   };
 
@@ -205,7 +259,10 @@ function FuncionariosPage() {
       } else {
         dados = await lerFichaRegistro({ data: { imageDataUrl: fileDataUrl } });
       }
-      setForm((atual: any) => ({ ...atual, ...Object.fromEntries(Object.entries(dados).filter(([, value]) => value)) }));
+      setForm((atual: any) => ({
+        ...atual,
+        ...Object.fromEntries(Object.entries(dados).filter(([, value]) => value)),
+      }));
       toast.success("Ficha lida com sucesso. Confira os dados antes de salvar.");
     } catch (e: any) {
       toast.error(e.message ?? "Não foi possível ler a ficha");
@@ -216,22 +273,44 @@ function FuncionariosPage() {
 
   // Colunas conhecidas da tabela funcionarios (exclui colunas que podem não existir ainda)
   const COLUNAS_FUNC = [
-    "nome","cpf","telefone","email","funcao","setor","data_admissao",
+    "nome",
+    "cpf",
+    "telefone",
+    "email",
+    "funcao",
+    "setor",
+    "data_admissao",
     "data_nascimento",
-    "endereco","cidade","matricula","obra_id","ativo","experiencia_concluida",
-    "vencimento_aso","validade_meses_aso","data_aso",
-    "vencimento_ficha_epi","validade_meses_ficha_epi",
-    "vencimento_folga_campo","validade_meses_folga_campo","data_folga_campo",
-    "vencimento_ferias","validade_meses_ferias","data_ferias",
-    "vencimento_treinamento","validade_meses_treinamento",
-    "vencimento_experiencia","validade_meses_experiencia",
+    "endereco",
+    "cidade",
+    "matricula",
+    "obra_id",
+    "ativo",
+    "experiencia_concluida",
+    "vencimento_aso",
+    "validade_meses_aso",
+    "data_aso",
+    "vencimento_ficha_epi",
+    "validade_meses_ficha_epi",
+    "vencimento_folga_campo",
+    "validade_meses_folga_campo",
+    "data_folga_campo",
+    "vencimento_ferias",
+    "validade_meses_ferias",
+    "data_ferias",
+    "vencimento_treinamento",
+    "validade_meses_treinamento",
+    "vencimento_experiencia",
+    "validade_meses_experiencia",
   ];
 
   const upsert = useMutation({
     mutationFn: async (payload: any) => {
       // Filtra apenas colunas conhecidas e remove strings vazias
       const data: any = {};
-      COLUNAS_FUNC.forEach((k) => { if (k in payload) data[k] = payload[k] === "" ? null : payload[k]; });
+      COLUNAS_FUNC.forEach((k) => {
+        if (k in payload) data[k] = payload[k] === "" ? null : payload[k];
+      });
       let funcionarioId = editing?.id;
       const faltantes = new Set<string>();
       // Tenta salvar; se o Supabase indicar colunas que ainda não existem no schema
@@ -257,21 +336,28 @@ function FuncionariosPage() {
         funcionarioId = res?.id;
       }
       if (faltantes.size > 0) {
-        toast.warning(`Colunas ainda não existem no Supabase: ${[...faltantes].join(", ")}. Aplique a migration para salvar esses campos.`);
+        toast.warning(
+          `Colunas ainda não existem no Supabase: ${[...faltantes].join(", ")}. Aplique a migration para salvar esses campos.`,
+        );
       }
       // Salva treinamentos dinâmicos
       if (funcionarioId) {
         const treinamentosValidos = treinamentos.filter((t) => t.nome.trim());
         if (treinamentosValidos.length > 0) {
           // Remove treinamentos antigos e reinserir
-          await (supabase as any).from("funcionario_treinamentos").delete().eq("funcionario_id", funcionarioId);
+          await (supabase as any)
+            .from("funcionario_treinamentos")
+            .delete()
+            .eq("funcionario_id", funcionarioId);
           const rows = treinamentosValidos.map((t) => ({
             funcionario_id: funcionarioId,
             nome: t.nome.trim(),
             data_realizacao: t.data_realizacao || null,
             data_validade: t.data_validade || null,
           }));
-          const { error: te } = await (supabase as any).from("funcionario_treinamentos").insert(rows);
+          const { error: te } = await (supabase as any)
+            .from("funcionario_treinamentos")
+            .insert(rows);
           if (te) console.warn("Treinamentos não salvos:", te.message);
         }
       }
@@ -279,8 +365,12 @@ function FuncionariosPage() {
         const path = await uploadAnexo(fichaRegistro, `funcionarios/${funcionarioId}`);
         const user = (await supabase.auth.getUser()).data.user;
         const { error } = await (supabase as any).from("funcionario_documentos").insert({
-          funcionario_id: funcionarioId, nome: fichaRegistro.name, tipo: fichaRegistro.type || null,
-          storage_path: path, tamanho: fichaRegistro.size, uploaded_by: user?.id ?? null,
+          funcionario_id: funcionarioId,
+          nome: fichaRegistro.name,
+          tipo: fichaRegistro.type || null,
+          storage_path: path,
+          tamanho: fichaRegistro.size,
+          uploaded_by: user?.id ?? null,
         });
         if (error) throw error;
       }
@@ -311,82 +401,197 @@ function FuncionariosPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Funcionários</h1>
-          <p className="text-muted-foreground">Cadastro, status de experiência e controle de vencimentos.</p>
+          <p className="text-muted-foreground">
+            Cadastro, status de experiência e controle de vencimentos.
+          </p>
         </div>
         {canEdit && (
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-              <Button onClick={openNew}><Plus className="h-4 w-4" /> Novo</Button>
+              <Button onClick={openNew}>
+                <Plus className="h-4 w-4" /> Novo
+              </Button>
             </DialogTrigger>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>{editing ? "Editar funcionário" : "Novo funcionário"}</DialogTitle>
               </DialogHeader>
-<form
-                onSubmit={(e) => { e.preventDefault(); upsert.mutate(form); }}
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  upsert.mutate(form);
+                }}
                 className="space-y-4"
               >
-                <Tabs value={abaForm} onValueChange={(v) => setAbaForm(v as "dados" | "treinamentos")}>
+                <Tabs
+                  value={abaForm}
+                  onValueChange={(v) => setAbaForm(v as "dados" | "treinamentos")}
+                >
                   <TabsList className="w-full">
-                    <TabsTrigger value="dados" className="flex-1">Dados</TabsTrigger>
-                    <TabsTrigger value="treinamentos" className="flex-1">Treinamentos</TabsTrigger>
+                    <TabsTrigger value="dados" className="flex-1">
+                      Dados
+                    </TabsTrigger>
+                    <TabsTrigger value="treinamentos" className="flex-1">
+                      Treinamentos
+                    </TabsTrigger>
                   </TabsList>
 
                   <TabsContent value="dados" className="mt-4">
                     <div className="grid grid-cols-2 gap-3">
                       <div className="col-span-2 space-y-1">
                         <Label>Nome *</Label>
-                        <Input required value={form.nome ?? ""} onChange={(e) => setForm({ ...form, nome: e.target.value })} />
+                        <Input
+                          required
+                          value={form.nome ?? ""}
+                          onChange={(e) => setForm({ ...form, nome: e.target.value })}
+                        />
                       </div>
-                      <div className="space-y-1"><Label>CPF</Label><Input value={form.cpf ?? ""} onChange={(e) => setForm({ ...form, cpf: e.target.value })} /></div>
-                      <div className="space-y-1"><Label>Telefone</Label><Input value={form.telefone ?? ""} onChange={(e) => setForm({ ...form, telefone: e.target.value })} /></div>
-                      <div className="space-y-1"><Label>Função</Label><Input value={form.funcao ?? ""} onChange={(e) => setForm({ ...form, funcao: e.target.value })} /></div>
-                      <div className="space-y-1"><Label>Setor</Label><Input value={form.setor ?? ""} onChange={(e) => setForm({ ...form, setor: e.target.value })} /></div>
-                      <div className="space-y-1"><Label>E-mail</Label><Input type="email" value={form.email ?? ""} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
-                      <div className="space-y-1"><Label>Data admissão</Label><Input type="date" value={form.data_admissao ?? ""} onChange={(e) => setForm({ ...form, data_admissao: e.target.value })} /></div>
-                      <div className="space-y-1"><Label>Data de nascimento</Label><Input type="date" value={form.data_nascimento ?? ""} onChange={(e) => setForm({ ...form, data_nascimento: e.target.value })} /></div>
-                      <div className="space-y-1"><Label>Matrícula</Label><Input value={form.matricula ?? ""} onChange={(e) => setForm({ ...form, matricula: e.target.value })} /></div>
-                      <div className="col-span-2 space-y-1"><Label>Endereço</Label><Input value={form.endereco ?? ""} onChange={(e) => setForm({ ...form, endereco: e.target.value })} /></div>
-                      <div className="space-y-1"><Label>Cidade</Label><Input value={form.cidade ?? ""} onChange={(e) => setForm({ ...form, cidade: e.target.value })} /></div>
+                      <div className="space-y-1">
+                        <Label>CPF</Label>
+                        <Input
+                          value={form.cpf ?? ""}
+                          onChange={(e) => setForm({ ...form, cpf: e.target.value })}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>Telefone</Label>
+                        <Input
+                          value={form.telefone ?? ""}
+                          onChange={(e) => setForm({ ...form, telefone: e.target.value })}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>Função</Label>
+                        <Input
+                          value={form.funcao ?? ""}
+                          onChange={(e) => setForm({ ...form, funcao: e.target.value })}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>Setor</Label>
+                        <Input
+                          value={form.setor ?? ""}
+                          onChange={(e) => setForm({ ...form, setor: e.target.value })}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>E-mail</Label>
+                        <Input
+                          type="email"
+                          value={form.email ?? ""}
+                          onChange={(e) => setForm({ ...form, email: e.target.value })}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>Data admissão</Label>
+                        <Input
+                          type="date"
+                          value={form.data_admissao ?? ""}
+                          onChange={(e) => setForm({ ...form, data_admissao: e.target.value })}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>Data de nascimento</Label>
+                        <Input
+                          type="date"
+                          value={form.data_nascimento ?? ""}
+                          onChange={(e) => setForm({ ...form, data_nascimento: e.target.value })}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>Matrícula</Label>
+                        <Input
+                          value={form.matricula ?? ""}
+                          onChange={(e) => setForm({ ...form, matricula: e.target.value })}
+                        />
+                      </div>
+                      <div className="col-span-2 space-y-1">
+                        <Label>Endereço</Label>
+                        <Input
+                          value={form.endereco ?? ""}
+                          onChange={(e) => setForm({ ...form, endereco: e.target.value })}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>Cidade</Label>
+                        <Input
+                          value={form.cidade ?? ""}
+                          onChange={(e) => setForm({ ...form, cidade: e.target.value })}
+                        />
+                      </div>
                       <div className="space-y-1">
                         <Label>Obra</Label>
-                        <Select value={form.obra_id ?? ""} onValueChange={(v) => setForm({ ...form, obra_id: v })}>
-                          <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                          <SelectContent>{obras.map((o: any) => <SelectItem key={o.id} value={o.id}>{o.nome}</SelectItem>)}</SelectContent>
+                        <Select
+                          value={form.obra_id ?? ""}
+                          onValueChange={(v) => setForm({ ...form, obra_id: v })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {obras.map((o: any) => (
+                              <SelectItem key={o.id} value={o.id}>
+                                {o.nome}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
                         </Select>
                       </div>
 
-<div className="col-span-2 pt-2 border-t">
-                          <p className="text-sm font-semibold mb-2">Documentação e validades</p>
-                          <div className="grid grid-cols-3 gap-3">
-                            {([
+                      <div className="col-span-2 pt-2 border-t">
+                        <p className="text-sm font-semibold mb-2">Documentação e validades</p>
+                        <div className="grid grid-cols-3 gap-3">
+                          {(
+                            [
                               ["ASO", "data_aso", "vencimento_aso"],
                               ["Férias", "data_ferias", "vencimento_ferias"],
                               ["Folga de campo", "data_folga_campo", "vencimento_folga_campo"],
                               ["Experiência", "validade_experiencia", "vencimento_experiencia"],
-                            ] as const).map(([rotulo, keyData, keyVenc]) => (
-                              <div key={rotulo} className="rounded-lg border p-3 space-y-2 bg-muted/10">
-                                <span className="text-xs font-medium text-muted-foreground">{rotulo}</span>
-                                <div className="space-y-1">
-                                  <Label className="text-xs">Data</Label>
-                                  <Input type="date" value={form[keyData] ?? ""} onChange={(e) => setForm({ ...form, [keyData]: e.target.value })} />
-                                </div>
-                                <div className="space-y-1">
-                                  <Label className="text-xs">Validade</Label>
-                                  <Input type="date" value={form[keyVenc] ?? ""} onChange={(e) => setForm({ ...form, [keyVenc]: e.target.value })} />
-                                </div>
+                            ] as const
+                          ).map(([rotulo, keyData, keyVenc]) => (
+                            <div
+                              key={rotulo}
+                              className="rounded-lg border p-3 space-y-2 bg-muted/10"
+                            >
+                              <span className="text-xs font-medium text-muted-foreground">
+                                {rotulo}
+                              </span>
+                              <div className="space-y-1">
+                                <Label className="text-xs">Data</Label>
+                                <Input
+                                  type="date"
+                                  value={form[keyData] ?? ""}
+                                  onChange={(e) => setForm({ ...form, [keyData]: e.target.value })}
+                                />
                               </div>
-                            ))}
-                          </div>
+                              <div className="space-y-1">
+                                <Label className="text-xs">Validade</Label>
+                                <Input
+                                  type="date"
+                                  value={form[keyVenc] ?? ""}
+                                  onChange={(e) => setForm({ ...form, [keyVenc]: e.target.value })}
+                                />
+                              </div>
+                            </div>
+                          ))}
                         </div>
+                      </div>
 
-                        <div className="col-span-2 flex items-center gap-6 pt-2 border-t">
-                          <label className="flex items-center gap-2 text-sm">
-                            <Checkbox checked={!!form.experiencia_concluida} onCheckedChange={(v) => setForm({ ...form, experiencia_concluida: !!v })} />
-                            Experiência concluída
-                          </label>
+                      <div className="col-span-2 flex items-center gap-6 pt-2 border-t">
                         <label className="flex items-center gap-2 text-sm">
-                          <Checkbox checked={!!form.ativo} onCheckedChange={(v) => setForm({ ...form, ativo: !!v })} />
+                          <Checkbox
+                            checked={!!form.experiencia_concluida}
+                            onCheckedChange={(v) =>
+                              setForm({ ...form, experiencia_concluida: !!v })
+                            }
+                          />
+                          Experiência concluída
+                        </label>
+                        <label className="flex items-center gap-2 text-sm">
+                          <Checkbox
+                            checked={!!form.ativo}
+                            onCheckedChange={(v) => setForm({ ...form, ativo: !!v })}
+                          />
                           Ativo
                         </label>
                       </div>
@@ -398,47 +603,116 @@ function FuncionariosPage() {
                       {/* Seleção de treinamento NR */}
                       <div className="space-y-2">
                         <Label>Selecionar treinamento</Label>
-                        <Select value={form.treinamentoSelecionado ?? ""} onValueChange={(v) => { setForm({ ...form, treinamentoSelecionado: v }); }} >
-                          <SelectTrigger><SelectValue placeholder="Selecione um treinamento" /></SelectTrigger>
+                        <Select
+                          value={form.treinamentoSelecionado ?? ""}
+                          onValueChange={(v) => {
+                            setForm({ ...form, treinamentoSelecionado: v });
+                          }}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione um treinamento" />
+                          </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="NR-1">NR-1 - Disposições Gerais e Gerenciamento de Riscos Ocupacionais</SelectItem>
+                            <SelectItem value="NR-1">
+                              NR-1 - Disposições Gerais e Gerenciamento de Riscos Ocupacionais
+                            </SelectItem>
                             <SelectItem value="NR-2">NR-2 - Inspeção Prévia (Revogada)</SelectItem>
                             <SelectItem value="NR-3">NR-3 - Embargo e Interdição</SelectItem>
-                            <SelectItem value="NR-4">NR-4 - Serviços Especializados em Segurança e em Medicina do Trabalho</SelectItem>
-                            <SelectItem value="NR-5">NR-5 - Comissão Interna de Prevenção de Acidentes e de Assédio - CIPA</SelectItem>
-                            <SelectItem value="NR-6">NR-6 - Equipamento de Proteção Individual - EPI</SelectItem>
-                            <SelectItem value="NR-7">NR-7 - Programa de Controle Médico de Saúde Ocupacional</SelectItem>
+                            <SelectItem value="NR-4">
+                              NR-4 - Serviços Especializados em Segurança e em Medicina do Trabalho
+                            </SelectItem>
+                            <SelectItem value="NR-5">
+                              NR-5 - Comissão Interna de Prevenção de Acidentes e de Assédio - CIPA
+                            </SelectItem>
+                            <SelectItem value="NR-6">
+                              NR-6 - Equipamento de Proteção Individual - EPI
+                            </SelectItem>
+                            <SelectItem value="NR-7">
+                              NR-7 - Programa de Controle Médico de Saúde Ocupacional
+                            </SelectItem>
                             <SelectItem value="NR-8">NR-8 - Edificações</SelectItem>
-                            <SelectItem value="NR-9">NR-9 - Avaliação e Controle das Exposições Ocupacionais a Agentes Físicos, Químicos e Biológicos</SelectItem>
-                            <SelectItem value="NR-10">NR-10 - Segurança em Instalações e Serviços em Eletricidade</SelectItem>
-                            <SelectItem value="NR-11">NR-11 - Transporte, Movimentação, Armazenagem e Manuseio de Materiais</SelectItem>
-                            <SelectItem value="NR-12">NR-12 - Segurança no Trabalho em Máquinas e Equipamentos</SelectItem>
-                            <SelectItem value="NR-13">NR-13 - Caldeiras, Vasos de Pressão e Tubulações e Tanques Metálicos de Armazenamento</SelectItem>
+                            <SelectItem value="NR-9">
+                              NR-9 - Avaliação e Controle das Exposições Ocupacionais a Agentes
+                              Físicos, Químicos e Biológicos
+                            </SelectItem>
+                            <SelectItem value="NR-10">
+                              NR-10 - Segurança em Instalações e Serviços em Eletricidade
+                            </SelectItem>
+                            <SelectItem value="NR-11">
+                              NR-11 - Transporte, Movimentação, Armazenagem e Manuseio de Materiais
+                            </SelectItem>
+                            <SelectItem value="NR-12">
+                              NR-12 - Segurança no Trabalho em Máquinas e Equipamentos
+                            </SelectItem>
+                            <SelectItem value="NR-13">
+                              NR-13 - Caldeiras, Vasos de Pressão e Tubulações e Tanques Metálicos
+                              de Armazenamento
+                            </SelectItem>
                             <SelectItem value="NR-14">NR-14 - Fornos</SelectItem>
-                            <SelectItem value="NR-15">NR-15 - Atividades e Operações Insalubres</SelectItem>
-                            <SelectItem value="NR-16">NR-16 - Atividades e Operações Perigosas</SelectItem>
+                            <SelectItem value="NR-15">
+                              NR-15 - Atividades e Operações Insalubres
+                            </SelectItem>
+                            <SelectItem value="NR-16">
+                              NR-16 - Atividades e Operações Perigosas
+                            </SelectItem>
                             <SelectItem value="NR-17">NR-17 - Ergonomia</SelectItem>
-                            <SelectItem value="NR-18">NR-18 - Segurança e Saúde no Trabalho na Indústria da Construção</SelectItem>
+                            <SelectItem value="NR-18">
+                              NR-18 - Segurança e Saúde no Trabalho na Indústria da Construção
+                            </SelectItem>
                             <SelectItem value="NR-19">NR-19 - Explosivos</SelectItem>
-                            <SelectItem value="NR-20">NR-20 - Segurança e Saúde no Trabalho com Inflamáveis e Combustíveis</SelectItem>
+                            <SelectItem value="NR-20">
+                              NR-20 - Segurança e Saúde no Trabalho com Inflamáveis e Combustíveis
+                            </SelectItem>
                             <SelectItem value="NR-21">NR-21 - Trabalhos a Céu Aberto</SelectItem>
-                            <SelectItem value="NR-22">NR-22 - Segurança e Saúde Ocupacional na Mineração</SelectItem>
+                            <SelectItem value="NR-22">
+                              NR-22 - Segurança e Saúde Ocupacional na Mineração
+                            </SelectItem>
                             <SelectItem value="NR-23">NR-23 - Proteção Contra Incêndios</SelectItem>
-                            <SelectItem value="NR-24">NR-24 - Condições Sanitárias e de Conforto nos Locais de Trabalho</SelectItem>
+                            <SelectItem value="NR-24">
+                              NR-24 - Condições Sanitárias e de Conforto nos Locais de Trabalho
+                            </SelectItem>
                             <SelectItem value="NR-25">NR-25 - Resíduos Industriais</SelectItem>
                             <SelectItem value="NR-26">NR-26 - Sinalização de Segurança</SelectItem>
-                            <SelectItem value="NR-27">NR-27 - Registro Profissional do Técnico de Segurança do Trabalho (Revogada)</SelectItem>
-                            <SelectItem value="NR-28">NR-28 - Fiscalização e Penalidades</SelectItem>
-                            <SelectItem value="NR-29">NR-29 - Norma Regulamentadora de Segurança e Saúde no Trabalho Portuário</SelectItem>
-                            <SelectItem value="NR-30">NR-30 - Segurança e Saúde no Trabalho Aquaviário</SelectItem>
-                            <SelectItem value="NR-31">NR-31 - Segurança e Saúde no Trabalho na Agricultura, Pecuária, Silvicultura, Exploração Florestal e Aquicultura</SelectItem>
-                            <SelectItem value="NR-32">NR-32 - Segurança e Saúde no Trabalho em Serviços de Saúde</SelectItem>
-                            <SelectItem value="NR-33">NR-33 - Segurança e Saúde nos Trabalhos em Espaços Confinados</SelectItem>
-                            <SelectItem value="NR-34">NR-34 - Condições e Meio Ambiente de Trabalho na Indústria da Construção, Reparação e Desmonte Naval</SelectItem>
+                            <SelectItem value="NR-27">
+                              NR-27 - Registro Profissional do Técnico de Segurança do Trabalho
+                              (Revogada)
+                            </SelectItem>
+                            <SelectItem value="NR-28">
+                              NR-28 - Fiscalização e Penalidades
+                            </SelectItem>
+                            <SelectItem value="NR-29">
+                              NR-29 - Norma Regulamentadora de Segurança e Saúde no Trabalho
+                              Portuário
+                            </SelectItem>
+                            <SelectItem value="NR-30">
+                              NR-30 - Segurança e Saúde no Trabalho Aquaviário
+                            </SelectItem>
+                            <SelectItem value="NR-31">
+                              NR-31 - Segurança e Saúde no Trabalho na Agricultura, Pecuária,
+                              Silvicultura, Exploração Florestal e Aquicultura
+                            </SelectItem>
+                            <SelectItem value="NR-32">
+                              NR-32 - Segurança e Saúde no Trabalho em Serviços de Saúde
+                            </SelectItem>
+                            <SelectItem value="NR-33">
+                              NR-33 - Segurança e Saúde nos Trabalhos em Espaços Confinados
+                            </SelectItem>
+                            <SelectItem value="NR-34">
+                              NR-34 - Condições e Meio Ambiente de Trabalho na Indústria da
+                              Construção, Reparação e Desmonte Naval
+                            </SelectItem>
                             <SelectItem value="NR-35">NR-35 - Trabalho em Altura</SelectItem>
-                            <SelectItem value="NR-36">NR-36 - Segurança e Saúde no Trabalho em Empresas de Abate e Processamento de Carnes e Derivados</SelectItem>
-                            <SelectItem value="NR-37">NR-37 - Segurança e Saúde em Plataformas de Petróleo</SelectItem>
-                            <SelectItem value="NR-38">NR-38 - Segurança e Saúde no Trabalho nas Atividades de Limpeza Urbana e Manuseio de Resíduos Sólidos</SelectItem>
+                            <SelectItem value="NR-36">
+                              NR-36 - Segurança e Saúde no Trabalho em Empresas de Abate e
+                              Processamento de Carnes e Derivados
+                            </SelectItem>
+                            <SelectItem value="NR-37">
+                              NR-37 - Segurança e Saúde em Plataformas de Petróleo
+                            </SelectItem>
+                            <SelectItem value="NR-38">
+                              NR-38 - Segurança e Saúde no Trabalho nas Atividades de Limpeza Urbana
+                              e Manuseio de Resíduos Sólidos
+                            </SelectItem>
                             <SelectItem value="outro">Outro (Personalizado)</SelectItem>
                           </SelectContent>
                         </Select>
@@ -447,49 +721,111 @@ function FuncionariosPage() {
                       {/* Lista dinâmica de treinamentos */}
                       <div className="flex items-center justify-between">
                         <p className="text-sm font-semibold">Treinamentos realizados</p>
-                        <Button type="button" size="sm" variant="outline" onClick={() => setTreinamentos((prev) => [...prev, novoTreinamento()])}>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setTreinamentos((prev) => [...prev, novoTreinamento()])}
+                        >
                           <Plus className="h-3 w-3 mr-1" /> Adicionar treinamento
                         </Button>
                       </div>
-<div className="space-y-2">
-                      {treinamentos.map((t, i) => (
-                        <div key={t.id} className="rounded-lg border p-3 space-y-2 bg-muted/10 relative">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-xs font-medium text-muted-foreground">Treinamento {i + 1}</span>
-                            {treinamentos.length > 1 && (
-                              <Button type="button" size="icon" variant="ghost" className="h-6 w-6" onClick={() => setTreinamentos((prev) => prev.filter((_, idx) => idx !== i))}>
-                                <Trash2 className="h-3 w-3" />
-                              </Button>
-                            )}
-                          </div>
-                          <div className="space-y-1">
-                            <Label className="text-xs">Nome do treinamento</Label>
-                            <Input placeholder="Ex: NR-35, Primeiros Socorros..." value={t.nome} onChange={(e) => setTreinamentos((prev) => prev.map((x, idx) => idx === i ? { ...x, nome: e.target.value } : x))} />
-                          </div>
-                          <div className="grid grid-cols-2 gap-2">
-                            <div className="space-y-1">
-                              <Label className="text-xs">Data de realização</Label>
-                              <Input type="date" value={t.data_realizacao} onChange={(e) => setTreinamentos((prev) => prev.map((x, idx) => idx === i ? { ...x, data_realizacao: e.target.value } : x))} />
-                            </div>
-                            <div className="space-y-1">
-                              <Label className="text-xs">Data de validade</Label>
-                              <Input type="date" value={t.data_validade} onChange={(e) => setTreinamentos((prev) => prev.map((x, idx) => idx === i ? { ...x, data_validade: e.target.value } : x))} />
-                              {t.data_validade && (
-                                <span className={diasParaVencimento(t.data_validade) <= -1 ? "text-destructive" : diasParaVencimento(t.data_validade) <= 30 ? "text-warning" : "text-success"}>
-                                  {(diasParaVencimento(t.data_validade) <= -1 ? "EXPIRADO" : "") + (diasParaVencimento(t.data_validade) <= 30 && diasParaVencimento(t.data_validade) > -1 ? " (vence em breve)" : "")}
-                                </span>
+                      <div className="space-y-2">
+                        {treinamentos.map((t, i) => (
+                          <div
+                            key={t.id}
+                            className="rounded-lg border p-3 space-y-2 bg-muted/10 relative"
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-xs font-medium text-muted-foreground">
+                                Treinamento {i + 1}
+                              </span>
+                              {treinamentos.length > 1 && (
+                                <Button
+                                  type="button"
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-6 w-6"
+                                  onClick={() =>
+                                    setTreinamentos((prev) => prev.filter((_, idx) => idx !== i))
+                                  }
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
                               )}
                             </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs">Nome do treinamento</Label>
+                              <Input
+                                placeholder="Ex: NR-35, Primeiros Socorros..."
+                                value={t.nome}
+                                onChange={(e) =>
+                                  setTreinamentos((prev) =>
+                                    prev.map((x, idx) =>
+                                      idx === i ? { ...x, nome: e.target.value } : x,
+                                    ),
+                                  )
+                                }
+                              />
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                              <div className="space-y-1">
+                                <Label className="text-xs">Data de realização</Label>
+                                <Input
+                                  type="date"
+                                  value={t.data_realizacao}
+                                  onChange={(e) =>
+                                    setTreinamentos((prev) =>
+                                      prev.map((x, idx) =>
+                                        idx === i ? { ...x, data_realizacao: e.target.value } : x,
+                                      ),
+                                    )
+                                  }
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <Label className="text-xs">Data de validade</Label>
+                                <Input
+                                  type="date"
+                                  value={t.data_validade}
+                                  onChange={(e) =>
+                                    setTreinamentos((prev) =>
+                                      prev.map((x, idx) =>
+                                        idx === i ? { ...x, data_validade: e.target.value } : x,
+                                      ),
+                                    )
+                                  }
+                                />
+                                {t.data_validade && (
+                                  <span
+                                    className={
+                                      diasParaVencimento(t.data_validade) <= -1
+                                        ? "text-destructive"
+                                        : diasParaVencimento(t.data_validade) <= 30
+                                          ? "text-warning"
+                                          : "text-success"
+                                    }
+                                  >
+                                    {(diasParaVencimento(t.data_validade) <= -1 ? "EXPIRADO" : "") +
+                                      (diasParaVencimento(t.data_validade) <= 30 &&
+                                      diasParaVencimento(t.data_validade) > -1
+                                        ? " (vence em breve)"
+                                        : "")}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                      ))}
-                    </div>
+                        ))}
+                      </div>
                     </div>
                   </TabsContent>
                 </Tabs>
 
                 <DialogFooter>
-                  <Button type="submit" disabled={upsert.isPending}>{upsert.isPending ? "Salvando..." : "Salvar"}</Button>
+                  <Button type="submit" disabled={upsert.isPending}>
+                    {upsert.isPending ? "Salvando..." : "Salvar"}
+                  </Button>
                 </DialogFooter>
               </form>
             </DialogContent>
@@ -499,9 +835,15 @@ function FuncionariosPage() {
 
       <Card className="p-3">
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
-          <Input placeholder="Buscar nome, função, CPF..." value={busca} onChange={(e) => setBusca(e.target.value)} />
+          <Input
+            placeholder="Buscar nome, função, CPF..."
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+          />
           <Select value={fStatus} onValueChange={(v) => setFStatus(v as any)}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="todos">Todos</SelectItem>
               <SelectItem value="ativos">Ativos</SelectItem>
@@ -509,21 +851,39 @@ function FuncionariosPage() {
             </SelectContent>
           </Select>
           <Select value={fObra} onValueChange={(v) => setFObra(v)}>
-            <SelectTrigger><SelectValue placeholder="Obra" /></SelectTrigger>
+            <SelectTrigger>
+              <SelectValue placeholder="Obra" />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="todas">Todas as obras</SelectItem>
-              {obras.map((o: any) => <SelectItem key={o.id} value={o.id}>{o.nome}</SelectItem>)}
+              {obras.map((o: any) => (
+                <SelectItem key={o.id} value={o.id}>
+                  {o.nome}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
           <Select value={fVenc} onValueChange={(v) => setFVenc(v as any)}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="todos">Todas validades</SelectItem>
               <SelectItem value="vencidos">Com vencidos</SelectItem>
               <SelectItem value="proximos">Vence em 30 dias</SelectItem>
             </SelectContent>
           </Select>
-          <Button variant="ghost" onClick={() => { setBusca(""); setFStatus("todos"); setFObra("todas"); setFVenc("todos"); }}>Limpar</Button>
+          <Button
+            variant="ghost"
+            onClick={() => {
+              setBusca("");
+              setFStatus("todos");
+              setFObra("todas");
+              setFVenc("todos");
+            }}
+          >
+            Limpar
+          </Button>
         </div>
       </Card>
 
@@ -533,106 +893,223 @@ function FuncionariosPage() {
           <TabsTrigger value="vencimentos">Vencimentos</TabsTrigger>
         </TabsList>
         <TabsContent value="cadastro">
-      <Card>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Nome</TableHead>
-              <TableHead>Função / Setor</TableHead>
-              <TableHead>Obras</TableHead>
-              <TableHead>CPF</TableHead>
-              <TableHead>Data de admissão</TableHead>
-              <TableHead>Telefone para contato</TableHead>
-              <TableHead>Matrícula</TableHead>
-              <TableHead>Cidade</TableHead>
-              <TableHead className="w-24 text-right">Ações</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading && <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>}
-            {!isLoading && filtered.length === 0 && (
-              <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Nenhum funcionário encontrado.</TableCell></TableRow>
-            )}
-            {filtered.map((f: any) => {
-                const abertos = countVencimentosAbertos(f);
-                const treinAbertos = countTreinamentosAbertos(treinamentos);
-                return (
-                  <TableRow key={f.id}>
-                    <TableCell>
-                      <div className="font-medium">{f.nome}</div>
-                      <div className="text-xs text-muted-foreground">{f.email}</div>
+          <Card>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nome</TableHead>
+                  <TableHead>Função / Setor</TableHead>
+                  <TableHead>Obras</TableHead>
+                  <TableHead>CPF</TableHead>
+                  <TableHead>Data de admissão</TableHead>
+                  <TableHead>Telefone para contato</TableHead>
+                  <TableHead>Matrícula</TableHead>
+                  <TableHead>Cidade</TableHead>
+                  <TableHead className="w-24 text-right">Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {isLoading && (
+                  <TableRow>
+                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                      Carregando...
                     </TableCell>
+                  </TableRow>
+                )}
+                {!isLoading && filtered.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                      Nenhum funcionário encontrado.
+                    </TableCell>
+                  </TableRow>
+                )}
+                {filtered.map((f: any) => {
+                  const abertos = countVencimentosAbertos(f);
+                  const treinAbertos = countTreinamentosAbertos(treinamentos);
+                  return (
+                    <TableRow key={f.id}>
+                      <TableCell>
+                        <div className="font-medium">{f.nome}</div>
+                        <div className="text-xs text-muted-foreground">{f.email}</div>
+                      </TableCell>
+                      <TableCell>
+                        <div>{f.funcao ?? "—"}</div>
+                        <div className="text-xs text-muted-foreground">{f.setor}</div>
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {obras.find((o: any) => o.id === f.obra_id)?.nome ?? (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell>{f.cpf ?? "—"}</TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        {safeFormatDate(f.data_admissao, "dd/MM/yyyy")}
+                      </TableCell>
+                      <TableCell>{f.telefone ?? "—"}</TableCell>
+                      <TableCell>{f.matricula ?? "—"}</TableCell>
+                      <TableCell>{f.cidade ?? "—"}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          {(abertos.proximos > 0 ||
+                            abertos.vencidos > 0 ||
+                            treinAbertos.proximos > 0 ||
+                            treinAbertos.vencidos > 0) && (
+                            <span className="text-xs mr-1">
+                              {abertos.proximos > 0 && (
+                                <span className="text-warning">🔔 {abertos.proximos}</span>
+                              )}
+                              {abertos.vencidos > 0 && (
+                                <span className="text-destructive">⚠️ {abertos.vencidos}</span>
+                              )}
+                              {treinAbertos.proximos > 0 && (
+                                <span className="text-warning">📋 {treinAbertos.proximos}</span>
+                              )}
+                              {treinAbertos.vencidos > 0 && (
+                                <span className="text-destructive">⚠️ {treinAbertos.vencidos}</span>
+                              )}
+                            </span>
+                          )}
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            title="Documentos"
+                            onClick={() => setDocsFor(f)}
+                          >
+                            <FileText className="h-4 w-4" />
+                          </Button>
+                          {canEdit && (
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              title="Editar"
+                              onClick={() => openEdit(f)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {canDelete && (
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              title="Excluir"
+                              onClick={() => {
+                                if (confirm(`Excluir ${f.nome}?`)) remove.mutate(f.id);
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </Card>
+        </TabsContent>
+        <TabsContent value="vencimentos">
+          <Card>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nome</TableHead>
+                  <TableHead>Função / Setor</TableHead>
+                  <TableHead>Obra</TableHead>
+                  <TableHead>ASO</TableHead>
+                  <TableHead>Férias</TableHead>
+                  <TableHead>Folgas</TableHead>
+                  <TableHead>Treinamentos</TableHead>
+                  <TableHead className="w-24 text-right">Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {isLoading && (
+                  <TableRow>
+                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                      Carregando...
+                    </TableCell>
+                  </TableRow>
+                )}
+                {!isLoading && filtered.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                      Nenhum funcionário encontrado.
+                    </TableCell>
+                  </TableRow>
+                )}
+                {filtered.map((f: any) => (
+                  <TableRow key={f.id}>
+                    <TableCell className="font-medium">{f.nome}</TableCell>
                     <TableCell>
                       <div>{f.funcao ?? "—"}</div>
-                      <div className="text-xs text-muted-foreground">{f.setor}</div>
+                      <div className="text-xs text-muted-foreground">{f.setor ?? "—"}</div>
                     </TableCell>
-                    <TableCell className="text-sm">
-                      {obras.find((o: any) => o.id === f.obra_id)?.nome ?? <span className="text-muted-foreground">—</span>}
-                    </TableCell>
-                    <TableCell>{f.cpf ?? "—"}</TableCell>
-                    <TableCell className="whitespace-nowrap">{safeFormatDate(f.data_admissao, "dd/MM/yyyy")}</TableCell>
-                    <TableCell>{f.telefone ?? "—"}</TableCell>
-                    <TableCell>{f.matricula ?? "—"}</TableCell>
-                    <TableCell>{f.cidade ?? "—"}</TableCell>
+                    <TableCell>{obras.find((o: any) => o.id === f.obra_id)?.nome ?? "—"}</TableCell>
+                    {[
+                      "vencimento_aso",
+                      "vencimento_ferias",
+                      "vencimento_folga_campo",
+                      "vencimento_treinamento",
+                    ].map((key) => (
+                      <TableCell
+                        key={key}
+                        className={cn("text-xs whitespace-nowrap", vencColor(f[key]))}
+                      >
+                        {safeFormatDate(f[key], "dd/MM/yyyy")}
+                      </TableCell>
+                    ))}
                     <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        {(abertos.proximos > 0 || abertos.vencidos > 0 || treinAbertos.proximos > 0 || treinAbertos.vencidos > 0) && (
-                          <span className="text-xs mr-1">
-                            {abertos.proximos > 0 && <span className="text-warning">🔔 {abertos.proximos}</span>}
-                            {abertos.vencidos > 0 && <span className="text-destructive">⚠️ {abertos.vencidos}</span>}
-                            {treinAbertos.proximos > 0 && <span className="text-warning">📋 {treinAbertos.proximos}</span>}
-                            {treinAbertos.vencidos > 0 && <span className="text-destructive">⚠️ {treinAbertos.vencidos}</span>}
-                          </span>
-                        )}
-                        <Button size="icon" variant="ghost" title="Documentos" onClick={() => setDocsFor(f)}><FileText className="h-4 w-4" /></Button>
-                        {canEdit && <Button size="icon" variant="ghost" title="Editar" onClick={() => openEdit(f)}><Pencil className="h-4 w-4" /></Button>}
-                        {canDelete && (
-                          <Button size="icon" variant="ghost" title="Excluir" onClick={() => { if (confirm(`Excluir ${f.nome}?`)) remove.mutate(f.id); }}>
-                            <Trash2 className="h-4 w-4" />
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          title="Documentos"
+                          onClick={() => setDocsFor(f)}
+                        >
+                          <FileText className="h-4 w-4" />
+                        </Button>
+                        {canEdit && (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            title="Editar"
+                            onClick={() => openEdit(f)}
+                          >
+                            <Pencil className="h-4 w-4" />
                           </Button>
                         )}
                       </div>
                     </TableCell>
                   </TableRow>
-                );
-              })}
-          </TableBody>
-        </Table>
-      </Card>
-        </TabsContent>
-        <TabsContent value="vencimentos">
-          <Card>
-            <Table>
-              <TableHeader><TableRow>
-                <TableHead>Nome</TableHead><TableHead>Função / Setor</TableHead><TableHead>Obra</TableHead>
-                <TableHead>ASO</TableHead><TableHead>Férias</TableHead><TableHead>Folgas</TableHead><TableHead>Treinamentos</TableHead>
-                <TableHead className="w-24 text-right">Ações</TableHead>
-              </TableRow></TableHeader>
-              <TableBody>
-                {isLoading && <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>}
-                {!isLoading && filtered.length === 0 && <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Nenhum funcionário encontrado.</TableCell></TableRow>}
-                {filtered.map((f: any) => <TableRow key={f.id}>
-                  <TableCell className="font-medium">{f.nome}</TableCell>
-                  <TableCell><div>{f.funcao ?? "—"}</div><div className="text-xs text-muted-foreground">{f.setor ?? "—"}</div></TableCell>
-                  <TableCell>{obras.find((o: any) => o.id === f.obra_id)?.nome ?? "—"}</TableCell>
-                  {["vencimento_aso", "vencimento_ferias", "vencimento_folga_campo", "vencimento_treinamento"].map((key) => <TableCell key={key} className={cn("text-xs whitespace-nowrap", vencColor(f[key]))}>{safeFormatDate(f[key], "dd/MM/yyyy")}</TableCell>)}
-                  <TableCell className="text-right"><div className="flex justify-end gap-1">
-                    <Button size="icon" variant="ghost" title="Documentos" onClick={() => setDocsFor(f)}><FileText className="h-4 w-4" /></Button>
-                    {canEdit && <Button size="icon" variant="ghost" title="Editar" onClick={() => openEdit(f)}><Pencil className="h-4 w-4" /></Button>}
-                  </div></TableCell>
-                </TableRow>)}
+                ))}
               </TableBody>
             </Table>
           </Card>
         </TabsContent>
       </Tabs>
 
-      <DocumentosDialog funcionario={docsFor} onClose={() => setDocsFor(null)} canEdit={canEdit} canDelete={canDelete} />
+      <DocumentosDialog
+        funcionario={docsFor}
+        onClose={() => setDocsFor(null)}
+        canEdit={canEdit}
+        canDelete={canDelete}
+      />
     </div>
   );
 }
 
-function DocumentosDialog({ funcionario, onClose, canEdit, canDelete }: { funcionario: any; onClose: () => void; canEdit: boolean; canDelete: boolean }) {
+function DocumentosDialog({
+  funcionario,
+  onClose,
+  canEdit,
+  canDelete,
+}: {
+  funcionario: any;
+  onClose: () => void;
+  canEdit: boolean;
+  canDelete: boolean;
+}) {
   const qc = useQueryClient();
   const open = !!funcionario;
 
@@ -664,17 +1141,26 @@ function DocumentosDialog({ funcionario, onClose, canEdit, canDelete }: { funcio
       });
       if (error) throw error;
     },
-    onSuccess: () => { toast.success("Documento enviado"); qc.invalidateQueries({ queryKey: ["funcionario-documentos", funcionario?.id] }); },
+    onSuccess: () => {
+      toast.success("Documento enviado");
+      qc.invalidateQueries({ queryKey: ["funcionario-documentos", funcionario?.id] });
+    },
     onError: (e: any) => toast.error(e.message),
   });
 
   const delDoc = useMutation({
     mutationFn: async (doc: any) => {
       await supabase.storage.from("anexos").remove([doc.storage_path]);
-      const { error } = await (supabase as any).from("funcionario_documentos").delete().eq("id", doc.id);
+      const { error } = await (supabase as any)
+        .from("funcionario_documentos")
+        .delete()
+        .eq("id", doc.id);
       if (error) throw error;
     },
-    onSuccess: () => { toast.success("Documento removido"); qc.invalidateQueries({ queryKey: ["funcionario-documentos", funcionario?.id] }); },
+    onSuccess: () => {
+      toast.success("Documento removido");
+      qc.invalidateQueries({ queryKey: ["funcionario-documentos", funcionario?.id] });
+    },
     onError: (e: any) => toast.error(e.message),
   });
 
@@ -693,25 +1179,67 @@ function DocumentosDialog({ funcionario, onClose, canEdit, canDelete }: { funcio
         {canEdit && (
           <div>
             <Label className="text-sm">Adicionar ficha / documento</Label>
-            <Input type="file" onChange={(e) => { const f = e.target.files?.[0]; if (f) { addDoc.mutate(f); e.target.value = ""; } }} disabled={addDoc.isPending} />
-            <p className="text-xs text-muted-foreground mt-1">PDF, imagem ou qualquer arquivo até 50MB.</p>
+            <Input
+              type="file"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) {
+                  addDoc.mutate(f);
+                  e.target.value = "";
+                }
+              }}
+              disabled={addDoc.isPending}
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              PDF, imagem ou qualquer arquivo até 50MB.
+            </p>
           </div>
         )}
         <div className="border rounded mt-2">
-          {isLoading && <div className="p-4 text-sm text-muted-foreground text-center">Carregando...</div>}
-          {!isLoading && docs.length === 0 && <div className="p-4 text-sm text-muted-foreground text-center">Nenhum documento ainda.</div>}
+          {isLoading && (
+            <div className="p-4 text-sm text-muted-foreground text-center">Carregando...</div>
+          )}
+          {!isLoading && docs.length === 0 && (
+            <div className="p-4 text-sm text-muted-foreground text-center">
+              Nenhum documento ainda.
+            </div>
+          )}
           {docs.map((d: any) => (
-            <div key={d.id} className="flex items-center justify-between gap-2 p-2 border-b last:border-b-0">
+            <div
+              key={d.id}
+              className="flex items-center justify-between gap-2 p-2 border-b last:border-b-0"
+            >
               <div className="flex items-center gap-2 min-w-0">
                 <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
                 <div className="min-w-0">
                   <div className="text-sm truncate">{d.nome}</div>
-                  <div className="text-xs text-muted-foreground">{safeFormatDate(d.created_at, "dd/MM/yy HH:mm")} {d.tamanho ? `· ${Math.round(d.tamanho / 1024)} KB` : ""}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {safeFormatDate(d.created_at, "dd/MM/yy HH:mm")}{" "}
+                    {d.tamanho ? `· ${Math.round(d.tamanho / 1024)} KB` : ""}
+                  </div>
                 </div>
               </div>
               <div className="flex gap-1">
-                <Button size="icon" variant="ghost" title="Baixar" onClick={() => handleDownload(d)}><Download className="h-4 w-4" /></Button>
-                {canDelete && <Button size="icon" variant="ghost" title="Excluir" onClick={() => { if (confirm(`Excluir ${d.nome}?`)) delDoc.mutate(d); }}><Trash2 className="h-4 w-4" /></Button>}
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  title="Baixar"
+                  onClick={() => handleDownload(d)}
+                >
+                  <Download className="h-4 w-4" />
+                </Button>
+                {canDelete && (
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    title="Excluir"
+                    onClick={() => {
+                      if (confirm(`Excluir ${d.nome}?`)) delDoc.mutate(d);
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                )}
               </div>
             </div>
           ))}

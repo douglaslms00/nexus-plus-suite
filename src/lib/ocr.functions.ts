@@ -1,6 +1,38 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
+interface AiMessage {
+  role: string;
+  content: string;
+}
+
+interface AiChoice {
+  message: AiMessage;
+}
+
+interface AiResponse {
+  choices: AiChoice[];
+}
+
+interface ParsedFicha {
+  nome?: string;
+  cpf?: string;
+  telefone?: string;
+  email?: string;
+  endereco?: string;
+  cidade?: string;
+  funcao?: string;
+  setor?: string;
+  data_admissao?: string;
+}
+
+interface ParsedCupom {
+  data?: string;
+  estabelecimento?: string;
+  valor?: string | number;
+  categoria?: string;
+}
+
 export type CupomOCR = {
   data: string | null;
   estabelecimento: string | null;
@@ -28,13 +60,24 @@ const FICHA_SYSTEM_PROMPT =
 function parseFichaJson(raw: string): FichaRegistroOCR {
   const match = raw.match(/\{[\s\S]*\}/);
   if (!match) throw new Error("Não foi possível interpretar a ficha de registro");
-  let parsed: any;
-  try { parsed = JSON.parse(match[0]); } catch { throw new Error("Não foi possível interpretar a ficha de registro"); }
-  const text = (key: string) => typeof parsed[key] === "string" && parsed[key].trim() ? parsed[key].trim() : null;
+  let parsed: Record<string, unknown>;
+  try {
+    parsed = JSON.parse(match[0]);
+  } catch {
+    throw new Error("Não foi possível interpretar a ficha de registro");
+  }
+  const text = (key: string) =>
+    typeof parsed[key] === "string" && parsed[key].trim() ? parsed[key].trim() : null;
   const date = text("data_admissao");
   return {
-    nome: text("nome"), cpf: text("cpf"), telefone: text("telefone"), email: text("email"),
-    endereco: text("endereco"), cidade: text("cidade"), funcao: text("funcao"), setor: text("setor"),
+    nome: text("nome"),
+    cpf: text("cpf"),
+    telefone: text("telefone"),
+    email: text("email"),
+    endereco: text("endereco"),
+    cidade: text("cidade"),
+    funcao: text("funcao"),
+    setor: text("setor"),
     data_admissao: date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : null,
   };
 }
@@ -55,7 +98,10 @@ export const lerFichaRegistro = createServerFn({ method: "POST" })
           {
             role: "user",
             content: [
-              { type: "text", text: "Leia esta ficha de registro e extraia os dados do funcionário." },
+              {
+                type: "text",
+                text: "Leia esta ficha de registro e extraia os dados do funcionário.",
+              },
               { type: "image_url", image_url: { url: data.imageDataUrl } },
             ],
           },
@@ -63,11 +109,12 @@ export const lerFichaRegistro = createServerFn({ method: "POST" })
       }),
     });
 
-    if (res.status === 429) throw new Error("Muitas leituras seguidas. Tente novamente em instantes.");
+    if (res.status === 429)
+      throw new Error("Muitas leituras seguidas. Tente novamente em instantes.");
     if (res.status === 402) throw new Error("Créditos de IA esgotados no workspace.");
     if (!res.ok) throw new Error("Falha ao ler a ficha de registro");
 
-    const raw: string = ((await res.json()) as any)?.choices?.[0]?.message?.content ?? "";
+    const raw: string = ((await res.json()) as AiResponse)?.choices?.[0]?.message?.content ?? "";
     return parseFichaJson(raw);
   });
 
@@ -87,7 +134,10 @@ export const lerFichaRegistroPdf = createServerFn({ method: "POST" })
           {
             role: "user",
             content: [
-              { type: "text", text: "Leia este PDF de ficha de registro e extraia os dados do funcionário." },
+              {
+                type: "text",
+                text: "Leia este PDF de ficha de registro e extraia os dados do funcionário.",
+              },
               {
                 type: "image_url",
                 image_url: { url: `data:application/pdf;base64,${data.pdfBase64}` },
@@ -98,11 +148,12 @@ export const lerFichaRegistroPdf = createServerFn({ method: "POST" })
       }),
     });
 
-    if (res.status === 429) throw new Error("Muitas leituras seguidas. Tente novamente em instantes.");
+    if (res.status === 429)
+      throw new Error("Muitas leituras seguidas. Tente novamente em instantes.");
     if (res.status === 402) throw new Error("Créditos de IA esgotados no workspace.");
     if (!res.ok) throw new Error("Falha ao analisar o PDF da ficha");
 
-    const raw: string = ((await res.json()) as any)?.choices?.[0]?.message?.content ?? "";
+    const raw: string = ((await res.json()) as AiResponse)?.choices?.[0]?.message?.content ?? "";
     return parseFichaJson(raw);
   });
 
@@ -136,7 +187,10 @@ export const lerCupomFiscal = createServerFn({ method: "POST" })
           {
             role: "user",
             content: [
-              { type: "text", text: "Extraia data, estabelecimento, valor total e categoria deste cupom." },
+              {
+                type: "text",
+                text: "Extraia data, estabelecimento, valor total e categoria deste cupom.",
+              },
               { type: "image_url", image_url: { url: data.imageDataUrl } },
             ],
           },
@@ -144,16 +198,17 @@ export const lerCupomFiscal = createServerFn({ method: "POST" })
       }),
     });
 
-    if (res.status === 429) throw new Error("Muitas leituras seguidas. Tente novamente em instantes.");
+    if (res.status === 429)
+      throw new Error("Muitas leituras seguidas. Tente novamente em instantes.");
     if (res.status === 402) throw new Error("Créditos de IA esgotados no workspace.");
     if (!res.ok) throw new Error("Falha ao ler o cupom");
 
-    const json = (await res.json()) as any;
+    const json = (await res.json()) as AiResponse;
     const raw: string = json?.choices?.[0]?.message?.content ?? "";
     const match = raw.match(/\{[\s\S]*\}/);
     if (!match) throw new Error("Não foi possível interpretar o cupom");
 
-    let parsed: any;
+    let parsed: ParsedCupom;
     try {
       parsed = JSON.parse(match[0]);
     } catch {
@@ -164,11 +219,18 @@ export const lerCupomFiscal = createServerFn({ method: "POST" })
       typeof parsed.valor === "number"
         ? parsed.valor
         : typeof parsed.valor === "string"
-          ? Number(parsed.valor.replace(/[^\d,.-]/g, "").replace(/\.(?=\d{3}\b)/g, "").replace(",", "."))
+          ? Number(
+              parsed.valor
+                .replace(/[^\d,.-]/g, "")
+                .replace(/\.(?=\d{3}\b)/g, "")
+                .replace(",", "."),
+            )
           : null;
 
     const dataStr =
-      typeof parsed.data === "string" && /^\d{4}-\d{2}-\d{2}$/.test(parsed.data) ? parsed.data : null;
+      typeof parsed.data === "string" && /^\d{4}-\d{2}-\d{2}$/.test(parsed.data)
+        ? parsed.data
+        : null;
 
     return {
       data: dataStr,

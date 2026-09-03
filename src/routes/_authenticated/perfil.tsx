@@ -43,7 +43,9 @@ function PerfilPage() {
       numero: /[0-9]/.test(senha),
       especial: /[!@#$%^&*(),.?":{}|<>]/.test(senha),
     };
-    Object.values(requisitos).forEach((válido) => { if (válido) pontos++; });
+    Object.values(requisitos).forEach((válido) => {
+      if (válido) pontos++;
+    });
 
     if (senha.length >= 8 && pontos >= 3) return { strength: "forte", requisitos };
     if (senha.length >= 6 && pontos >= 2) return { strength: "media", requisitos };
@@ -52,7 +54,8 @@ function PerfilPage() {
 
   const saveProfile = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from("profiles")
+      const { error } = await supabase
+        .from("profiles")
         .update({ nome, setor, avatar_url: avatarUrl } as any)
         .eq("id", user!.id);
       if (error) throw error;
@@ -74,11 +77,18 @@ function PerfilPage() {
       const { strength, requisitos } = validarSenha(pwd);
       if (pwd.length < 6) throw new Error("Senha precisa ter ao menos 6 caracteres");
       if (pwd !== pwd2) throw new Error("Senhas não conferem");
-      if (strength === "fraca") throw new Error("Senha fraca: deve ter no mínimo 8 caracteres, letras maiúsculas e minúsculas, números e caracteres especiais");
+      if (strength === "fraca")
+        throw new Error(
+          "Senha fraca: deve ter no mínimo 8 caracteres, letras maiúsculas e minúsculas, números e caracteres especiais",
+        );
       const { error } = await supabase.auth.updateUser({ password: pwd });
       if (error) throw error;
     },
-    onSuccess: () => { toast.success("Senha alterada"); setPwd(""); setPwd2(""); },
+    onSuccess: () => {
+      toast.success("Senha alterada");
+      setPwd("");
+      setPwd2("");
+    },
     onError: (e: any) => toast.error(e.message),
   });
 
@@ -86,8 +96,13 @@ function PerfilPage() {
     const ext = file.name.split(".").pop();
     const path = `avatars/${user!.id}/${crypto.randomUUID()}.${ext}`;
     const { error } = await supabase.storage.from("anexos").upload(path, file, { upsert: true });
-    if (error) { toast.error(error.message); return; }
-    const { data } = await supabase.storage.from("anexos").createSignedUrl(path, 60 * 60 * 24 * 365);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    const { data } = await supabase.storage
+      .from("anexos")
+      .createSignedUrl(path, 60 * 60 * 24 * 365);
     setAvatarUrl(data?.signedUrl ?? null);
     toast.success("Avatar carregado. Salve para confirmar.");
   };
@@ -113,14 +128,35 @@ function PerfilPage() {
                 <AvatarFallback>{(nome || "U").slice(0, 2).toUpperCase()}</AvatarFallback>
               </Avatar>
               <label>
-                <input type="file" accept="image/*" className="hidden"
-                  onChange={(e) => { const f = e.target.files?.[0]; if (f) onAvatar(f); e.target.value = ""; }} />
-                <Button asChild variant="outline" size="sm"><span><Upload className="h-4 w-4" /> Trocar foto</span></Button>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) onAvatar(f);
+                    e.target.value = "";
+                  }}
+                />
+                <Button asChild variant="outline" size="sm">
+                  <span>
+                    <Upload className="h-4 w-4" /> Trocar foto
+                  </span>
+                </Button>
               </label>
             </div>
-            <div><Label>Nome</Label><Input value={nome} onChange={(e) => setNome(e.target.value)} /></div>
-            <div><Label>Setor</Label><Input value={setor} onChange={(e) => setSetor(e.target.value)} /></div>
-            <div><Label>E-mail</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
+            <div>
+              <Label>Nome</Label>
+              <Input value={nome} onChange={(e) => setNome(e.target.value)} />
+            </div>
+            <div>
+              <Label>Setor</Label>
+              <Input value={setor} onChange={(e) => setSetor(e.target.value)} />
+            </div>
+            <div>
+              <Label>E-mail</Label>
+              <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+            </div>
             <Button onClick={() => saveProfile.mutate()} disabled={saveProfile.isPending}>
               {saveProfile.isPending ? "Salvando..." : "Salvar"}
             </Button>
@@ -129,17 +165,55 @@ function PerfilPage() {
 
         <TabsContent value="senha">
           <Card className="p-6 space-y-4">
-            <div><Label>Nova senha</Label><Input type="password" value={pwd} onChange={(e) => setPwd(e.target.value)} /></div>
-            <div><Label>Confirmar senha</Label><Input type="password" value={pwd2} onChange={(e) => setPwd2(e.target.value)} /></div>
+            <div>
+              <Label>Nova senha</Label>
+              <Input type="password" value={pwd} onChange={(e) => setPwd(e.target.value)} />
+            </div>
+            <div>
+              <Label>Confirmar senha</Label>
+              <Input type="password" value={pwd2} onChange={(e) => setPwd2(e.target.value)} />
+            </div>
             <div className="text-xs mt-1">
-              <span className={validarSenha(pwd).strength === "forte" ? "text-success" : validarSenha(pwd).strength === "media" ? "text-warning" : "text-destructive"}>
+              <span
+                className={
+                  validarSenha(pwd).strength === "forte"
+                    ? "text-success"
+                    : validarSenha(pwd).strength === "media"
+                      ? "text-warning"
+                      : "text-destructive"
+                }
+              >
                 {validarSenha(pwd).strength}
               </span>
               <div className="mt-1 grid grid-cols-2 gap-1">
-                <span className={validarSenha(pwd).requisitos.minuscula ? "text-success" : "text-destructive"}>{validarSenha(pwd).requisitos.minuscula ? "✓" : "✗"} Letra minúscula</span>
-                <span className={validarSenha(pwd).requisitos.maiuscula ? "text-success" : "text-destructive"}>{validarSenha(pwd).requisitos.maiuscula ? "✓" : "✗"} Letra maiúscula</span>
-                <span className={validarSenha(pwd).requisitos.numero ? "text-success" : "text-destructive"}>{validarSenha(pwd).requisitos.numero ? "✓" : "✗"} Número</span>
-                <span className={validarSenha(pwd).requisitos.especial ? "text-success" : "text-destructive"}>{validarSenha(pwd).requisitos.especial ? "✓" : "✗"} Caracteres especiais</span>
+                <span
+                  className={
+                    validarSenha(pwd).requisitos.minuscula ? "text-success" : "text-destructive"
+                  }
+                >
+                  {validarSenha(pwd).requisitos.minuscula ? "✓" : "✗"} Letra minúscula
+                </span>
+                <span
+                  className={
+                    validarSenha(pwd).requisitos.maiuscula ? "text-success" : "text-destructive"
+                  }
+                >
+                  {validarSenha(pwd).requisitos.maiuscula ? "✓" : "✗"} Letra maiúscula
+                </span>
+                <span
+                  className={
+                    validarSenha(pwd).requisitos.numero ? "text-success" : "text-destructive"
+                  }
+                >
+                  {validarSenha(pwd).requisitos.numero ? "✓" : "✗"} Número
+                </span>
+                <span
+                  className={
+                    validarSenha(pwd).requisitos.especial ? "text-success" : "text-destructive"
+                  }
+                >
+                  {validarSenha(pwd).requisitos.especial ? "✓" : "✗"} Caracteres especiais
+                </span>
               </div>
             </div>
 

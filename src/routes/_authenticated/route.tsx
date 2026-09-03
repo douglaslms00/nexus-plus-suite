@@ -6,7 +6,9 @@ import { ObraProvider } from "@/lib/obra-context";
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
   beforeLoad: async () => {
-    const { data: { session } } = await supabase.auth.getSession();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
     if (session?.user) {
       return { user: session.user };
     }

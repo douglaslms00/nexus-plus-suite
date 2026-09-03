@@ -37,7 +37,7 @@ export function safeParseISO(value: string | Date | null | undefined): Date {
   if (typeof value === "string") return _parseISO(value);
   // If it's a number or other type, try to convert
   try {
-    return new Date(value as any);
+    return new Date(Number(value));
   } catch {
     return new Date(NaN);
   }

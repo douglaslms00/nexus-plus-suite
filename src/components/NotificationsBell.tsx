@@ -47,15 +47,12 @@ export function NotificationsBell() {
     const last = Number(localStorage.getItem(key) ?? 0);
     if (Date.now() - last < 6 * 60 * 60 * 1000) return;
     localStorage.setItem(key, String(Date.now()));
-    (supabase as any)
-      .rpc("gerar_notificacoes_vencimentos")
-      .then(({ data, error }: any) => {
-        if (!error && data > 0) qc.invalidateQueries({ queryKey: ["notifications", user.id] });
-      });
+    (supabase as any).rpc("gerar_notificacoes_vencimentos").then(({ data, error }: any) => {
+      if (!error && data > 0) qc.invalidateQueries({ queryKey: ["notifications", user.id] });
+    });
   }, [user?.id, qc]);
 
   useEffect(() => {
-
     if (!user?.id) return;
     const myId = user.id;
     const channelName = `notifications-${myId}-${Math.random().toString(36).slice(2)}`;
@@ -90,7 +87,11 @@ export function NotificationsBell() {
   const markRead = useMutation({
     mutationFn: async (id: string) => {
       if (!user?.id) return;
-      const { error } = await supabase.from("notifications" as any).update({ lida: true }).eq("id", id).eq("user_id", user.id);
+      const { error } = await supabase
+        .from("notifications" as any)
+        .update({ lida: true })
+        .eq("id", id)
+        .eq("user_id", user.id);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["notifications", user?.id] }),
@@ -98,7 +99,11 @@ export function NotificationsBell() {
   const markAllRead = useMutation({
     mutationFn: async () => {
       if (!user?.id) return;
-      const { error } = await supabase.from("notifications" as any).update({ lida: true }).eq("user_id", user.id).eq("lida", false);
+      const { error } = await supabase
+        .from("notifications" as any)
+        .update({ lida: true })
+        .eq("user_id", user.id)
+        .eq("lida", false);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["notifications", user?.id] }),
@@ -106,7 +111,11 @@ export function NotificationsBell() {
   const remove = useMutation({
     mutationFn: async (id: string) => {
       if (!user?.id) return;
-      const { error } = await supabase.from("notifications" as any).delete().eq("id", id).eq("user_id", user.id);
+      const { error } = await supabase
+        .from("notifications" as any)
+        .delete()
+        .eq("id", id)
+        .eq("user_id", user.id);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["notifications", user?.id] }),
@@ -153,7 +162,9 @@ export function NotificationsBell() {
             >
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium truncate">{n.titulo}</p>
-                {n.mensagem && <p className="text-xs text-muted-foreground line-clamp-2">{n.mensagem}</p>}
+                {n.mensagem && (
+                  <p className="text-xs text-muted-foreground line-clamp-2">{n.mensagem}</p>
+                )}
                 <p className="text-[10px] text-muted-foreground mt-1">
                   {formatDistanceToNow(parseISO(n.created_at), { addSuffix: true, locale: ptBR })}
                 </p>

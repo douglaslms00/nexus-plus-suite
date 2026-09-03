@@ -3,8 +3,16 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  isAdmin, useUserRoles, ALL_MODULES, effectivePerm,
-  type AppRole, type AppModule, type ModulePerm, type CustomRole, type CustomRolePerm, type SystemRolePerm,
+  isAdmin,
+  useUserRoles,
+  ALL_MODULES,
+  effectivePerm,
+  type AppRole,
+  type AppModule,
+  type ModulePerm,
+  type CustomRole,
+  type CustomRolePerm,
+  type SystemRolePerm,
 } from "@/lib/permissions";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,12 +20,36 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import {
-  ChevronDown, ChevronRight, Plus, Trash2, Pencil, Save, X, Search,
-  Shield, ShieldAlert, Sparkles, SlidersHorizontal, Users,
+  ChevronDown,
+  ChevronRight,
+  Plus,
+  Trash2,
+  Pencil,
+  Save,
+  X,
+  Search,
+  Shield,
+  ShieldAlert,
+  Sparkles,
+  SlidersHorizontal,
+  Users,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -26,10 +58,26 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/_authenticated/acessos")({ component: AcessosPage });
 
 const SYSTEM_ROLES: { key: AppRole; label: string; description: string }[] = [
-  { key: "admin", label: "Administrador", description: "Acesso total. Gerencia cargos e usuários." },
-  { key: "gestor", label: "Gestor", description: "Acesso a todas as obras. Edita quase tudo, não exclui." },
-  { key: "financeiro", label: "Financeiro", description: "Edita o módulo financeiro, visualiza os demais." },
-  { key: "colaborador", label: "Colaborador", description: "Visualiza apenas Dashboard, Tarefas, Funcionários e EPIs." },
+  {
+    key: "admin",
+    label: "Administrador",
+    description: "Acesso total. Gerencia cargos e usuários.",
+  },
+  {
+    key: "gestor",
+    label: "Gestor",
+    description: "Acesso a todas as obras. Edita quase tudo, não exclui.",
+  },
+  {
+    key: "financeiro",
+    label: "Financeiro",
+    description: "Edita o módulo financeiro, visualiza os demais.",
+  },
+  {
+    key: "colaborador",
+    label: "Colaborador",
+    description: "Visualiza apenas Dashboard, Tarefas, Funcionários e EPIs.",
+  },
 ];
 const TEMPLATES: AppRole[] = ["gestor", "financeiro", "colaborador"];
 
@@ -37,7 +85,9 @@ const TEMPLATES: AppRole[] = ["gestor", "financeiro", "colaborador"];
 export type CargoRef = { kind: "system"; key: AppRole } | { kind: "custom"; id: string };
 export const cargoId = (c: CargoRef) => (c.kind === "system" ? `sys:${c.key}` : `cus:${c.id}`);
 export const parseCargoId = (s: string): CargoRef =>
-  s.startsWith("sys:") ? { kind: "system", key: s.slice(4) as AppRole } : { kind: "custom", id: s.slice(4) };
+  s.startsWith("sys:")
+    ? { kind: "system", key: s.slice(4) as AppRole }
+    : { kind: "custom", id: s.slice(4) };
 
 export type UnifiedCargo = {
   id: string;
@@ -61,10 +111,19 @@ function AcessosPage() {
     enabled: isAdmin(roles),
     staleTime: 1000 * 60 * 2,
     queryFn: async () => {
-      const [{ data: profs }, { data: r }, { data: perms }, { data: uobras }, { data: ucroles }, { data: emails }] = await Promise.all([
+      const [
+        { data: profs },
+        { data: r },
+        { data: perms },
+        { data: uobras },
+        { data: ucroles },
+        { data: emails },
+      ] = await Promise.all([
         (supabase as any).rpc("list_profile_directory"),
         supabase.from("user_roles").select("user_id, role"),
-        supabase.from("user_module_permissions").select("user_id, module, can_view, can_edit, can_delete"),
+        supabase
+          .from("user_module_permissions")
+          .select("user_id, module, can_view, can_edit, can_delete"),
         supabase.from("user_obras").select("user_id, obra_id"),
         (supabase as any).from("user_custom_roles").select("user_id, custom_role_id"),
         (supabase as any).rpc("admin_list_profile_emails"),
@@ -73,10 +132,18 @@ function AcessosPage() {
         ...p,
         email: (emails ?? []).find((e: any) => e.id === p.id)?.email ?? null,
 
-        roles: (r ?? []).filter((x: any) => x.user_id === p.id).map((x: any) => x.role) as AppRole[],
-        perms: (perms ?? []).filter((x: any) => x.user_id === p.id) as ({ module: AppModule } & ModulePerm)[],
-        obras: (uobras ?? []).filter((x: any) => x.user_id === p.id).map((x: any) => x.obra_id) as string[],
-        customRoleIds: (ucroles ?? []).filter((x: any) => x.user_id === p.id).map((x: any) => x.custom_role_id) as string[],
+        roles: (r ?? [])
+          .filter((x: any) => x.user_id === p.id)
+          .map((x: any) => x.role) as AppRole[],
+        perms: (perms ?? []).filter((x: any) => x.user_id === p.id) as ({
+          module: AppModule;
+        } & ModulePerm)[],
+        obras: (uobras ?? [])
+          .filter((x: any) => x.user_id === p.id)
+          .map((x: any) => x.obra_id) as string[],
+        customRoleIds: (ucroles ?? [])
+          .filter((x: any) => x.user_id === p.id)
+          .map((x: any) => x.custom_role_id) as string[],
       }));
     },
   });
@@ -132,7 +199,9 @@ function AcessosPage() {
     queryFn: async () => {
       const { data } = await (supabase as any)
         .from("permission_audit_log")
-        .select("id, created_at, actor_email, action, target_user_id, custom_role_id, module, details")
+        .select(
+          "id, created_at, actor_email, action, target_user_id, custom_role_id, module, details",
+        )
         .order("created_at", { ascending: false })
         .limit(200);
       return data ?? [];
@@ -154,12 +223,24 @@ function AcessosPage() {
   };
 
   const toggleObra = useMutation({
-    mutationFn: async ({ user_id, obra_id, grant }: { user_id: string; obra_id: string; grant: boolean }) => {
+    mutationFn: async ({
+      user_id,
+      obra_id,
+      grant,
+    }: {
+      user_id: string;
+      obra_id: string;
+      grant: boolean;
+    }) => {
       if (grant) {
         const { error } = await supabase.from("user_obras").insert({ user_id, obra_id });
         if (error && !String(error.message).includes("duplicate")) throw error;
       } else {
-        const { error } = await supabase.from("user_obras").delete().eq("user_id", user_id).eq("obra_id", obra_id);
+        const { error } = await supabase
+          .from("user_obras")
+          .delete()
+          .eq("user_id", user_id)
+          .eq("obra_id", obra_id);
         if (error) throw error;
       }
     },
@@ -169,22 +250,42 @@ function AcessosPage() {
 
   // Unified cargo toggle — handles both system roles and custom roles
   const toggleCargo = useMutation({
-    mutationFn: async ({ user_id, cargo, grant }: { user_id: string; cargo: CargoRef; grant: boolean }) => {
+    mutationFn: async ({
+      user_id,
+      cargo,
+      grant,
+    }: {
+      user_id: string;
+      cargo: CargoRef;
+      grant: boolean;
+    }) => {
       if (cargo.kind === "system") {
-        const { error } = await supabase.rpc("admin_set_role", { _user_id: user_id, _role: cargo.key, _grant: grant });
+        const { error } = await supabase.rpc("admin_set_role", {
+          _user_id: user_id,
+          _role: cargo.key,
+          _grant: grant,
+        });
         if (error) throw error;
       } else {
         if (grant) {
-          const { error } = await (supabase as any).from("user_custom_roles").insert({ user_id, custom_role_id: cargo.id });
+          const { error } = await (supabase as any)
+            .from("user_custom_roles")
+            .insert({ user_id, custom_role_id: cargo.id });
           if (error && !String(error.message).includes("duplicate")) throw error;
         } else {
-          const { error } = await (supabase as any).from("user_custom_roles").delete()
-            .eq("user_id", user_id).eq("custom_role_id", cargo.id);
+          const { error } = await (supabase as any)
+            .from("user_custom_roles")
+            .delete()
+            .eq("user_id", user_id)
+            .eq("custom_role_id", cargo.id);
           if (error) throw error;
         }
       }
     },
-    onSuccess: () => { toast.success("Cargo atualizado"); invalidateAll(); },
+    onSuccess: () => {
+      toast.success("Cargo atualizado");
+      invalidateAll();
+    },
     onError: (e: any) => toast.error(e.message),
   });
 
@@ -192,7 +293,10 @@ function AcessosPage() {
     mutationFn: async (p: { user_id: string; module: AppModule; perm: ModulePerm }) => {
       const { error } = await supabase
         .from("user_module_permissions")
-        .upsert({ user_id: p.user_id, module: p.module, ...p.perm }, { onConflict: "user_id,module" });
+        .upsert(
+          { user_id: p.user_id, module: p.module, ...p.perm },
+          { onConflict: "user_id,module" },
+        );
       if (error) throw error;
     },
     onSuccess: invalidateAll,
@@ -201,11 +305,17 @@ function AcessosPage() {
 
   const clearOverride = useMutation({
     mutationFn: async (p: { user_id: string; module: AppModule }) => {
-      const { error } = await supabase.from("user_module_permissions").delete()
-        .eq("user_id", p.user_id).eq("module", p.module);
+      const { error } = await supabase
+        .from("user_module_permissions")
+        .delete()
+        .eq("user_id", p.user_id)
+        .eq("module", p.module);
       if (error) throw error;
     },
-    onSuccess: () => { toast.success("Override removido"); invalidateAll(); },
+    onSuccess: () => {
+      toast.success("Override removido");
+      invalidateAll();
+    },
   });
 
   const deleteUser = useMutation({
@@ -213,7 +323,10 @@ function AcessosPage() {
       const { error } = await supabase.rpc("admin_delete_user", { _user_id: user_id });
       if (error) throw error;
     },
-    onSuccess: () => { toast.success("Usuário excluído"); invalidateAll(); },
+    onSuccess: () => {
+      toast.success("Usuário excluído");
+      invalidateAll();
+    },
     onError: (e: any) => toast.error(e.message),
   });
 
@@ -222,50 +335,87 @@ function AcessosPage() {
     mutationFn: async (p: { user_ids: string[]; cargo: CargoRef; grant: boolean }) => {
       if (p.cargo.kind === "system") {
         for (const uid of p.user_ids) {
-          const { error } = await supabase.rpc("admin_set_role", { _user_id: uid, _role: p.cargo.key, _grant: p.grant });
+          const { error } = await supabase.rpc("admin_set_role", {
+            _user_id: uid,
+            _role: p.cargo.key,
+            _grant: p.grant,
+          });
           if (error) throw error;
         }
       } else {
         const { error } = await (supabase as any).rpc("admin_bulk_set_custom_role", {
-          _user_ids: p.user_ids, _custom_role_id: p.cargo.id, _grant: p.grant,
+          _user_ids: p.user_ids,
+          _custom_role_id: p.cargo.id,
+          _grant: p.grant,
         });
         if (error) throw error;
       }
     },
-    onSuccess: (_d, v) => { toast.success(`${v.user_ids.length} usuário(s) atualizados`); invalidateAll(); },
+    onSuccess: (_d, v) => {
+      toast.success(`${v.user_ids.length} usuário(s) atualizados`);
+      invalidateAll();
+    },
     onError: (e: any) => toast.error(e.message),
   });
 
   const createFromTemplate = useMutation({
-    mutationFn: async (p: { name: string; label: string; description?: string; template: AppRole }) => {
+    mutationFn: async (p: {
+      name: string;
+      label: string;
+      description?: string;
+      template: AppRole;
+    }) => {
       const { error } = await (supabase as any).rpc("admin_create_custom_role_from_template", {
-        _name: p.name, _label: p.label, _description: p.description ?? null, _template: p.template,
+        _name: p.name,
+        _label: p.label,
+        _description: p.description ?? null,
+        _template: p.template,
       });
       if (error) throw error;
     },
-    onSuccess: () => { toast.success("Cargo criado a partir de template"); invalidateAll(); },
+    onSuccess: () => {
+      toast.success("Cargo criado a partir de template");
+      invalidateAll();
+    },
     onError: (e: any) => toast.error(e.message),
   });
 
   const createInherit = useMutation({
-    mutationFn: async (p: { name: string; label: string; description?: string; parent_id: string }) => {
+    mutationFn: async (p: {
+      name: string;
+      label: string;
+      description?: string;
+      parent_id: string;
+    }) => {
       const { error } = await (supabase as any).rpc("admin_create_custom_role_inherit", {
-        _name: p.name, _label: p.label, _description: p.description ?? null, _parent_id: p.parent_id,
+        _name: p.name,
+        _label: p.label,
+        _description: p.description ?? null,
+        _parent_id: p.parent_id,
       });
       if (error) throw error;
     },
-    onSuccess: () => { toast.success("Cargo criado herdando permissões"); invalidateAll(); },
+    onSuccess: () => {
+      toast.success("Cargo criado herdando permissões");
+      invalidateAll();
+    },
     onError: (e: any) => toast.error(e.message),
   });
 
   const updateCustomRole = useMutation({
     mutationFn: async (p: { id: string; name: string; label: string; description: string }) => {
       const { error } = await (supabase as any).rpc("admin_update_custom_role", {
-        _id: p.id, _name: p.name, _label: p.label, _description: p.description,
+        _id: p.id,
+        _name: p.name,
+        _label: p.label,
+        _description: p.description,
       });
       if (error) throw error;
     },
-    onSuccess: () => { toast.success("Cargo atualizado"); invalidateAll(); },
+    onSuccess: () => {
+      toast.success("Cargo atualizado");
+      invalidateAll();
+    },
     onError: (e: any) => toast.error(e.message),
   });
 
@@ -274,7 +424,10 @@ function AcessosPage() {
       const { error } = await (supabase as any).from("custom_roles").delete().eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => { toast.success("Cargo removido"); invalidateAll(); },
+    onSuccess: () => {
+      toast.success("Cargo removido");
+      invalidateAll();
+    },
     onError: (e: any) => toast.error(e.message),
   });
 
@@ -282,7 +435,10 @@ function AcessosPage() {
     mutationFn: async (p: { custom_role_id: string; module: AppModule; perm: ModulePerm }) => {
       const { error } = await (supabase as any)
         .from("custom_role_module_permissions")
-        .upsert({ custom_role_id: p.custom_role_id, module: p.module, ...p.perm }, { onConflict: "custom_role_id,module" });
+        .upsert(
+          { custom_role_id: p.custom_role_id, module: p.module, ...p.perm },
+          { onConflict: "custom_role_id,module" },
+        );
       if (error) throw error;
     },
     onSuccess: invalidateAll,
@@ -292,8 +448,11 @@ function AcessosPage() {
   const setSystemRolePerm = useMutation({
     mutationFn: async (p: { role: AppRole; module: AppModule; perm: ModulePerm }) => {
       const { error } = await (supabase as any).rpc("admin_set_system_role_perm", {
-        _role: p.role, _module: p.module,
-        _can_view: p.perm.can_view, _can_edit: p.perm.can_edit, _can_delete: p.perm.can_delete,
+        _role: p.role,
+        _module: p.module,
+        _can_view: p.perm.can_view,
+        _can_edit: p.perm.can_edit,
+        _can_delete: p.perm.can_delete,
       });
       if (error) throw error;
     },
@@ -304,11 +463,16 @@ function AcessosPage() {
   const updateSystemRoleLabel = useMutation({
     mutationFn: async (p: { role: AppRole; label: string; description: string }) => {
       const { error } = await (supabase as any).rpc("admin_set_system_role_label", {
-        _role: p.role, _label: p.label, _description: p.description,
+        _role: p.role,
+        _label: p.label,
+        _description: p.description,
       });
       if (error) throw error;
     },
-    onSuccess: () => { toast.success("Cargo do sistema atualizado"); invalidateAll(); },
+    onSuccess: () => {
+      toast.success("Cargo do sistema atualizado");
+      invalidateAll();
+    },
     onError: (e: any) => toast.error(e.message),
   });
 
@@ -317,13 +481,25 @@ function AcessosPage() {
   const [cargoFilter, setCargoFilter] = useState<"all" | "system" | "custom">("all");
 
   if (!isAdmin(roles)) {
-    return <Card className="p-8 text-center text-muted-foreground">Acesso restrito a administradores.</Card>;
+    return (
+      <Card className="p-8 text-center text-muted-foreground">
+        Acesso restrito a administradores.
+      </Card>
+    );
   }
 
   // Unified cargo list shown everywhere
   const allCargos: { ref: CargoRef; label: string; system: boolean }[] = [
-    ...SYSTEM_ROLES.map((s) => ({ ref: { kind: "system" as const, key: s.key }, label: s.label, system: true })),
-    ...customRoles.map((c) => ({ ref: { kind: "custom" as const, id: c.id }, label: c.label, system: false })),
+    ...SYSTEM_ROLES.map((s) => ({
+      ref: { kind: "system" as const, key: s.key },
+      label: s.label,
+      system: true,
+    })),
+    ...customRoles.map((c) => ({
+      ref: { kind: "custom" as const, id: c.id },
+      label: c.label,
+      system: false,
+    })),
   ];
 
   // Full unified cargo items for the Cargos management tab
@@ -358,7 +534,11 @@ function AcessosPage() {
     if (cargoFilter === "custom" && c.isSystem) return false;
     if (cargoSearch) {
       const q = cargoSearch.toLowerCase();
-      return c.label.toLowerCase().includes(q) || c.name.toLowerCase().includes(q) || c.description.toLowerCase().includes(q);
+      return (
+        c.label.toLowerCase().includes(q) ||
+        c.name.toLowerCase().includes(q) ||
+        c.description.toLowerCase().includes(q)
+      );
     }
     return true;
   });
@@ -397,7 +577,11 @@ function AcessosPage() {
                     className="flex items-center gap-2 text-left group"
                   >
                     <div className="p-1 rounded bg-muted text-muted-foreground group-hover:text-foreground">
-                      {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                      {open ? (
+                        <ChevronDown className="h-4 w-4" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4" />
+                      )}
                     </div>
                     <div>
                       <p className="font-medium text-foreground">{u.nome}</p>
@@ -412,8 +596,13 @@ function AcessosPage() {
                           key={cargoId(c.ref)}
                           size="sm"
                           variant={has ? "default" : "outline"}
-                          className={cn("h-7 text-xs", has && !c.system && "bg-indigo-600 hover:bg-indigo-700 text-white")}
-                          onClick={() => toggleCargo.mutate({ user_id: u.id, cargo: c.ref, grant: !has })}
+                          className={cn(
+                            "h-7 text-xs",
+                            has && !c.system && "bg-indigo-600 hover:bg-indigo-700 text-white",
+                          )}
+                          onClick={() =>
+                            toggleCargo.mutate({ user_id: u.id, cargo: c.ref, grant: !has })
+                          }
                           title={c.system ? "Cargo do sistema" : "Cargo personalizado"}
                         >
                           {c.label}
@@ -430,7 +619,11 @@ function AcessosPage() {
                       variant="ghost"
                       className="h-7 w-7 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
                       onClick={() => {
-                        if (confirm(`Excluir o usuário "${u.nome}"? Esta ação remove perfil, cargos e permissões.`)) {
+                        if (
+                          confirm(
+                            `Excluir o usuário "${u.nome}"? Esta ação remove perfil, cargos e permissões.`,
+                          )
+                        ) {
                           deleteUser.mutate(u.id);
                         }
                       }}
@@ -451,7 +644,8 @@ function AcessosPage() {
                         </span>
                       </div>
                       <p className="text-xs text-muted-foreground mb-2.5">
-                        Administrador e Gestor possuem acesso irrestrito a todas as obras. Para os demais perfis, ative individualmente:
+                        Administrador e Gestor possuem acesso irrestrito a todas as obras. Para os
+                        demais perfis, ative individualmente:
                       </p>
                       <div className="flex flex-wrap gap-2">
                         {obrasAll.map((o: any) => {
@@ -462,14 +656,18 @@ function AcessosPage() {
                               size="sm"
                               variant={has ? "default" : "outline"}
                               className="h-7 text-xs"
-                              onClick={() => toggleObra.mutate({ user_id: u.id, obra_id: o.id, grant: !has })}
+                              onClick={() =>
+                                toggleObra.mutate({ user_id: u.id, obra_id: o.id, grant: !has })
+                              }
                             >
                               {o.nome}
                             </Button>
                           );
                         })}
                         {obrasAll.length === 0 && (
-                          <span className="text-xs text-muted-foreground">Nenhuma obra cadastrada.</span>
+                          <span className="text-xs text-muted-foreground">
+                            Nenhuma obra cadastrada.
+                          </span>
                         )}
                       </div>
                     </div>
@@ -478,7 +676,8 @@ function AcessosPage() {
                       <div className="flex items-center justify-between mb-2">
                         <p className="text-sm font-medium">Permissões por módulo</p>
                         <span className="text-xs text-muted-foreground">
-                          Prioridade: <b className="text-primary">override</b> &gt; cargo &gt; sistema
+                          Prioridade: <b className="text-primary">override</b> &gt; cargo &gt;
+                          sistema
                         </span>
                       </div>
                       <div className="overflow-x-auto rounded border">
@@ -496,30 +695,61 @@ function AcessosPage() {
                           <tbody>
                             {ALL_MODULES.map((m) => {
                               const override = u.perms.find((p: any) => p.module === m.key);
-                              const eff = effectivePerm(m.key, u.roles, u.perms, u.customRoleIds, customRolePerms, systemRolePerms);
+                              const eff = effectivePerm(
+                                m.key,
+                                u.roles,
+                                u.perms,
+                                u.customRoleIds,
+                                customRolePerms,
+                                systemRolePerms,
+                              );
                               const update = (patch: Partial<ModulePerm>) => {
                                 const next: ModulePerm = { ...eff, ...patch };
                                 setPerm.mutate({ user_id: u.id, module: m.key, perm: next });
                               };
-                              const fromCustom = !override && u.customRoleIds.some((id: string) =>
-                                customRolePerms.some((p) => p.custom_role_id === id && p.module === m.key));
+                              const fromCustom =
+                                !override &&
+                                u.customRoleIds.some((id: string) =>
+                                  customRolePerms.some(
+                                    (p) => p.custom_role_id === id && p.module === m.key,
+                                  ),
+                                );
                               return (
-                                <tr key={m.key} className="border-b last:border-0 hover:bg-muted/20">
+                                <tr
+                                  key={m.key}
+                                  className="border-b last:border-0 hover:bg-muted/20"
+                                >
                                   <td className="py-2 px-3 font-medium">{m.label}</td>
                                   <td className="px-3 text-center">
-                                    <Checkbox checked={eff.can_view} onCheckedChange={(v) => update({ can_view: !!v })} />
+                                    <Checkbox
+                                      checked={eff.can_view}
+                                      onCheckedChange={(v) => update({ can_view: !!v })}
+                                    />
                                   </td>
                                   <td className="px-3 text-center">
-                                    <Checkbox checked={eff.can_edit} onCheckedChange={(v) => update({ can_edit: !!v })} />
+                                    <Checkbox
+                                      checked={eff.can_edit}
+                                      onCheckedChange={(v) => update({ can_edit: !!v })}
+                                    />
                                   </td>
                                   <td className="px-3 text-center">
-                                    <Checkbox checked={eff.can_delete} onCheckedChange={(v) => update({ can_delete: !!v })} />
+                                    <Checkbox
+                                      checked={eff.can_delete}
+                                      onCheckedChange={(v) => update({ can_delete: !!v })}
+                                    />
                                   </td>
                                   <td className="px-3 text-xs">
                                     {override ? (
-                                      <Badge variant="default" className="text-[10px] py-0">override</Badge>
+                                      <Badge variant="default" className="text-[10px] py-0">
+                                        override
+                                      </Badge>
                                     ) : fromCustom ? (
-                                      <Badge variant="secondary" className="text-[10px] py-0 bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">cargo</Badge>
+                                      <Badge
+                                        variant="secondary"
+                                        className="text-[10px] py-0 bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300"
+                                      >
+                                        cargo
+                                      </Badge>
                                     ) : (
                                       <span className="text-muted-foreground italic">sistema</span>
                                     )}
@@ -530,7 +760,9 @@ function AcessosPage() {
                                         size="sm"
                                         variant="ghost"
                                         className="h-6 text-xs text-muted-foreground hover:text-foreground"
-                                        onClick={() => clearOverride.mutate({ user_id: u.id, module: m.key })}
+                                        onClick={() =>
+                                          clearOverride.mutate({ user_id: u.id, module: m.key })
+                                        }
                                       >
                                         Resetar
                                       </Button>
@@ -548,7 +780,11 @@ function AcessosPage() {
               </Card>
             );
           })}
-          {usuarios.length === 0 && <Card className="p-8 text-center text-muted-foreground">Nenhum usuário cadastrado.</Card>}
+          {usuarios.length === 0 && (
+            <Card className="p-8 text-center text-muted-foreground">
+              Nenhum usuário cadastrado.
+            </Card>
+          )}
         </TabsContent>
 
         {/* TAB 2: CARGOS UNIFICADOS */}
@@ -558,7 +794,8 @@ function AcessosPage() {
               <div>
                 <h3 className="font-semibold text-lg">Cargos e Permissões</h3>
                 <p className="text-xs text-muted-foreground">
-                  Gerencie todos os cargos da plataforma em um só lugar. Configure permissões por módulo, crie novos cargos personalizados ou ajuste os cargos existentes.
+                  Gerencie todos os cargos da plataforma em um só lugar. Configure permissões por
+                  módulo, crie novos cargos personalizados ou ajuste os cargos existentes.
                 </p>
               </div>
               <CreateCustomRoleDialog
@@ -628,7 +865,9 @@ function AcessosPage() {
 
               {filteredCargos.length === 0 && (
                 <div className="p-8 text-center border rounded-lg bg-muted/20">
-                  <p className="text-sm text-muted-foreground">Nenhum cargo encontrado para os filtros selecionados.</p>
+                  <p className="text-sm text-muted-foreground">
+                    Nenhum cargo encontrado para os filtros selecionados.
+                  </p>
                 </div>
               )}
             </div>
@@ -689,7 +928,12 @@ function UnifiedCargoCard({
     if (isSystem && cargo.systemKey) {
       onUpdateSystemLabel({ role: cargo.systemKey, label: label.trim(), description });
     } else if (cargo.customRoleId) {
-      onUpdateCustomRole({ id: cargo.customRoleId, name: name.trim(), label: label.trim(), description });
+      onUpdateCustomRole({
+        id: cargo.customRoleId,
+        name: name.trim(),
+        label: label.trim(),
+        description,
+      });
     }
     setEditing(false);
   };
@@ -697,11 +941,16 @@ function UnifiedCargoCard({
   const getPermForModule = (m: AppModule): ModulePerm => {
     if (isSystem && cargo.systemKey) {
       const found = systemRolePerms.find((p) => p.role === cargo.systemKey && p.module === m);
-      if (found) return { can_view: found.can_view, can_edit: found.can_edit, can_delete: found.can_delete };
+      if (found)
+        return { can_view: found.can_view, can_edit: found.can_edit, can_delete: found.can_delete };
       return effectivePerm(m, [cargo.systemKey], [], [], [], []);
     } else if (cargo.customRoleId) {
-      const found = customRolePerms.find((p) => p.custom_role_id === cargo.customRoleId && p.module === m);
-      return found ? { can_view: found.can_view, can_edit: found.can_edit, can_delete: found.can_delete } : { can_view: false, can_edit: false, can_delete: false };
+      const found = customRolePerms.find(
+        (p) => p.custom_role_id === cargo.customRoleId && p.module === m,
+      );
+      return found
+        ? { can_view: found.can_view, can_edit: found.can_edit, can_delete: found.can_delete }
+        : { can_view: false, can_edit: false, can_delete: false };
     }
     return { can_view: false, can_edit: false, can_delete: false };
   };
@@ -720,28 +969,42 @@ function UnifiedCargoCard({
   const activeModulesCount = ALL_MODULES.filter((m) => getPermForModule(m.key).can_view).length;
 
   return (
-    <Card className={cn(
-      "border p-4 transition-all",
-      isSystem ? "bg-muted/30 border-border" : "bg-card border-border hover:border-border/80"
-    )}>
+    <Card
+      className={cn(
+        "border p-4 transition-all",
+        isSystem ? "bg-muted/30 border-border" : "bg-card border-border hover:border-border/80",
+      )}
+    >
       <div className="flex items-start justify-between gap-3 flex-wrap">
         {editing ? (
           <div className="flex-1 space-y-2.5 min-w-[240px]">
             <div className="flex gap-2 flex-wrap">
               <div className="flex-1 min-w-[180px]">
                 <Label className="text-xs font-medium">Rótulo visível</Label>
-                <Input value={label} onChange={(e) => setLabel(e.target.value)} className="h-8 text-xs" />
+                <Input
+                  value={label}
+                  onChange={(e) => setLabel(e.target.value)}
+                  className="h-8 text-xs"
+                />
               </div>
               {!isSystem && (
                 <div className="flex-1 min-w-[180px]">
                   <Label className="text-xs font-medium">Nome interno (slug)</Label>
-                  <Input value={name} onChange={(e) => setName(e.target.value)} className="h-8 text-xs font-mono" />
+                  <Input
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="h-8 text-xs font-mono"
+                  />
                 </div>
               )}
             </div>
             <div>
               <Label className="text-xs font-medium">Descrição</Label>
-              <Input value={description} onChange={(e) => setDescription(e.target.value)} className="h-8 text-xs" />
+              <Input
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className="h-8 text-xs"
+              />
             </div>
           </div>
         ) : (
@@ -749,11 +1012,17 @@ function UnifiedCargoCard({
             <div className="flex items-center gap-2 flex-wrap">
               <h4 className="font-semibold text-base text-foreground">{cargo.label}</h4>
               {isSystem ? (
-                <Badge variant="secondary" className="text-[10px] gap-1 font-medium bg-primary/10 text-primary border-primary/20">
+                <Badge
+                  variant="secondary"
+                  className="text-[10px] gap-1 font-medium bg-primary/10 text-primary border-primary/20"
+                >
                   <Shield className="h-3 w-3" /> Sistema ({cargo.name})
                 </Badge>
               ) : (
-                <Badge variant="outline" className="text-[10px] gap-1 font-medium bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950 dark:text-indigo-300 dark:border-indigo-800">
+                <Badge
+                  variant="outline"
+                  className="text-[10px] gap-1 font-medium bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950 dark:text-indigo-300 dark:border-indigo-800"
+                >
                   <Sparkles className="h-3 w-3" /> Personalizado ({cargo.name})
                 </Badge>
               )}
@@ -768,7 +1037,9 @@ function UnifiedCargoCard({
                 </span>
               )}
             </div>
-            <p className="text-xs text-muted-foreground">{cargo.description || "Sem descrição informada."}</p>
+            <p className="text-xs text-muted-foreground">
+              {cargo.description || "Sem descrição informada."}
+            </p>
             <div className="pt-1 flex items-center gap-2 text-xs text-muted-foreground">
               <span className="inline-flex items-center gap-1 font-medium text-foreground">
                 <SlidersHorizontal className="h-3.5 w-3.5" />
@@ -806,7 +1077,11 @@ function UnifiedCargoCard({
                 onClick={() => setOpenMatrix((v) => !v)}
                 className="h-7 text-xs gap-1"
               >
-                {openMatrix ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                {openMatrix ? (
+                  <ChevronDown className="h-3.5 w-3.5" />
+                ) : (
+                  <ChevronRight className="h-3.5 w-3.5" />
+                )}
                 Permissões
               </Button>
               <Button
@@ -854,13 +1129,16 @@ function UnifiedCargoCard({
               <tbody>
                 {ALL_MODULES.map((m) => {
                   const p = getPermForModule(m.key);
-                  const lockedAcessosAdmin = isSystem && cargo.systemKey === "admin" && m.key === "acessos";
+                  const lockedAcessosAdmin =
+                    isSystem && cargo.systemKey === "admin" && m.key === "acessos";
                   return (
                     <tr key={m.key} className="border-b last:border-0 hover:bg-muted/20">
                       <td className="py-2 px-3 font-medium">
                         {m.label}
                         {lockedAcessosAdmin && (
-                          <span className="ml-2 text-[10px] text-muted-foreground italic">(Protegido no admin)</span>
+                          <span className="ml-2 text-[10px] text-muted-foreground italic">
+                            (Protegido no admin)
+                          </span>
                         )}
                       </td>
                       <td className="px-3 text-center">
@@ -926,26 +1204,45 @@ function CreateCustomRoleDialog({
   };
 
   const submit = () => {
-    const cleanName = name.trim().toLowerCase().replace(/[^a-z0-9_]/g, "_");
+    const cleanName = name
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9_]/g, "_");
     if (!cleanName || !label.trim()) {
       toast.error("Preencha o rótulo e o nome interno.");
       return;
     }
     if (mode === "template") {
-      onTemplate({ name: cleanName, label: label.trim(), description: description.trim() || undefined, template });
+      onTemplate({
+        name: cleanName,
+        label: label.trim(),
+        description: description.trim() || undefined,
+        template,
+      });
     } else {
       if (!parentId) {
         toast.error("Selecione o cargo pai.");
         return;
       }
-      onInherit({ name: cleanName, label: label.trim(), description: description.trim() || undefined, parent_id: parentId });
+      onInherit({
+        name: cleanName,
+        label: label.trim(),
+        description: description.trim() || undefined,
+        parent_id: parentId,
+      });
     }
     setOpen(false);
     reset();
   };
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) reset(); }}>
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        setOpen(v);
+        if (!v) reset();
+      }}
+    >
       <DialogTrigger asChild>
         <Button size="sm" className="gap-1.5">
           <Plus className="h-4 w-4" /> Novo cargo
@@ -1012,10 +1309,14 @@ function CreateCustomRoleDialog({
             <div>
               <Label className="text-xs">Cargo base de referência</Label>
               <Select value={template} onValueChange={(v) => setTemplate(v as AppRole)}>
-                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   {TEMPLATES.map((r) => (
-                    <SelectItem key={r} value={r} className="capitalize">{r}</SelectItem>
+                    <SelectItem key={r} value={r} className="capitalize">
+                      {r}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -1027,10 +1328,14 @@ function CreateCustomRoleDialog({
             <div>
               <Label className="text-xs">Cargo pai</Label>
               <Select value={parentId} onValueChange={setParentId}>
-                <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione o cargo pai" /></SelectTrigger>
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder="Selecione o cargo pai" />
+                </SelectTrigger>
                 <SelectContent>
                   {customRoles.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.label}</SelectItem>
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.label}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -1041,7 +1346,9 @@ function CreateCustomRoleDialog({
           )}
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
+          <Button variant="outline" onClick={() => setOpen(false)}>
+            Cancelar
+          </Button>
           <Button onClick={submit}>Criar cargo</Button>
         </DialogFooter>
       </DialogContent>
@@ -1065,14 +1372,20 @@ function BulkAssignPanel({
   const [cargoKey, setCargoKey] = useState<string>("");
   const [filter, setFilter] = useState("");
 
-  const filtered = useMemo(() =>
-    usuarios.filter((u) =>
-      !filter ||
-      u.nome?.toLowerCase().includes(filter.toLowerCase()) ||
-      u.email?.toLowerCase().includes(filter.toLowerCase())
-    ), [usuarios, filter]);
+  const filtered = useMemo(
+    () =>
+      usuarios.filter(
+        (u) =>
+          !filter ||
+          u.nome?.toLowerCase().includes(filter.toLowerCase()) ||
+          u.email?.toLowerCase().includes(filter.toLowerCase()),
+      ),
+    [usuarios, filter],
+  );
 
-  const selectedIds = Object.entries(selected).filter(([, v]) => v).map(([k]) => k);
+  const selectedIds = Object.entries(selected)
+    .filter(([, v]) => v)
+    .map(([k]) => k);
   const allChecked = filtered.length > 0 && filtered.every((u) => selected[u.id]);
   const toggleAll = () => {
     const next = { ...selected };
@@ -1082,8 +1395,14 @@ function BulkAssignPanel({
   };
 
   const act = (grant: boolean) => {
-    if (!cargoKey) { toast.error("Selecione um cargo"); return; }
-    if (selectedIds.length === 0) { toast.error("Selecione ao menos um usuário"); return; }
+    if (!cargoKey) {
+      toast.error("Selecione um cargo");
+      return;
+    }
+    if (selectedIds.length === 0) {
+      toast.error("Selecione ao menos um usuário");
+      return;
+    }
     onBulk({ user_ids: selectedIds, cargo: parseCargoId(cargoKey), grant });
     setSelected({});
   };
@@ -1093,7 +1412,8 @@ function BulkAssignPanel({
       <div>
         <h3 className="font-semibold text-base">Atribuição em Massa de Cargos</h3>
         <p className="text-xs text-muted-foreground">
-          Selecione os usuários, escolha o cargo desejado e atribua ou remova para todos simultaneamente.
+          Selecione os usuários, escolha o cargo desejado e atribua ou remova para todos
+          simultaneamente.
         </p>
       </div>
 
@@ -1110,7 +1430,9 @@ function BulkAssignPanel({
         <div className="min-w-[240px]">
           <Label className="text-xs font-medium">Cargo</Label>
           <Select value={cargoKey} onValueChange={setCargoKey}>
-            <SelectTrigger className="mt-1 h-9 text-xs"><SelectValue placeholder="Selecione o cargo" /></SelectTrigger>
+            <SelectTrigger className="mt-1 h-9 text-xs">
+              <SelectValue placeholder="Selecione o cargo" />
+            </SelectTrigger>
             <SelectContent>
               {allCargos.map((c) => (
                 <SelectItem key={cargoId(c.ref)} value={cargoId(c.ref)}>
@@ -1120,10 +1442,19 @@ function BulkAssignPanel({
             </SelectContent>
           </Select>
         </div>
-        <Button onClick={() => act(true)} disabled={selectedIds.length === 0 || !cargoKey} className="h-9 text-xs">
+        <Button
+          onClick={() => act(true)}
+          disabled={selectedIds.length === 0 || !cargoKey}
+          className="h-9 text-xs"
+        >
           Atribuir a {selectedIds.length}
         </Button>
-        <Button variant="outline" onClick={() => act(false)} disabled={selectedIds.length === 0 || !cargoKey} className="h-9 text-xs">
+        <Button
+          variant="outline"
+          onClick={() => act(false)}
+          disabled={selectedIds.length === 0 || !cargoKey}
+          className="h-9 text-xs"
+        >
           Remover de {selectedIds.length}
         </Button>
       </div>
@@ -1132,7 +1463,9 @@ function BulkAssignPanel({
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b bg-muted/40 text-left text-muted-foreground">
-              <th className="py-2.5 px-3 w-10"><Checkbox checked={allChecked} onCheckedChange={toggleAll} /></th>
+              <th className="py-2.5 px-3 w-10">
+                <Checkbox checked={allChecked} onCheckedChange={toggleAll} />
+              </th>
               <th className="py-2.5 pr-3 font-medium">Usuário</th>
               <th className="py-2.5 pr-3 font-medium">E-mail</th>
               <th className="py-2.5 pr-3 font-medium">Cargos Atribuídos</th>
@@ -1141,7 +1474,9 @@ function BulkAssignPanel({
           <tbody>
             {filtered.map((u) => {
               const userCargos = allCargos.filter((c) =>
-                c.system ? u.roles.includes((c.ref as any).key) : u.customRoleIds.includes((c.ref as any).id)
+                c.system
+                  ? u.roles.includes((c.ref as any).key)
+                  : u.customRoleIds.includes((c.ref as any).id),
               );
 
               return (
@@ -1162,13 +1497,16 @@ function BulkAssignPanel({
                           variant={c.system ? "secondary" : "outline"}
                           className={cn(
                             "text-[10px] py-0",
-                            !c.system && "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950 dark:text-indigo-300 dark:border-indigo-800"
+                            !c.system &&
+                              "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950 dark:text-indigo-300 dark:border-indigo-800",
                           )}
                         >
                           {c.label}
                         </Badge>
                       ))}
-                      {userCargos.length === 0 && <span className="text-xs text-muted-foreground">—</span>}
+                      {userCargos.length === 0 && (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -1191,26 +1529,52 @@ function BulkAssignPanel({
 /**
  * Painel de Histórico de Auditoria
  */
-function AuditPanel({ rows, usuarios, customRoles }: { rows: any[]; usuarios: any[]; customRoles: CustomRole[] }) {
+function AuditPanel({
+  rows,
+  usuarios,
+  customRoles,
+}: {
+  rows: any[];
+  usuarios: any[];
+  customRoles: CustomRole[];
+}) {
   const userMap = useMemo(() => Object.fromEntries(usuarios.map((u) => [u.id, u])), [usuarios]);
-  const roleMap = useMemo(() => Object.fromEntries(customRoles.map((c) => [c.id, c])), [customRoles]);
+  const roleMap = useMemo(
+    () => Object.fromEntries(customRoles.map((c) => [c.id, c])),
+    [customRoles],
+  );
 
   const describe = (r: any) => {
-    const target = r.target_user_id ? (userMap[r.target_user_id]?.nome ?? r.target_user_id.slice(0, 8)) : null;
-    const cargo = r.custom_role_id ? (roleMap[r.custom_role_id]?.label ?? r.details?.label ?? "cargo") : null;
+    const target = r.target_user_id
+      ? (userMap[r.target_user_id]?.nome ?? r.target_user_id.slice(0, 8))
+      : null;
+    const cargo = r.custom_role_id
+      ? (roleMap[r.custom_role_id]?.label ?? r.details?.label ?? "cargo")
+      : null;
     const d = r.details ?? {};
     switch (r.action) {
-      case "role_grant": return `Atribuiu cargo do sistema "${d.role}" para ${target}`;
-      case "role_revoke": return `Removeu cargo do sistema "${d.role}" de ${target}`;
-      case "custom_role_assign": return `Atribuiu cargo "${cargo}" para ${target}`;
-      case "custom_role_unassign": return `Removeu cargo "${cargo}" de ${target}`;
-      case "override_set": return `Override em "${r.module}" para ${target} (V:${d.can_view ? "✓" : "✗"} E:${d.can_edit ? "✓" : "✗"} X:${d.can_delete ? "✓" : "✗"})`;
-      case "override_clear": return `Removeu override de "${r.module}" para ${target}`;
-      case "custom_role_perm_set": return `Cargo "${cargo}" módulo "${r.module}" (V:${d.can_view ? "✓" : "✗"} E:${d.can_edit ? "✓" : "✗"} X:${d.can_delete ? "✓" : "✗"})`;
-      case "custom_role_created": return `Criou cargo "${d.label}"`;
-      case "custom_role_deleted": return `Excluiu cargo "${d.label}"`;
-      case "custom_role_updated": return `Atualizou cargo "${d.label}"`;
-      default: return r.action;
+      case "role_grant":
+        return `Atribuiu cargo do sistema "${d.role}" para ${target}`;
+      case "role_revoke":
+        return `Removeu cargo do sistema "${d.role}" de ${target}`;
+      case "custom_role_assign":
+        return `Atribuiu cargo "${cargo}" para ${target}`;
+      case "custom_role_unassign":
+        return `Removeu cargo "${cargo}" de ${target}`;
+      case "override_set":
+        return `Override em "${r.module}" para ${target} (V:${d.can_view ? "✓" : "✗"} E:${d.can_edit ? "✓" : "✗"} X:${d.can_delete ? "✓" : "✗"})`;
+      case "override_clear":
+        return `Removeu override de "${r.module}" para ${target}`;
+      case "custom_role_perm_set":
+        return `Cargo "${cargo}" módulo "${r.module}" (V:${d.can_view ? "✓" : "✗"} E:${d.can_edit ? "✓" : "✗"} X:${d.can_delete ? "✓" : "✗"})`;
+      case "custom_role_created":
+        return `Criou cargo "${d.label}"`;
+      case "custom_role_deleted":
+        return `Excluiu cargo "${d.label}"`;
+      case "custom_role_updated":
+        return `Atualizou cargo "${d.label}"`;
+      default:
+        return r.action;
     }
   };
 
@@ -1237,7 +1601,11 @@ function AuditPanel({ rows, usuarios, customRoles }: { rows: any[]; usuarios: an
               </tr>
             ))}
             {rows.length === 0 && (
-              <tr><td colSpan={3} className="py-6 text-center text-muted-foreground text-sm">Nenhum evento registrado.</td></tr>
+              <tr>
+                <td colSpan={3} className="py-6 text-center text-muted-foreground text-sm">
+                  Nenhum evento registrado.
+                </td>
+              </tr>
             )}
           </tbody>
         </table>

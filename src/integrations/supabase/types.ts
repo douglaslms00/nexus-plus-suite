@@ -1,1723 +1,1711 @@
-export type Json =
-  | string
-  | number
-  | boolean
-  | null
-  | { [key: string]: Json | undefined }
-  | Json[]
+export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
 export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
-  }
+    PostgrestVersion: "14.5";
+  };
   public: {
     Tables: {
       adiantamento_despesas: {
         Row: {
-          adiantamento_id: string
-          categoria: string | null
-          created_at: string
-          created_by: string | null
-          cupom_url: string | null
-          data: string
-          descricao: string
-          id: string
-          observacoes: string | null
-          updated_at: string
-          valor: number
-        }
+          adiantamento_id: string;
+          categoria: string | null;
+          created_at: string;
+          created_by: string | null;
+          cupom_url: string | null;
+          data: string;
+          descricao: string;
+          id: string;
+          observacoes: string | null;
+          updated_at: string;
+          valor: number;
+        };
         Insert: {
-          adiantamento_id: string
-          categoria?: string | null
-          created_at?: string
-          created_by?: string | null
-          cupom_url?: string | null
-          data?: string
-          descricao: string
-          id?: string
-          observacoes?: string | null
-          updated_at?: string
-          valor?: number
-        }
+          adiantamento_id: string;
+          categoria?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          cupom_url?: string | null;
+          data?: string;
+          descricao: string;
+          id?: string;
+          observacoes?: string | null;
+          updated_at?: string;
+          valor?: number;
+        };
         Update: {
-          adiantamento_id?: string
-          categoria?: string | null
-          created_at?: string
-          created_by?: string | null
-          cupom_url?: string | null
-          data?: string
-          descricao?: string
-          id?: string
-          observacoes?: string | null
-          updated_at?: string
-          valor?: number
-        }
+          adiantamento_id?: string;
+          categoria?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          cupom_url?: string | null;
+          data?: string;
+          descricao?: string;
+          id?: string;
+          observacoes?: string | null;
+          updated_at?: string;
+          valor?: number;
+        };
         Relationships: [
           {
-            foreignKeyName: "adiantamento_despesas_adiantamento_id_fkey"
-            columns: ["adiantamento_id"]
-            isOneToOne: false
-            referencedRelation: "adiantamentos"
-            referencedColumns: ["id"]
+            foreignKeyName: "adiantamento_despesas_adiantamento_id_fkey";
+            columns: ["adiantamento_id"];
+            isOneToOne: false;
+            referencedRelation: "adiantamentos";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       adiantamentos: {
         Row: {
-          aprovado_em: string | null
-          aprovado_por: string | null
-          created_at: string
-          created_by: string | null
-          data: string
-          enviado_em: string | null
-          id: string
-          motivo_rejeicao: string | null
-          obra_id: string | null
-          observacoes: string | null
-          responsavel_id: string | null
-          responsavel_nome: string | null
-          status: string
-          titulo: string
-          updated_at: string
-          valor: number
-        }
+          aprovado_em: string | null;
+          aprovado_por: string | null;
+          created_at: string;
+          created_by: string | null;
+          data: string;
+          enviado_em: string | null;
+          id: string;
+          motivo_rejeicao: string | null;
+          obra_id: string | null;
+          observacoes: string | null;
+          responsavel_id: string | null;
+          responsavel_nome: string | null;
+          status: string;
+          titulo: string;
+          updated_at: string;
+          valor: number;
+        };
         Insert: {
-          aprovado_em?: string | null
-          aprovado_por?: string | null
-          created_at?: string
-          created_by?: string | null
-          data?: string
-          enviado_em?: string | null
-          id?: string
-          motivo_rejeicao?: string | null
-          obra_id?: string | null
-          observacoes?: string | null
-          responsavel_id?: string | null
-          responsavel_nome?: string | null
-          status?: string
-          titulo: string
-          updated_at?: string
-          valor?: number
-        }
+          aprovado_em?: string | null;
+          aprovado_por?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          data?: string;
+          enviado_em?: string | null;
+          id?: string;
+          motivo_rejeicao?: string | null;
+          obra_id?: string | null;
+          observacoes?: string | null;
+          responsavel_id?: string | null;
+          responsavel_nome?: string | null;
+          status?: string;
+          titulo: string;
+          updated_at?: string;
+          valor?: number;
+        };
         Update: {
-          aprovado_em?: string | null
-          aprovado_por?: string | null
-          created_at?: string
-          created_by?: string | null
-          data?: string
-          enviado_em?: string | null
-          id?: string
-          motivo_rejeicao?: string | null
-          obra_id?: string | null
-          observacoes?: string | null
-          responsavel_id?: string | null
-          responsavel_nome?: string | null
-          status?: string
-          titulo?: string
-          updated_at?: string
-          valor?: number
-        }
+          aprovado_em?: string | null;
+          aprovado_por?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          data?: string;
+          enviado_em?: string | null;
+          id?: string;
+          motivo_rejeicao?: string | null;
+          obra_id?: string | null;
+          observacoes?: string | null;
+          responsavel_id?: string | null;
+          responsavel_nome?: string | null;
+          status?: string;
+          titulo?: string;
+          updated_at?: string;
+          valor?: number;
+        };
         Relationships: [
           {
-            foreignKeyName: "adiantamentos_obra_id_fkey"
-            columns: ["obra_id"]
-            isOneToOne: false
-            referencedRelation: "obras"
-            referencedColumns: ["id"]
+            foreignKeyName: "adiantamentos_obra_id_fkey";
+            columns: ["obra_id"];
+            isOneToOne: false;
+            referencedRelation: "obras";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       ativo_emprestimos: {
         Row: {
-          anexo_url: string | null
-          ativo_id: string
-          created_at: string
-          created_by: string | null
-          data_devolucao: string | null
-          data_emprestimo: string
-          funcionario_id: string | null
-          id: string
-          observacoes: string | null
-          prevista_devolucao: string | null
-        }
+          anexo_url: string | null;
+          ativo_id: string;
+          created_at: string;
+          created_by: string | null;
+          data_devolucao: string | null;
+          data_emprestimo: string;
+          funcionario_id: string | null;
+          id: string;
+          observacoes: string | null;
+          prevista_devolucao: string | null;
+        };
         Insert: {
-          anexo_url?: string | null
-          ativo_id: string
-          created_at?: string
-          created_by?: string | null
-          data_devolucao?: string | null
-          data_emprestimo?: string
-          funcionario_id?: string | null
-          id?: string
-          observacoes?: string | null
-          prevista_devolucao?: string | null
-        }
+          anexo_url?: string | null;
+          ativo_id: string;
+          created_at?: string;
+          created_by?: string | null;
+          data_devolucao?: string | null;
+          data_emprestimo?: string;
+          funcionario_id?: string | null;
+          id?: string;
+          observacoes?: string | null;
+          prevista_devolucao?: string | null;
+        };
         Update: {
-          anexo_url?: string | null
-          ativo_id?: string
-          created_at?: string
-          created_by?: string | null
-          data_devolucao?: string | null
-          data_emprestimo?: string
-          funcionario_id?: string | null
-          id?: string
-          observacoes?: string | null
-          prevista_devolucao?: string | null
-        }
+          anexo_url?: string | null;
+          ativo_id?: string;
+          created_at?: string;
+          created_by?: string | null;
+          data_devolucao?: string | null;
+          data_emprestimo?: string;
+          funcionario_id?: string | null;
+          id?: string;
+          observacoes?: string | null;
+          prevista_devolucao?: string | null;
+        };
         Relationships: [
           {
-            foreignKeyName: "ativo_emprestimos_ativo_id_fkey"
-            columns: ["ativo_id"]
-            isOneToOne: false
-            referencedRelation: "ativos"
-            referencedColumns: ["id"]
+            foreignKeyName: "ativo_emprestimos_ativo_id_fkey";
+            columns: ["ativo_id"];
+            isOneToOne: false;
+            referencedRelation: "ativos";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "ativo_emprestimos_funcionario_id_fkey"
-            columns: ["funcionario_id"]
-            isOneToOne: false
-            referencedRelation: "funcionarios"
-            referencedColumns: ["id"]
+            foreignKeyName: "ativo_emprestimos_funcionario_id_fkey";
+            columns: ["funcionario_id"];
+            isOneToOne: false;
+            referencedRelation: "funcionarios";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       ativo_manutencoes: {
         Row: {
-          ativo_id: string
-          created_at: string
-          created_by: string | null
-          custo: number | null
-          data: string
-          descricao: string | null
-          id: string
-          proxima_em: string | null
-          tipo: string
-        }
+          ativo_id: string;
+          created_at: string;
+          created_by: string | null;
+          custo: number | null;
+          data: string;
+          descricao: string | null;
+          id: string;
+          proxima_em: string | null;
+          tipo: string;
+        };
         Insert: {
-          ativo_id: string
-          created_at?: string
-          created_by?: string | null
-          custo?: number | null
-          data?: string
-          descricao?: string | null
-          id?: string
-          proxima_em?: string | null
-          tipo?: string
-        }
+          ativo_id: string;
+          created_at?: string;
+          created_by?: string | null;
+          custo?: number | null;
+          data?: string;
+          descricao?: string | null;
+          id?: string;
+          proxima_em?: string | null;
+          tipo?: string;
+        };
         Update: {
-          ativo_id?: string
-          created_at?: string
-          created_by?: string | null
-          custo?: number | null
-          data?: string
-          descricao?: string | null
-          id?: string
-          proxima_em?: string | null
-          tipo?: string
-        }
+          ativo_id?: string;
+          created_at?: string;
+          created_by?: string | null;
+          custo?: number | null;
+          data?: string;
+          descricao?: string | null;
+          id?: string;
+          proxima_em?: string | null;
+          tipo?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "ativo_manutencoes_ativo_id_fkey"
-            columns: ["ativo_id"]
-            isOneToOne: false
-            referencedRelation: "ativos"
-            referencedColumns: ["id"]
+            foreignKeyName: "ativo_manutencoes_ativo_id_fkey";
+            columns: ["ativo_id"];
+            isOneToOne: false;
+            referencedRelation: "ativos";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       ativo_transferencias: {
         Row: {
-          aprovado_por: string | null
-          ativo_id: string
-          created_at: string
-          decidido_em: string | null
-          id: string
-          motivo: string | null
-          obra_destino_id: string
-          obra_origem_id: string | null
-          solicitado_por: string | null
-          status: string
-        }
+          aprovado_por: string | null;
+          ativo_id: string;
+          created_at: string;
+          decidido_em: string | null;
+          id: string;
+          motivo: string | null;
+          obra_destino_id: string;
+          obra_origem_id: string | null;
+          solicitado_por: string | null;
+          status: string;
+        };
         Insert: {
-          aprovado_por?: string | null
-          ativo_id: string
-          created_at?: string
-          decidido_em?: string | null
-          id?: string
-          motivo?: string | null
-          obra_destino_id: string
-          obra_origem_id?: string | null
-          solicitado_por?: string | null
-          status?: string
-        }
+          aprovado_por?: string | null;
+          ativo_id: string;
+          created_at?: string;
+          decidido_em?: string | null;
+          id?: string;
+          motivo?: string | null;
+          obra_destino_id: string;
+          obra_origem_id?: string | null;
+          solicitado_por?: string | null;
+          status?: string;
+        };
         Update: {
-          aprovado_por?: string | null
-          ativo_id?: string
-          created_at?: string
-          decidido_em?: string | null
-          id?: string
-          motivo?: string | null
-          obra_destino_id?: string
-          obra_origem_id?: string | null
-          solicitado_por?: string | null
-          status?: string
-        }
+          aprovado_por?: string | null;
+          ativo_id?: string;
+          created_at?: string;
+          decidido_em?: string | null;
+          id?: string;
+          motivo?: string | null;
+          obra_destino_id?: string;
+          obra_origem_id?: string | null;
+          solicitado_por?: string | null;
+          status?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "ativo_transferencias_ativo_id_fkey"
-            columns: ["ativo_id"]
-            isOneToOne: false
-            referencedRelation: "ativos"
-            referencedColumns: ["id"]
+            foreignKeyName: "ativo_transferencias_ativo_id_fkey";
+            columns: ["ativo_id"];
+            isOneToOne: false;
+            referencedRelation: "ativos";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "ativo_transferencias_obra_destino_id_fkey"
-            columns: ["obra_destino_id"]
-            isOneToOne: false
-            referencedRelation: "obras"
-            referencedColumns: ["id"]
+            foreignKeyName: "ativo_transferencias_obra_destino_id_fkey";
+            columns: ["obra_destino_id"];
+            isOneToOne: false;
+            referencedRelation: "obras";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "ativo_transferencias_obra_origem_id_fkey"
-            columns: ["obra_origem_id"]
-            isOneToOne: false
-            referencedRelation: "obras"
-            referencedColumns: ["id"]
+            foreignKeyName: "ativo_transferencias_obra_origem_id_fkey";
+            columns: ["obra_origem_id"];
+            isOneToOne: false;
+            referencedRelation: "obras";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       ativos: {
         Row: {
-          categoria: string | null
-          codigo: string | null
-          created_at: string
-          data_aquisicao: string | null
-          descricao: string | null
-          estado: string
-          id: string
-          nome: string
-          obra_id: string | null
-          updated_at: string
-          valor: number | null
-        }
+          categoria: string | null;
+          codigo: string | null;
+          created_at: string;
+          data_aquisicao: string | null;
+          descricao: string | null;
+          estado: string;
+          id: string;
+          nome: string;
+          obra_id: string | null;
+          updated_at: string;
+          valor: number | null;
+        };
         Insert: {
-          categoria?: string | null
-          codigo?: string | null
-          created_at?: string
-          data_aquisicao?: string | null
-          descricao?: string | null
-          estado?: string
-          id?: string
-          nome: string
-          obra_id?: string | null
-          updated_at?: string
-          valor?: number | null
-        }
+          categoria?: string | null;
+          codigo?: string | null;
+          created_at?: string;
+          data_aquisicao?: string | null;
+          descricao?: string | null;
+          estado?: string;
+          id?: string;
+          nome: string;
+          obra_id?: string | null;
+          updated_at?: string;
+          valor?: number | null;
+        };
         Update: {
-          categoria?: string | null
-          codigo?: string | null
-          created_at?: string
-          data_aquisicao?: string | null
-          descricao?: string | null
-          estado?: string
-          id?: string
-          nome?: string
-          obra_id?: string | null
-          updated_at?: string
-          valor?: number | null
-        }
+          categoria?: string | null;
+          codigo?: string | null;
+          created_at?: string;
+          data_aquisicao?: string | null;
+          descricao?: string | null;
+          estado?: string;
+          id?: string;
+          nome?: string;
+          obra_id?: string | null;
+          updated_at?: string;
+          valor?: number | null;
+        };
         Relationships: [
           {
-            foreignKeyName: "ativos_obra_id_fkey"
-            columns: ["obra_id"]
-            isOneToOne: false
-            referencedRelation: "obras"
-            referencedColumns: ["id"]
+            foreignKeyName: "ativos_obra_id_fkey";
+            columns: ["obra_id"];
+            isOneToOne: false;
+            referencedRelation: "obras";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       contas_financeiras: {
         Row: {
-          categoria: string | null
-          comprovante_url: string | null
-          created_at: string
-          created_by: string | null
-          data_pagamento: string | null
-          data_vencimento: string
-          descricao: string
-          escopo: string
-          id: string
-          obra_id: string | null
-          observacoes: string | null
-          status: string
-          tipo: string
-          updated_at: string
-          user_id: string | null
-          valor: number
-        }
+          categoria: string | null;
+          comprovante_url: string | null;
+          created_at: string;
+          created_by: string | null;
+          data_pagamento: string | null;
+          data_vencimento: string;
+          descricao: string;
+          escopo: string;
+          id: string;
+          obra_id: string | null;
+          observacoes: string | null;
+          status: string;
+          tipo: string;
+          updated_at: string;
+          user_id: string | null;
+          valor: number;
+        };
         Insert: {
-          categoria?: string | null
-          comprovante_url?: string | null
-          created_at?: string
-          created_by?: string | null
-          data_pagamento?: string | null
-          data_vencimento: string
-          descricao: string
-          escopo?: string
-          id?: string
-          obra_id?: string | null
-          observacoes?: string | null
-          status?: string
-          tipo: string
-          updated_at?: string
-          user_id?: string | null
-          valor: number
-        }
+          categoria?: string | null;
+          comprovante_url?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          data_pagamento?: string | null;
+          data_vencimento: string;
+          descricao: string;
+          escopo?: string;
+          id?: string;
+          obra_id?: string | null;
+          observacoes?: string | null;
+          status?: string;
+          tipo: string;
+          updated_at?: string;
+          user_id?: string | null;
+          valor: number;
+        };
         Update: {
-          categoria?: string | null
-          comprovante_url?: string | null
-          created_at?: string
-          created_by?: string | null
-          data_pagamento?: string | null
-          data_vencimento?: string
-          descricao?: string
-          escopo?: string
-          id?: string
-          obra_id?: string | null
-          observacoes?: string | null
-          status?: string
-          tipo?: string
-          updated_at?: string
-          user_id?: string | null
-          valor?: number
-        }
+          categoria?: string | null;
+          comprovante_url?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          data_pagamento?: string | null;
+          data_vencimento?: string;
+          descricao?: string;
+          escopo?: string;
+          id?: string;
+          obra_id?: string | null;
+          observacoes?: string | null;
+          status?: string;
+          tipo?: string;
+          updated_at?: string;
+          user_id?: string | null;
+          valor?: number;
+        };
         Relationships: [
           {
-            foreignKeyName: "contas_financeiras_obra_id_fkey"
-            columns: ["obra_id"]
-            isOneToOne: false
-            referencedRelation: "obras"
-            referencedColumns: ["id"]
+            foreignKeyName: "contas_financeiras_obra_id_fkey";
+            columns: ["obra_id"];
+            isOneToOne: false;
+            referencedRelation: "obras";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       custom_role_module_permissions: {
         Row: {
-          can_delete: boolean
-          can_edit: boolean
-          can_view: boolean
-          created_at: string
-          custom_role_id: string
-          id: string
-          module: string
-          updated_at: string
-        }
+          can_delete: boolean;
+          can_edit: boolean;
+          can_view: boolean;
+          created_at: string;
+          custom_role_id: string;
+          id: string;
+          module: string;
+          updated_at: string;
+        };
         Insert: {
-          can_delete?: boolean
-          can_edit?: boolean
-          can_view?: boolean
-          created_at?: string
-          custom_role_id: string
-          id?: string
-          module: string
-          updated_at?: string
-        }
+          can_delete?: boolean;
+          can_edit?: boolean;
+          can_view?: boolean;
+          created_at?: string;
+          custom_role_id: string;
+          id?: string;
+          module: string;
+          updated_at?: string;
+        };
         Update: {
-          can_delete?: boolean
-          can_edit?: boolean
-          can_view?: boolean
-          created_at?: string
-          custom_role_id?: string
-          id?: string
-          module?: string
-          updated_at?: string
-        }
+          can_delete?: boolean;
+          can_edit?: boolean;
+          can_view?: boolean;
+          created_at?: string;
+          custom_role_id?: string;
+          id?: string;
+          module?: string;
+          updated_at?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "custom_role_module_permissions_custom_role_id_fkey"
-            columns: ["custom_role_id"]
-            isOneToOne: false
-            referencedRelation: "custom_roles"
-            referencedColumns: ["id"]
+            foreignKeyName: "custom_role_module_permissions_custom_role_id_fkey";
+            columns: ["custom_role_id"];
+            isOneToOne: false;
+            referencedRelation: "custom_roles";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       custom_roles: {
         Row: {
-          created_at: string
-          description: string | null
-          id: string
-          label: string
-          name: string
-          parent_role_id: string | null
-          template_role: Database["public"]["Enums"]["app_role"] | null
-          updated_at: string
-        }
+          created_at: string;
+          description: string | null;
+          id: string;
+          label: string;
+          name: string;
+          parent_role_id: string | null;
+          template_role: Database["public"]["Enums"]["app_role"] | null;
+          updated_at: string;
+        };
         Insert: {
-          created_at?: string
-          description?: string | null
-          id?: string
-          label: string
-          name: string
-          parent_role_id?: string | null
-          template_role?: Database["public"]["Enums"]["app_role"] | null
-          updated_at?: string
-        }
+          created_at?: string;
+          description?: string | null;
+          id?: string;
+          label: string;
+          name: string;
+          parent_role_id?: string | null;
+          template_role?: Database["public"]["Enums"]["app_role"] | null;
+          updated_at?: string;
+        };
         Update: {
-          created_at?: string
-          description?: string | null
-          id?: string
-          label?: string
-          name?: string
-          parent_role_id?: string | null
-          template_role?: Database["public"]["Enums"]["app_role"] | null
-          updated_at?: string
-        }
+          created_at?: string;
+          description?: string | null;
+          id?: string;
+          label?: string;
+          name?: string;
+          parent_role_id?: string | null;
+          template_role?: Database["public"]["Enums"]["app_role"] | null;
+          updated_at?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "custom_roles_parent_role_id_fkey"
-            columns: ["parent_role_id"]
-            isOneToOne: false
-            referencedRelation: "custom_roles"
-            referencedColumns: ["id"]
+            foreignKeyName: "custom_roles_parent_role_id_fkey";
+            columns: ["parent_role_id"];
+            isOneToOne: false;
+            referencedRelation: "custom_roles";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       documento_pastas: {
         Row: {
-          created_at: string
-          created_by: string | null
-          escopo: string
-          id: string
-          nome: string
-          obra_id: string | null
-          parent_id: string | null
-          user_id: string | null
-        }
+          created_at: string;
+          created_by: string | null;
+          escopo: string;
+          id: string;
+          nome: string;
+          obra_id: string | null;
+          parent_id: string | null;
+          user_id: string | null;
+        };
         Insert: {
-          created_at?: string
-          created_by?: string | null
-          escopo: string
-          id?: string
-          nome: string
-          obra_id?: string | null
-          parent_id?: string | null
-          user_id?: string | null
-        }
+          created_at?: string;
+          created_by?: string | null;
+          escopo: string;
+          id?: string;
+          nome: string;
+          obra_id?: string | null;
+          parent_id?: string | null;
+          user_id?: string | null;
+        };
         Update: {
-          created_at?: string
-          created_by?: string | null
-          escopo?: string
-          id?: string
-          nome?: string
-          obra_id?: string | null
-          parent_id?: string | null
-          user_id?: string | null
-        }
+          created_at?: string;
+          created_by?: string | null;
+          escopo?: string;
+          id?: string;
+          nome?: string;
+          obra_id?: string | null;
+          parent_id?: string | null;
+          user_id?: string | null;
+        };
         Relationships: [
           {
-            foreignKeyName: "documento_pastas_parent_id_fkey"
-            columns: ["parent_id"]
-            isOneToOne: false
-            referencedRelation: "documento_pastas"
-            referencedColumns: ["id"]
+            foreignKeyName: "documento_pastas_parent_id_fkey";
+            columns: ["parent_id"];
+            isOneToOne: false;
+            referencedRelation: "documento_pastas";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       documentos: {
         Row: {
-          created_at: string
-          created_by: string | null
-          escopo: string
-          id: string
-          mime: string | null
-          nome: string
-          obra_id: string | null
-          pasta_id: string | null
-          storage_path: string
-          tamanho: number | null
-          user_id: string | null
-        }
+          created_at: string;
+          created_by: string | null;
+          escopo: string;
+          id: string;
+          mime: string | null;
+          nome: string;
+          obra_id: string | null;
+          pasta_id: string | null;
+          storage_path: string;
+          tamanho: number | null;
+          user_id: string | null;
+        };
         Insert: {
-          created_at?: string
-          created_by?: string | null
-          escopo: string
-          id?: string
-          mime?: string | null
-          nome: string
-          obra_id?: string | null
-          pasta_id?: string | null
-          storage_path: string
-          tamanho?: number | null
-          user_id?: string | null
-        }
+          created_at?: string;
+          created_by?: string | null;
+          escopo: string;
+          id?: string;
+          mime?: string | null;
+          nome: string;
+          obra_id?: string | null;
+          pasta_id?: string | null;
+          storage_path: string;
+          tamanho?: number | null;
+          user_id?: string | null;
+        };
         Update: {
-          created_at?: string
-          created_by?: string | null
-          escopo?: string
-          id?: string
-          mime?: string | null
-          nome?: string
-          obra_id?: string | null
-          pasta_id?: string | null
-          storage_path?: string
-          tamanho?: number | null
-          user_id?: string | null
-        }
+          created_at?: string;
+          created_by?: string | null;
+          escopo?: string;
+          id?: string;
+          mime?: string | null;
+          nome?: string;
+          obra_id?: string | null;
+          pasta_id?: string | null;
+          storage_path?: string;
+          tamanho?: number | null;
+          user_id?: string | null;
+        };
         Relationships: [
           {
-            foreignKeyName: "documentos_pasta_id_fkey"
-            columns: ["pasta_id"]
-            isOneToOne: false
-            referencedRelation: "documento_pastas"
-            referencedColumns: ["id"]
+            foreignKeyName: "documentos_pasta_id_fkey";
+            columns: ["pasta_id"];
+            isOneToOne: false;
+            referencedRelation: "documento_pastas";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       epi_movimentos: {
         Row: {
-          created_at: string
-          created_by: string | null
-          data_movimento: string
-          data_vencimento: string | null
-          epi_id: string
-          funcionario_id: string | null
-          id: string
-          motivo_retirada: string | null
-          observacoes: string | null
-          quantidade: number
-          tipo: Database["public"]["Enums"]["epi_movimento_tipo"]
-        }
+          created_at: string;
+          created_by: string | null;
+          data_movimento: string;
+          data_vencimento: string | null;
+          epi_id: string;
+          funcionario_id: string | null;
+          id: string;
+          motivo_retirada: string | null;
+          observacoes: string | null;
+          quantidade: number;
+          tipo: Database["public"]["Enums"]["epi_movimento_tipo"];
+        };
         Insert: {
-          created_at?: string
-          created_by?: string | null
-          data_movimento?: string
-          data_vencimento?: string | null
-          epi_id: string
-          funcionario_id?: string | null
-          id?: string
-          motivo_retirada?: string | null
-          observacoes?: string | null
-          quantidade?: number
-          tipo: Database["public"]["Enums"]["epi_movimento_tipo"]
-        }
+          created_at?: string;
+          created_by?: string | null;
+          data_movimento?: string;
+          data_vencimento?: string | null;
+          epi_id: string;
+          funcionario_id?: string | null;
+          id?: string;
+          motivo_retirada?: string | null;
+          observacoes?: string | null;
+          quantidade?: number;
+          tipo: Database["public"]["Enums"]["epi_movimento_tipo"];
+        };
         Update: {
-          created_at?: string
-          created_by?: string | null
-          data_movimento?: string
-          data_vencimento?: string | null
-          epi_id?: string
-          funcionario_id?: string | null
-          id?: string
-          motivo_retirada?: string | null
-          observacoes?: string | null
-          quantidade?: number
-          tipo?: Database["public"]["Enums"]["epi_movimento_tipo"]
-        }
+          created_at?: string;
+          created_by?: string | null;
+          data_movimento?: string;
+          data_vencimento?: string | null;
+          epi_id?: string;
+          funcionario_id?: string | null;
+          id?: string;
+          motivo_retirada?: string | null;
+          observacoes?: string | null;
+          quantidade?: number;
+          tipo?: Database["public"]["Enums"]["epi_movimento_tipo"];
+        };
         Relationships: [
           {
-            foreignKeyName: "epi_movimentos_epi_id_fkey"
-            columns: ["epi_id"]
-            isOneToOne: false
-            referencedRelation: "epis"
-            referencedColumns: ["id"]
+            foreignKeyName: "epi_movimentos_epi_id_fkey";
+            columns: ["epi_id"];
+            isOneToOne: false;
+            referencedRelation: "epis";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "epi_movimentos_funcionario_id_fkey"
-            columns: ["funcionario_id"]
-            isOneToOne: false
-            referencedRelation: "funcionarios"
-            referencedColumns: ["id"]
+            foreignKeyName: "epi_movimentos_funcionario_id_fkey";
+            columns: ["funcionario_id"];
+            isOneToOne: false;
+            referencedRelation: "funcionarios";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       epis: {
         Row: {
-          ativo: boolean
-          ca: string | null
-          created_at: string
-          descricao: string | null
-          estoque_atual: number
-          estoque_minimo: number
-          id: string
-          nome: string
-          tipo: string
-          updated_at: string
-          validade_meses: number | null
-        }
+          ativo: boolean;
+          ca: string | null;
+          created_at: string;
+          descricao: string | null;
+          estoque_atual: number;
+          estoque_minimo: number;
+          id: string;
+          nome: string;
+          tipo: string;
+          updated_at: string;
+          validade_meses: number | null;
+        };
         Insert: {
-          ativo?: boolean
-          ca?: string | null
-          created_at?: string
-          descricao?: string | null
-          estoque_atual?: number
-          estoque_minimo?: number
-          id?: string
-          nome: string
-          tipo?: string
-          updated_at?: string
-          validade_meses?: number | null
-        }
+          ativo?: boolean;
+          ca?: string | null;
+          created_at?: string;
+          descricao?: string | null;
+          estoque_atual?: number;
+          estoque_minimo?: number;
+          id?: string;
+          nome: string;
+          tipo?: string;
+          updated_at?: string;
+          validade_meses?: number | null;
+        };
         Update: {
-          ativo?: boolean
-          ca?: string | null
-          created_at?: string
-          descricao?: string | null
-          estoque_atual?: number
-          estoque_minimo?: number
-          id?: string
-          nome?: string
-          tipo?: string
-          updated_at?: string
-          validade_meses?: number | null
-        }
-        Relationships: []
-      }
+          ativo?: boolean;
+          ca?: string | null;
+          created_at?: string;
+          descricao?: string | null;
+          estoque_atual?: number;
+          estoque_minimo?: number;
+          id?: string;
+          nome?: string;
+          tipo?: string;
+          updated_at?: string;
+          validade_meses?: number | null;
+        };
+        Relationships: [];
+      };
       ferramenta_emprestimos: {
         Row: {
-          anexo_url: string | null
-          created_at: string
-          created_by: string | null
-          data_devolucao: string | null
-          data_emprestimo: string
-          ferramenta_id: string
-          funcionario_id: string | null
-          id: string
-          observacoes: string | null
-          prevista_devolucao: string | null
-        }
+          anexo_url: string | null;
+          created_at: string;
+          created_by: string | null;
+          data_devolucao: string | null;
+          data_emprestimo: string;
+          ferramenta_id: string;
+          funcionario_id: string | null;
+          id: string;
+          observacoes: string | null;
+          prevista_devolucao: string | null;
+        };
         Insert: {
-          anexo_url?: string | null
-          created_at?: string
-          created_by?: string | null
-          data_devolucao?: string | null
-          data_emprestimo?: string
-          ferramenta_id: string
-          funcionario_id?: string | null
-          id?: string
-          observacoes?: string | null
-          prevista_devolucao?: string | null
-        }
+          anexo_url?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          data_devolucao?: string | null;
+          data_emprestimo?: string;
+          ferramenta_id: string;
+          funcionario_id?: string | null;
+          id?: string;
+          observacoes?: string | null;
+          prevista_devolucao?: string | null;
+        };
         Update: {
-          anexo_url?: string | null
-          created_at?: string
-          created_by?: string | null
-          data_devolucao?: string | null
-          data_emprestimo?: string
-          ferramenta_id?: string
-          funcionario_id?: string | null
-          id?: string
-          observacoes?: string | null
-          prevista_devolucao?: string | null
-        }
+          anexo_url?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          data_devolucao?: string | null;
+          data_emprestimo?: string;
+          ferramenta_id?: string;
+          funcionario_id?: string | null;
+          id?: string;
+          observacoes?: string | null;
+          prevista_devolucao?: string | null;
+        };
         Relationships: [
           {
-            foreignKeyName: "ferramenta_emprestimos_ferramenta_id_fkey"
-            columns: ["ferramenta_id"]
-            isOneToOne: false
-            referencedRelation: "ferramentas"
-            referencedColumns: ["id"]
+            foreignKeyName: "ferramenta_emprestimos_ferramenta_id_fkey";
+            columns: ["ferramenta_id"];
+            isOneToOne: false;
+            referencedRelation: "ferramentas";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "ferramenta_emprestimos_funcionario_id_fkey"
-            columns: ["funcionario_id"]
-            isOneToOne: false
-            referencedRelation: "funcionarios"
-            referencedColumns: ["id"]
+            foreignKeyName: "ferramenta_emprestimos_funcionario_id_fkey";
+            columns: ["funcionario_id"];
+            isOneToOne: false;
+            referencedRelation: "funcionarios";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       ferramentas: {
         Row: {
-          codigo: string | null
-          created_at: string
-          descricao: string | null
-          estado: string
-          id: string
-          nome: string
-          obra_id: string | null
-          proxima_manutencao: string | null
-          updated_at: string
-        }
+          codigo: string | null;
+          created_at: string;
+          descricao: string | null;
+          estado: string;
+          id: string;
+          nome: string;
+          obra_id: string | null;
+          proxima_manutencao: string | null;
+          updated_at: string;
+        };
         Insert: {
-          codigo?: string | null
-          created_at?: string
-          descricao?: string | null
-          estado?: string
-          id?: string
-          nome: string
-          obra_id?: string | null
-          proxima_manutencao?: string | null
-          updated_at?: string
-        }
+          codigo?: string | null;
+          created_at?: string;
+          descricao?: string | null;
+          estado?: string;
+          id?: string;
+          nome: string;
+          obra_id?: string | null;
+          proxima_manutencao?: string | null;
+          updated_at?: string;
+        };
         Update: {
-          codigo?: string | null
-          created_at?: string
-          descricao?: string | null
-          estado?: string
-          id?: string
-          nome?: string
-          obra_id?: string | null
-          proxima_manutencao?: string | null
-          updated_at?: string
-        }
+          codigo?: string | null;
+          created_at?: string;
+          descricao?: string | null;
+          estado?: string;
+          id?: string;
+          nome?: string;
+          obra_id?: string | null;
+          proxima_manutencao?: string | null;
+          updated_at?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "ferramentas_obra_id_fkey"
-            columns: ["obra_id"]
-            isOneToOne: false
-            referencedRelation: "obras"
-            referencedColumns: ["id"]
+            foreignKeyName: "ferramentas_obra_id_fkey";
+            columns: ["obra_id"];
+            isOneToOne: false;
+            referencedRelation: "obras";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       funcionario_documentos: {
         Row: {
-          created_at: string
-          funcionario_id: string
-          id: string
-          nome: string
-          storage_path: string
-          tamanho: number | null
-          tipo: string | null
-          uploaded_by: string | null
-        }
+          created_at: string;
+          funcionario_id: string;
+          id: string;
+          nome: string;
+          storage_path: string;
+          tamanho: number | null;
+          tipo: string | null;
+          uploaded_by: string | null;
+        };
         Insert: {
-          created_at?: string
-          funcionario_id: string
-          id?: string
-          nome: string
-          storage_path: string
-          tamanho?: number | null
-          tipo?: string | null
-          uploaded_by?: string | null
-        }
+          created_at?: string;
+          funcionario_id: string;
+          id?: string;
+          nome: string;
+          storage_path: string;
+          tamanho?: number | null;
+          tipo?: string | null;
+          uploaded_by?: string | null;
+        };
         Update: {
-          created_at?: string
-          funcionario_id?: string
-          id?: string
-          nome?: string
-          storage_path?: string
-          tamanho?: number | null
-          tipo?: string | null
-          uploaded_by?: string | null
-        }
+          created_at?: string;
+          funcionario_id?: string;
+          id?: string;
+          nome?: string;
+          storage_path?: string;
+          tamanho?: number | null;
+          tipo?: string | null;
+          uploaded_by?: string | null;
+        };
         Relationships: [
           {
-            foreignKeyName: "funcionario_documentos_funcionario_id_fkey"
-            columns: ["funcionario_id"]
-            isOneToOne: false
-            referencedRelation: "funcionarios"
-            referencedColumns: ["id"]
+            foreignKeyName: "funcionario_documentos_funcionario_id_fkey";
+            columns: ["funcionario_id"];
+            isOneToOne: false;
+            referencedRelation: "funcionarios";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       funcionario_treinamentos: {
         Row: {
-          created_at: string
-          created_by: string | null
-          data_realizacao: string | null
-          data_validade: string | null
-          funcionario_id: string
-          id: string
-          nome: string
-          observacoes: string | null
-          updated_at: string
-        }
+          created_at: string;
+          created_by: string | null;
+          data_realizacao: string | null;
+          data_validade: string | null;
+          funcionario_id: string;
+          id: string;
+          nome: string;
+          observacoes: string | null;
+          updated_at: string;
+        };
         Insert: {
-          created_at?: string
-          created_by?: string | null
-          data_realizacao?: string | null
-          data_validade?: string | null
-          funcionario_id: string
-          id?: string
-          nome: string
-          observacoes?: string | null
-          updated_at?: string
-        }
+          created_at?: string;
+          created_by?: string | null;
+          data_realizacao?: string | null;
+          data_validade?: string | null;
+          funcionario_id: string;
+          id?: string;
+          nome: string;
+          observacoes?: string | null;
+          updated_at?: string;
+        };
         Update: {
-          created_at?: string
-          created_by?: string | null
-          data_realizacao?: string | null
-          data_validade?: string | null
-          funcionario_id?: string
-          id?: string
-          nome?: string
-          observacoes?: string | null
-          updated_at?: string
-        }
+          created_at?: string;
+          created_by?: string | null;
+          data_realizacao?: string | null;
+          data_validade?: string | null;
+          funcionario_id?: string;
+          id?: string;
+          nome?: string;
+          observacoes?: string | null;
+          updated_at?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "funcionario_treinamentos_funcionario_id_fkey"
-            columns: ["funcionario_id"]
-            isOneToOne: false
-            referencedRelation: "funcionarios"
-            referencedColumns: ["id"]
+            foreignKeyName: "funcionario_treinamentos_funcionario_id_fkey";
+            columns: ["funcionario_id"];
+            isOneToOne: false;
+            referencedRelation: "funcionarios";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       funcionarios: {
         Row: {
-          ativo: boolean
-          cidade: string | null
-          cpf: string | null
-          created_at: string
-          created_by: string | null
-          data_admissao: string | null
-          email: string | null
-          endereco: string | null
-          experiencia_concluida: boolean
-          funcao: string | null
-          id: string
-          nome: string
-          obra_id: string | null
-          observacoes: string | null
-          setor: string | null
-          telefone: string | null
-          updated_at: string
-          validade_meses_aso: number | null
-          validade_meses_experiencia: number | null
-          validade_meses_ferias: number | null
-          validade_meses_ficha_epi: number | null
-          validade_meses_folga_campo: number | null
-          validade_meses_treinamento: number | null
-          vencimento_aso: string | null
-          vencimento_experiencia: string | null
-          vencimento_ferias: string | null
-          vencimento_ficha_epi: string | null
-          vencimento_folga_campo: string | null
-          vencimento_treinamento: string | null
-        }
+          ativo: boolean;
+          cidade: string | null;
+          cpf: string | null;
+          created_at: string;
+          created_by: string | null;
+          data_admissao: string | null;
+          email: string | null;
+          endereco: string | null;
+          experiencia_concluida: boolean;
+          funcao: string | null;
+          id: string;
+          nome: string;
+          obra_id: string | null;
+          observacoes: string | null;
+          setor: string | null;
+          telefone: string | null;
+          updated_at: string;
+          validade_meses_aso: number | null;
+          validade_meses_experiencia: number | null;
+          validade_meses_ferias: number | null;
+          validade_meses_ficha_epi: number | null;
+          validade_meses_folga_campo: number | null;
+          validade_meses_treinamento: number | null;
+          vencimento_aso: string | null;
+          vencimento_experiencia: string | null;
+          vencimento_ferias: string | null;
+          vencimento_ficha_epi: string | null;
+          vencimento_folga_campo: string | null;
+          vencimento_treinamento: string | null;
+        };
         Insert: {
-          ativo?: boolean
-          cidade?: string | null
-          cpf?: string | null
-          created_at?: string
-          created_by?: string | null
-          data_admissao?: string | null
-          email?: string | null
-          endereco?: string | null
-          experiencia_concluida?: boolean
-          funcao?: string | null
-          id?: string
-          nome: string
-          obra_id?: string | null
-          observacoes?: string | null
-          setor?: string | null
-          telefone?: string | null
-          updated_at?: string
-          validade_meses_aso?: number | null
-          validade_meses_experiencia?: number | null
-          validade_meses_ferias?: number | null
-          validade_meses_ficha_epi?: number | null
-          validade_meses_folga_campo?: number | null
-          validade_meses_treinamento?: number | null
-          vencimento_aso?: string | null
-          vencimento_experiencia?: string | null
-          vencimento_ferias?: string | null
-          vencimento_ficha_epi?: string | null
-          vencimento_folga_campo?: string | null
-          vencimento_treinamento?: string | null
-        }
+          ativo?: boolean;
+          cidade?: string | null;
+          cpf?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          data_admissao?: string | null;
+          email?: string | null;
+          endereco?: string | null;
+          experiencia_concluida?: boolean;
+          funcao?: string | null;
+          id?: string;
+          nome: string;
+          obra_id?: string | null;
+          observacoes?: string | null;
+          setor?: string | null;
+          telefone?: string | null;
+          updated_at?: string;
+          validade_meses_aso?: number | null;
+          validade_meses_experiencia?: number | null;
+          validade_meses_ferias?: number | null;
+          validade_meses_ficha_epi?: number | null;
+          validade_meses_folga_campo?: number | null;
+          validade_meses_treinamento?: number | null;
+          vencimento_aso?: string | null;
+          vencimento_experiencia?: string | null;
+          vencimento_ferias?: string | null;
+          vencimento_ficha_epi?: string | null;
+          vencimento_folga_campo?: string | null;
+          vencimento_treinamento?: string | null;
+        };
         Update: {
-          ativo?: boolean
-          cidade?: string | null
-          cpf?: string | null
-          created_at?: string
-          created_by?: string | null
-          data_admissao?: string | null
-          email?: string | null
-          endereco?: string | null
-          experiencia_concluida?: boolean
-          funcao?: string | null
-          id?: string
-          nome?: string
-          obra_id?: string | null
-          observacoes?: string | null
-          setor?: string | null
-          telefone?: string | null
-          updated_at?: string
-          validade_meses_aso?: number | null
-          validade_meses_experiencia?: number | null
-          validade_meses_ferias?: number | null
-          validade_meses_ficha_epi?: number | null
-          validade_meses_folga_campo?: number | null
-          validade_meses_treinamento?: number | null
-          vencimento_aso?: string | null
-          vencimento_experiencia?: string | null
-          vencimento_ferias?: string | null
-          vencimento_ficha_epi?: string | null
-          vencimento_folga_campo?: string | null
-          vencimento_treinamento?: string | null
-        }
+          ativo?: boolean;
+          cidade?: string | null;
+          cpf?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          data_admissao?: string | null;
+          email?: string | null;
+          endereco?: string | null;
+          experiencia_concluida?: boolean;
+          funcao?: string | null;
+          id?: string;
+          nome?: string;
+          obra_id?: string | null;
+          observacoes?: string | null;
+          setor?: string | null;
+          telefone?: string | null;
+          updated_at?: string;
+          validade_meses_aso?: number | null;
+          validade_meses_experiencia?: number | null;
+          validade_meses_ferias?: number | null;
+          validade_meses_ficha_epi?: number | null;
+          validade_meses_folga_campo?: number | null;
+          validade_meses_treinamento?: number | null;
+          vencimento_aso?: string | null;
+          vencimento_experiencia?: string | null;
+          vencimento_ferias?: string | null;
+          vencimento_ficha_epi?: string | null;
+          vencimento_folga_campo?: string | null;
+          vencimento_treinamento?: string | null;
+        };
         Relationships: [
           {
-            foreignKeyName: "funcionarios_obra_id_fkey"
-            columns: ["obra_id"]
-            isOneToOne: false
-            referencedRelation: "obras"
-            referencedColumns: ["id"]
+            foreignKeyName: "funcionarios_obra_id_fkey";
+            columns: ["obra_id"];
+            isOneToOne: false;
+            referencedRelation: "obras";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       materiais: {
         Row: {
-          ativo: boolean
-          codigo: string | null
-          created_at: string
-          descricao: string | null
-          estoque_atual: number
-          estoque_minimo: number
-          id: string
-          nome: string
-          preco_medio: number | null
-          unidade: string
-          updated_at: string
-        }
+          ativo: boolean;
+          codigo: string | null;
+          created_at: string;
+          descricao: string | null;
+          estoque_atual: number;
+          estoque_minimo: number;
+          id: string;
+          nome: string;
+          preco_medio: number | null;
+          unidade: string;
+          updated_at: string;
+        };
         Insert: {
-          ativo?: boolean
-          codigo?: string | null
-          created_at?: string
-          descricao?: string | null
-          estoque_atual?: number
-          estoque_minimo?: number
-          id?: string
-          nome: string
-          preco_medio?: number | null
-          unidade?: string
-          updated_at?: string
-        }
+          ativo?: boolean;
+          codigo?: string | null;
+          created_at?: string;
+          descricao?: string | null;
+          estoque_atual?: number;
+          estoque_minimo?: number;
+          id?: string;
+          nome: string;
+          preco_medio?: number | null;
+          unidade?: string;
+          updated_at?: string;
+        };
         Update: {
-          ativo?: boolean
-          codigo?: string | null
-          created_at?: string
-          descricao?: string | null
-          estoque_atual?: number
-          estoque_minimo?: number
-          id?: string
-          nome?: string
-          preco_medio?: number | null
-          unidade?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
+          ativo?: boolean;
+          codigo?: string | null;
+          created_at?: string;
+          descricao?: string | null;
+          estoque_atual?: number;
+          estoque_minimo?: number;
+          id?: string;
+          nome?: string;
+          preco_medio?: number | null;
+          unidade?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       material_movimentos: {
         Row: {
-          created_at: string
-          created_by: string | null
-          data: string
-          id: string
-          material_id: string
-          obra_id: string | null
-          observacoes: string | null
-          quantidade: number
-          tipo: string
-        }
+          created_at: string;
+          created_by: string | null;
+          data: string;
+          id: string;
+          material_id: string;
+          obra_id: string | null;
+          observacoes: string | null;
+          quantidade: number;
+          tipo: string;
+        };
         Insert: {
-          created_at?: string
-          created_by?: string | null
-          data?: string
-          id?: string
-          material_id: string
-          obra_id?: string | null
-          observacoes?: string | null
-          quantidade: number
-          tipo: string
-        }
+          created_at?: string;
+          created_by?: string | null;
+          data?: string;
+          id?: string;
+          material_id: string;
+          obra_id?: string | null;
+          observacoes?: string | null;
+          quantidade: number;
+          tipo: string;
+        };
         Update: {
-          created_at?: string
-          created_by?: string | null
-          data?: string
-          id?: string
-          material_id?: string
-          obra_id?: string | null
-          observacoes?: string | null
-          quantidade?: number
-          tipo?: string
-        }
+          created_at?: string;
+          created_by?: string | null;
+          data?: string;
+          id?: string;
+          material_id?: string;
+          obra_id?: string | null;
+          observacoes?: string | null;
+          quantidade?: number;
+          tipo?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "material_movimentos_material_id_fkey"
-            columns: ["material_id"]
-            isOneToOne: false
-            referencedRelation: "materiais"
-            referencedColumns: ["id"]
+            foreignKeyName: "material_movimentos_material_id_fkey";
+            columns: ["material_id"];
+            isOneToOne: false;
+            referencedRelation: "materiais";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "material_movimentos_obra_id_fkey"
-            columns: ["obra_id"]
-            isOneToOne: false
-            referencedRelation: "obras"
-            referencedColumns: ["id"]
+            foreignKeyName: "material_movimentos_obra_id_fkey";
+            columns: ["obra_id"];
+            isOneToOne: false;
+            referencedRelation: "obras";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       notifications: {
         Row: {
-          created_at: string
-          id: string
-          lida: boolean
-          link: string | null
-          mensagem: string | null
-          ref_id: string | null
-          ref_table: string | null
-          tipo: string
-          titulo: string
-          user_id: string
-        }
+          created_at: string;
+          id: string;
+          lida: boolean;
+          link: string | null;
+          mensagem: string | null;
+          ref_id: string | null;
+          ref_table: string | null;
+          tipo: string;
+          titulo: string;
+          user_id: string;
+        };
         Insert: {
-          created_at?: string
-          id?: string
-          lida?: boolean
-          link?: string | null
-          mensagem?: string | null
-          ref_id?: string | null
-          ref_table?: string | null
-          tipo: string
-          titulo: string
-          user_id: string
-        }
+          created_at?: string;
+          id?: string;
+          lida?: boolean;
+          link?: string | null;
+          mensagem?: string | null;
+          ref_id?: string | null;
+          ref_table?: string | null;
+          tipo: string;
+          titulo: string;
+          user_id: string;
+        };
         Update: {
-          created_at?: string
-          id?: string
-          lida?: boolean
-          link?: string | null
-          mensagem?: string | null
-          ref_id?: string | null
-          ref_table?: string | null
-          tipo?: string
-          titulo?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
+          created_at?: string;
+          id?: string;
+          lida?: boolean;
+          link?: string | null;
+          mensagem?: string | null;
+          ref_id?: string | null;
+          ref_table?: string | null;
+          tipo?: string;
+          titulo?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
       obras: {
         Row: {
-          created_at: string
-          endereco: string | null
-          id: string
-          nome: string
-          observacoes: string | null
-          status: string
-          updated_at: string
-        }
+          created_at: string;
+          endereco: string | null;
+          id: string;
+          nome: string;
+          observacoes: string | null;
+          status: string;
+          updated_at: string;
+        };
         Insert: {
-          created_at?: string
-          endereco?: string | null
-          id?: string
-          nome: string
-          observacoes?: string | null
-          status?: string
-          updated_at?: string
-        }
+          created_at?: string;
+          endereco?: string | null;
+          id?: string;
+          nome: string;
+          observacoes?: string | null;
+          status?: string;
+          updated_at?: string;
+        };
         Update: {
-          created_at?: string
-          endereco?: string | null
-          id?: string
-          nome?: string
-          observacoes?: string | null
-          status?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
+          created_at?: string;
+          endereco?: string | null;
+          id?: string;
+          nome?: string;
+          observacoes?: string | null;
+          status?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       permission_audit_log: {
         Row: {
-          action: string
-          actor_email: string | null
-          actor_id: string | null
-          created_at: string
-          custom_role_id: string | null
-          details: Json | null
-          id: string
-          module: string | null
-          target_user_id: string | null
-        }
+          action: string;
+          actor_email: string | null;
+          actor_id: string | null;
+          created_at: string;
+          custom_role_id: string | null;
+          details: Json | null;
+          id: string;
+          module: string | null;
+          target_user_id: string | null;
+        };
         Insert: {
-          action: string
-          actor_email?: string | null
-          actor_id?: string | null
-          created_at?: string
-          custom_role_id?: string | null
-          details?: Json | null
-          id?: string
-          module?: string | null
-          target_user_id?: string | null
-        }
+          action: string;
+          actor_email?: string | null;
+          actor_id?: string | null;
+          created_at?: string;
+          custom_role_id?: string | null;
+          details?: Json | null;
+          id?: string;
+          module?: string | null;
+          target_user_id?: string | null;
+        };
         Update: {
-          action?: string
-          actor_email?: string | null
-          actor_id?: string | null
-          created_at?: string
-          custom_role_id?: string | null
-          details?: Json | null
-          id?: string
-          module?: string | null
-          target_user_id?: string | null
-        }
-        Relationships: []
-      }
+          action?: string;
+          actor_email?: string | null;
+          actor_id?: string | null;
+          created_at?: string;
+          custom_role_id?: string | null;
+          details?: Json | null;
+          id?: string;
+          module?: string | null;
+          target_user_id?: string | null;
+        };
+        Relationships: [];
+      };
       profiles: {
         Row: {
-          avatar_url: string | null
-          created_at: string
-          email: string | null
-          id: string
-          nome: string
-          setor: string | null
-          updated_at: string
-        }
+          avatar_url: string | null;
+          created_at: string;
+          email: string | null;
+          id: string;
+          nome: string;
+          setor: string | null;
+          updated_at: string;
+        };
         Insert: {
-          avatar_url?: string | null
-          created_at?: string
-          email?: string | null
-          id: string
-          nome: string
-          setor?: string | null
-          updated_at?: string
-        }
+          avatar_url?: string | null;
+          created_at?: string;
+          email?: string | null;
+          id: string;
+          nome: string;
+          setor?: string | null;
+          updated_at?: string;
+        };
         Update: {
-          avatar_url?: string | null
-          created_at?: string
-          email?: string | null
-          id?: string
-          nome?: string
-          setor?: string | null
-          updated_at?: string
-        }
-        Relationships: []
-      }
+          avatar_url?: string | null;
+          created_at?: string;
+          email?: string | null;
+          id?: string;
+          nome?: string;
+          setor?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       system_role_labels: {
         Row: {
-          description: string | null
-          label: string
-          role: Database["public"]["Enums"]["app_role"]
-          updated_at: string
-        }
+          description: string | null;
+          label: string;
+          role: Database["public"]["Enums"]["app_role"];
+          updated_at: string;
+        };
         Insert: {
-          description?: string | null
-          label: string
-          role: Database["public"]["Enums"]["app_role"]
-          updated_at?: string
-        }
+          description?: string | null;
+          label: string;
+          role: Database["public"]["Enums"]["app_role"];
+          updated_at?: string;
+        };
         Update: {
-          description?: string | null
-          label?: string
-          role?: Database["public"]["Enums"]["app_role"]
-          updated_at?: string
-        }
-        Relationships: []
-      }
+          description?: string | null;
+          label?: string;
+          role?: Database["public"]["Enums"]["app_role"];
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       system_role_module_permissions: {
         Row: {
-          can_delete: boolean
-          can_edit: boolean
-          can_view: boolean
-          module: string
-          role: Database["public"]["Enums"]["app_role"]
-          updated_at: string
-        }
+          can_delete: boolean;
+          can_edit: boolean;
+          can_view: boolean;
+          module: string;
+          role: Database["public"]["Enums"]["app_role"];
+          updated_at: string;
+        };
         Insert: {
-          can_delete?: boolean
-          can_edit?: boolean
-          can_view?: boolean
-          module: string
-          role: Database["public"]["Enums"]["app_role"]
-          updated_at?: string
-        }
+          can_delete?: boolean;
+          can_edit?: boolean;
+          can_view?: boolean;
+          module: string;
+          role: Database["public"]["Enums"]["app_role"];
+          updated_at?: string;
+        };
         Update: {
-          can_delete?: boolean
-          can_edit?: boolean
-          can_view?: boolean
-          module?: string
-          role?: Database["public"]["Enums"]["app_role"]
-          updated_at?: string
-        }
-        Relationships: []
-      }
+          can_delete?: boolean;
+          can_edit?: boolean;
+          can_view?: boolean;
+          module?: string;
+          role?: Database["public"]["Enums"]["app_role"];
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       tarefa_execucoes: {
         Row: {
-          created_at: string
-          created_by: string | null
-          executado_em: string
-          executor_id: string | null
-          executor_nome: string | null
-          id: string
-          observacao: string | null
-          tarefa_id: string
-          updated_at: string
-        }
+          created_at: string;
+          created_by: string | null;
+          executado_em: string;
+          executor_id: string | null;
+          executor_nome: string | null;
+          id: string;
+          observacao: string | null;
+          tarefa_id: string;
+          updated_at: string;
+        };
         Insert: {
-          created_at?: string
-          created_by?: string | null
-          executado_em?: string
-          executor_id?: string | null
-          executor_nome?: string | null
-          id?: string
-          observacao?: string | null
-          tarefa_id: string
-          updated_at?: string
-        }
+          created_at?: string;
+          created_by?: string | null;
+          executado_em?: string;
+          executor_id?: string | null;
+          executor_nome?: string | null;
+          id?: string;
+          observacao?: string | null;
+          tarefa_id: string;
+          updated_at?: string;
+        };
         Update: {
-          created_at?: string
-          created_by?: string | null
-          executado_em?: string
-          executor_id?: string | null
-          executor_nome?: string | null
-          id?: string
-          observacao?: string | null
-          tarefa_id?: string
-          updated_at?: string
-        }
+          created_at?: string;
+          created_by?: string | null;
+          executado_em?: string;
+          executor_id?: string | null;
+          executor_nome?: string | null;
+          id?: string;
+          observacao?: string | null;
+          tarefa_id?: string;
+          updated_at?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "tarefa_execucoes_tarefa_id_fkey"
-            columns: ["tarefa_id"]
-            isOneToOne: false
-            referencedRelation: "tarefas"
-            referencedColumns: ["id"]
+            foreignKeyName: "tarefa_execucoes_tarefa_id_fkey";
+            columns: ["tarefa_id"];
+            isOneToOne: false;
+            referencedRelation: "tarefas";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       tarefas: {
         Row: {
-          assigned_to: string | null
-          assignment_response_at: string | null
-          assignment_response_note: string | null
-          assignment_status: string
-          concluida: boolean
-          concluida_em: string | null
-          created_at: string
-          created_by: string | null
-          data_vencimento: string | null
-          descricao: string | null
-          id: string
-          prioridade: Database["public"]["Enums"]["task_priority"]
-          responsavel_id: string | null
-          status: Database["public"]["Enums"]["task_status"]
-          titulo: string
-          updated_at: string
-        }
+          assigned_to: string | null;
+          assignment_response_at: string | null;
+          assignment_response_note: string | null;
+          assignment_status: string;
+          concluida: boolean;
+          concluida_em: string | null;
+          created_at: string;
+          created_by: string | null;
+          data_vencimento: string | null;
+          descricao: string | null;
+          id: string;
+          prioridade: Database["public"]["Enums"]["task_priority"];
+          responsavel_id: string | null;
+          status: Database["public"]["Enums"]["task_status"];
+          titulo: string;
+          updated_at: string;
+        };
         Insert: {
-          assigned_to?: string | null
-          assignment_response_at?: string | null
-          assignment_response_note?: string | null
-          assignment_status?: string
-          concluida?: boolean
-          concluida_em?: string | null
-          created_at?: string
-          created_by?: string | null
-          data_vencimento?: string | null
-          descricao?: string | null
-          id?: string
-          prioridade?: Database["public"]["Enums"]["task_priority"]
-          responsavel_id?: string | null
-          status?: Database["public"]["Enums"]["task_status"]
-          titulo: string
-          updated_at?: string
-        }
+          assigned_to?: string | null;
+          assignment_response_at?: string | null;
+          assignment_response_note?: string | null;
+          assignment_status?: string;
+          concluida?: boolean;
+          concluida_em?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          data_vencimento?: string | null;
+          descricao?: string | null;
+          id?: string;
+          prioridade?: Database["public"]["Enums"]["task_priority"];
+          responsavel_id?: string | null;
+          status?: Database["public"]["Enums"]["task_status"];
+          titulo: string;
+          updated_at?: string;
+        };
         Update: {
-          assigned_to?: string | null
-          assignment_response_at?: string | null
-          assignment_response_note?: string | null
-          assignment_status?: string
-          concluida?: boolean
-          concluida_em?: string | null
-          created_at?: string
-          created_by?: string | null
-          data_vencimento?: string | null
-          descricao?: string | null
-          id?: string
-          prioridade?: Database["public"]["Enums"]["task_priority"]
-          responsavel_id?: string | null
-          status?: Database["public"]["Enums"]["task_status"]
-          titulo?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
+          assigned_to?: string | null;
+          assignment_response_at?: string | null;
+          assignment_response_note?: string | null;
+          assignment_status?: string;
+          concluida?: boolean;
+          concluida_em?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          data_vencimento?: string | null;
+          descricao?: string | null;
+          id?: string;
+          prioridade?: Database["public"]["Enums"]["task_priority"];
+          responsavel_id?: string | null;
+          status?: Database["public"]["Enums"]["task_status"];
+          titulo?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       user_custom_roles: {
         Row: {
-          created_at: string
-          custom_role_id: string
-          id: string
-          user_id: string
-        }
+          created_at: string;
+          custom_role_id: string;
+          id: string;
+          user_id: string;
+        };
         Insert: {
-          created_at?: string
-          custom_role_id: string
-          id?: string
-          user_id: string
-        }
+          created_at?: string;
+          custom_role_id: string;
+          id?: string;
+          user_id: string;
+        };
         Update: {
-          created_at?: string
-          custom_role_id?: string
-          id?: string
-          user_id?: string
-        }
+          created_at?: string;
+          custom_role_id?: string;
+          id?: string;
+          user_id?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "user_custom_roles_custom_role_id_fkey"
-            columns: ["custom_role_id"]
-            isOneToOne: false
-            referencedRelation: "custom_roles"
-            referencedColumns: ["id"]
+            foreignKeyName: "user_custom_roles_custom_role_id_fkey";
+            columns: ["custom_role_id"];
+            isOneToOne: false;
+            referencedRelation: "custom_roles";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       user_module_permissions: {
         Row: {
-          can_delete: boolean
-          can_edit: boolean
-          can_view: boolean
-          created_at: string
-          id: string
-          module: string
-          updated_at: string
-          user_id: string
-        }
+          can_delete: boolean;
+          can_edit: boolean;
+          can_view: boolean;
+          created_at: string;
+          id: string;
+          module: string;
+          updated_at: string;
+          user_id: string;
+        };
         Insert: {
-          can_delete?: boolean
-          can_edit?: boolean
-          can_view?: boolean
-          created_at?: string
-          id?: string
-          module: string
-          updated_at?: string
-          user_id: string
-        }
+          can_delete?: boolean;
+          can_edit?: boolean;
+          can_view?: boolean;
+          created_at?: string;
+          id?: string;
+          module: string;
+          updated_at?: string;
+          user_id: string;
+        };
         Update: {
-          can_delete?: boolean
-          can_edit?: boolean
-          can_view?: boolean
-          created_at?: string
-          id?: string
-          module?: string
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
+          can_delete?: boolean;
+          can_edit?: boolean;
+          can_view?: boolean;
+          created_at?: string;
+          id?: string;
+          module?: string;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
       user_obras: {
         Row: {
-          created_at: string
-          id: string
-          obra_id: string
-          user_id: string
-        }
+          created_at: string;
+          id: string;
+          obra_id: string;
+          user_id: string;
+        };
         Insert: {
-          created_at?: string
-          id?: string
-          obra_id: string
-          user_id: string
-        }
+          created_at?: string;
+          id?: string;
+          obra_id: string;
+          user_id: string;
+        };
         Update: {
-          created_at?: string
-          id?: string
-          obra_id?: string
-          user_id?: string
-        }
+          created_at?: string;
+          id?: string;
+          obra_id?: string;
+          user_id?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "user_obras_obra_id_fkey"
-            columns: ["obra_id"]
-            isOneToOne: false
-            referencedRelation: "obras"
-            referencedColumns: ["id"]
+            foreignKeyName: "user_obras_obra_id_fkey";
+            columns: ["obra_id"];
+            isOneToOne: false;
+            referencedRelation: "obras";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       user_roles: {
         Row: {
-          created_at: string
-          id: string
-          role: Database["public"]["Enums"]["app_role"]
-          user_id: string
-        }
+          created_at: string;
+          id: string;
+          role: Database["public"]["Enums"]["app_role"];
+          user_id: string;
+        };
         Insert: {
-          created_at?: string
-          id?: string
-          role: Database["public"]["Enums"]["app_role"]
-          user_id: string
-        }
+          created_at?: string;
+          id?: string;
+          role: Database["public"]["Enums"]["app_role"];
+          user_id: string;
+        };
         Update: {
-          created_at?: string
-          id?: string
-          role?: Database["public"]["Enums"]["app_role"]
-          user_id?: string
-        }
-        Relationships: []
-      }
-    }
+          created_at?: string;
+          id?: string;
+          role?: Database["public"]["Enums"]["app_role"];
+          user_id?: string;
+        };
+        Relationships: [];
+      };
+    };
     Views: {
-      [_ in never]: never
-    }
+      [_ in never]: never;
+    };
     Functions: {
       admin_bulk_set_custom_role: {
-        Args: { _custom_role_id: string; _grant: boolean; _user_ids: string[] }
-        Returns: undefined
-      }
+        Args: { _custom_role_id: string; _grant: boolean; _user_ids: string[] };
+        Returns: undefined;
+      };
       admin_create_custom_role_from_template: {
         Args: {
-          _description: string
-          _label: string
-          _name: string
-          _template: Database["public"]["Enums"]["app_role"]
-        }
-        Returns: string
-      }
+          _description: string;
+          _label: string;
+          _name: string;
+          _template: Database["public"]["Enums"]["app_role"];
+        };
+        Returns: string;
+      };
       admin_create_custom_role_inherit: {
         Args: {
-          _description: string
-          _label: string
-          _name: string
-          _parent_id: string
-        }
-        Returns: string
-      }
-      admin_delete_user: { Args: { _user_id: string }; Returns: undefined }
+          _description: string;
+          _label: string;
+          _name: string;
+          _parent_id: string;
+        };
+        Returns: string;
+      };
+      admin_delete_user: { Args: { _user_id: string }; Returns: undefined };
       admin_list_profile_emails: {
-        Args: never
+        Args: never;
         Returns: {
-          email: string
-          id: string
-        }[]
-      }
+          email: string;
+          id: string;
+        }[];
+      };
       admin_set_role: {
         Args: {
-          _grant: boolean
-          _role: Database["public"]["Enums"]["app_role"]
-          _user_id: string
-        }
-        Returns: undefined
-      }
+          _grant: boolean;
+          _role: Database["public"]["Enums"]["app_role"];
+          _user_id: string;
+        };
+        Returns: undefined;
+      };
       admin_set_system_role_label: {
         Args: {
-          _description: string
-          _label: string
-          _role: Database["public"]["Enums"]["app_role"]
-        }
-        Returns: undefined
-      }
+          _description: string;
+          _label: string;
+          _role: Database["public"]["Enums"]["app_role"];
+        };
+        Returns: undefined;
+      };
       admin_set_system_role_perm: {
         Args: {
-          _can_delete: boolean
-          _can_edit: boolean
-          _can_view: boolean
-          _module: string
-          _role: Database["public"]["Enums"]["app_role"]
-        }
-        Returns: undefined
-      }
+          _can_delete: boolean;
+          _can_edit: boolean;
+          _can_view: boolean;
+          _module: string;
+          _role: Database["public"]["Enums"]["app_role"];
+        };
+        Returns: undefined;
+      };
       admin_update_custom_role: {
         Args: {
-          _description: string
-          _id: string
-          _label: string
-          _name: string
-        }
-        Returns: undefined
-      }
+          _description: string;
+          _id: string;
+          _label: string;
+          _name: string;
+        };
+        Returns: undefined;
+      };
       can_module: {
-        Args: { _action: string; _module: string; _user_id: string }
-        Returns: boolean
-      }
-      ensure_profile: { Args: never; Returns: undefined }
-      gerar_notificacoes_vencimentos: { Args: never; Returns: number }
+        Args: { _action: string; _module: string; _user_id: string };
+        Returns: boolean;
+      };
+      ensure_profile: { Args: never; Returns: undefined };
+      gerar_notificacoes_vencimentos: { Args: never; Returns: number };
       has_obra_access: {
-        Args: { _obra_id: string; _user_id: string }
-        Returns: boolean
-      }
+        Args: { _obra_id: string; _user_id: string };
+        Returns: boolean;
+      };
       has_role: {
         Args: {
-          _role: Database["public"]["Enums"]["app_role"]
-          _user_id: string
-        }
-        Returns: boolean
-      }
-      is_admin_or_gestor: { Args: { _user_id: string }; Returns: boolean }
+          _role: Database["public"]["Enums"]["app_role"];
+          _user_id: string;
+        };
+        Returns: boolean;
+      };
+      is_admin_or_gestor: { Args: { _user_id: string }; Returns: boolean };
       list_profile_directory: {
-        Args: never
+        Args: never;
         Returns: {
-          avatar_url: string
-          id: string
-          nome: string
-        }[]
-      }
+          avatar_url: string;
+          id: string;
+          nome: string;
+        }[];
+      };
       log_permission_change: {
         Args: {
-          _action: string
-          _custom_role_id: string
-          _details: Json
-          _module: string
-          _target_user_id: string
-        }
-        Returns: undefined
-      }
+          _action: string;
+          _custom_role_id: string;
+          _details: Json;
+          _module: string;
+          _target_user_id: string;
+        };
+        Returns: undefined;
+      };
       notify_managers: {
         Args: {
-          _exclude?: string
-          _link: string
-          _mensagem: string
-          _ref_id: string
-          _ref_table: string
-          _tipo: string
-          _titulo: string
-        }
-        Returns: undefined
-      }
+          _exclude?: string;
+          _link: string;
+          _mensagem: string;
+          _ref_id: string;
+          _ref_table: string;
+          _tipo: string;
+          _titulo: string;
+        };
+        Returns: undefined;
+      };
       notify_user: {
         Args: {
-          _link: string
-          _mensagem: string
-          _ref_id: string
-          _ref_table: string
-          _tipo: string
-          _titulo: string
-          _user_id: string
-        }
-        Returns: undefined
-      }
-      promote_to_admin_if_no_admin: { Args: never; Returns: string }
+          _link: string;
+          _mensagem: string;
+          _ref_id: string;
+          _ref_table: string;
+          _tipo: string;
+          _titulo: string;
+          _user_id: string;
+        };
+        Returns: undefined;
+      };
+      promote_to_admin_if_no_admin: { Args: never; Returns: string };
       seed_default_perms_for_role: {
         Args: {
-          _custom_role_id: string
-          _template: Database["public"]["Enums"]["app_role"]
-        }
-        Returns: undefined
-      }
-    }
+          _custom_role_id: string;
+          _template: Database["public"]["Enums"]["app_role"];
+        };
+        Returns: undefined;
+      };
+    };
     Enums: {
-      app_role: "admin" | "gestor" | "colaborador" | "financeiro"
-      epi_movimento_tipo: "entrada" | "saida" | "devolucao"
-      task_priority: "baixa" | "media" | "alta"
-      task_status: "pendente" | "em_andamento" | "concluida"
-    }
+      app_role: "admin" | "gestor" | "colaborador" | "financeiro";
+      epi_movimento_tipo: "entrada" | "saida" | "devolucao";
+      task_priority: "baixa" | "media" | "alta";
+      task_status: "pendente" | "em_andamento" | "concluida";
+    };
     CompositeTypes: {
-      [_ in never]: never
-    }
-  }
-}
+      [_ in never]: never;
+    };
+  };
+};
 
-type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">;
 
-type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">];
 
 export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
   TableName extends (DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
+    schema: keyof DatabaseWithoutInternals;
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
     : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
+  schema: keyof DatabaseWithoutInternals;
 }
   ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
       DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
-      Row: infer R
+      Row: infer R;
     }
     ? R
     : never
-  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])
-    ? (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
-        Row: infer R
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] & DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R;
       }
       ? R
       : never
-    : never
+    : never;
 
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
+    keyof DefaultSchema["Tables"] | { schema: keyof DatabaseWithoutInternals },
   TableName extends (DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
+    schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
+  schema: keyof DatabaseWithoutInternals;
 }
   ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-      Insert: infer I
+      Insert: infer I;
     }
     ? I
     : never
   : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
     ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-        Insert: infer I
+        Insert: infer I;
       }
       ? I
       : never
-    : never
+    : never;
 
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
+    keyof DefaultSchema["Tables"] | { schema: keyof DatabaseWithoutInternals },
   TableName extends (DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
+    schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
+  schema: keyof DatabaseWithoutInternals;
 }
   ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-      Update: infer U
+      Update: infer U;
     }
     ? U
     : never
   : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
     ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-        Update: infer U
+        Update: infer U;
       }
       ? U
       : never
-    : never
+    : never;
 
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
-    | keyof DefaultSchema["Enums"]
-    | { schema: keyof DatabaseWithoutInternals },
+    keyof DefaultSchema["Enums"] | { schema: keyof DatabaseWithoutInternals },
   EnumName extends (DefaultSchemaEnumNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
+    schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
     : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
+  schema: keyof DatabaseWithoutInternals;
 }
   ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
   : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
     ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
-    : never
+    : never;
 
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
-    | keyof DefaultSchema["CompositeTypes"]
-    | { schema: keyof DatabaseWithoutInternals },
+    keyof DefaultSchema["CompositeTypes"] | { schema: keyof DatabaseWithoutInternals },
   CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
+    schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
     : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
+  schema: keyof DatabaseWithoutInternals;
 }
   ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
   : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
     ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
-    : never
+    : never;
 
 export const Constants = {
   public: {
@@ -1728,4 +1716,4 @@ export const Constants = {
       task_status: ["pendente", "em_andamento", "concluida"],
     },
   },
-} as const
+} as const;

@@ -2,7 +2,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
 export function exportCSV(filename: string, headers: string[], rows: (string | number)[][]) {
-  const esc = (v: any) => {
+  const esc = (v: string | number | null | undefined) => {
     const s = String(v ?? "");
     return /[",;\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
@@ -16,7 +16,12 @@ export function exportCSV(filename: string, headers: string[], rows: (string | n
   URL.revokeObjectURL(url);
 }
 
-export function exportPDF(title: string, headers: string[], rows: (string | number)[][], filename?: string) {
+export function exportPDF(
+  title: string,
+  headers: string[],
+  rows: (string | number)[][],
+  filename?: string,
+) {
   const doc = new jsPDF();
   doc.setFontSize(14);
   doc.text(title, 14, 16);

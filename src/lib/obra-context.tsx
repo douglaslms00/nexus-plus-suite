@@ -1,7 +1,5 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-
-type Ctx = { obraId: string | null; setObraId: (id: string | null) => void };
-const ObraCtx = createContext<Ctx>({ obraId: null, setObraId: () => {} });
+import { useEffect, useState, type ReactNode } from "react";
+import { ObraCtx } from "./obra-context.types";
 
 export function ObraProvider({ children }: { children: ReactNode }) {
   const [obraId, setObraIdState] = useState<string | null>(null);
@@ -19,5 +17,3 @@ export function ObraProvider({ children }: { children: ReactNode }) {
   };
   return <ObraCtx.Provider value={{ obraId, setObraId }}>{children}</ObraCtx.Provider>;
 }
-
-export const useObraAtual = () => useContext(ObraCtx);

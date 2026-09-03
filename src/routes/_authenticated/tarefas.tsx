@@ -7,8 +7,20 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
@@ -123,16 +135,24 @@ function TarefasPage() {
   const { data: tarefas = [] } = useQuery({
     queryKey: ["tarefas"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("tarefas").select("*").order("created_at", { ascending: false });
+      const { data, error } = await supabase
+        .from("tarefas")
+        .select("*")
+        .order("created_at", { ascending: false });
       if (error) throw error;
-      const ids = Array.from(new Set((data ?? []).map((t: any) => t.responsavel_id).filter(Boolean)));
+      const ids = Array.from(
+        new Set((data ?? []).map((t: any) => t.responsavel_id).filter(Boolean)),
+      );
       let nameMap = new Map<string, string>();
       if (ids.length) {
         const { data: allProfs } = await (supabase as any).rpc("list_profile_directory");
         const profs = (allProfs ?? []).filter((p: any) => ids.includes(p.id));
         nameMap = new Map((profs ?? []).map((p: any) => [p.id, p.nome]));
       }
-      return (data ?? []).map((t: any) => ({ ...t, responsavel: t.responsavel_id ? { nome: nameMap.get(t.responsavel_id) ?? "—" } : null }));
+      return (data ?? []).map((t: any) => ({
+        ...t,
+        responsavel: t.responsavel_id ? { nome: nameMap.get(t.responsavel_id) ?? "—" } : null,
+      }));
     },
   });
 
@@ -148,14 +168,19 @@ function TarefasPage() {
         return false;
       if (fStatus !== "todos" && t.status !== fStatus) return false;
       if (fPrio !== "todos" && t.prioridade !== fPrio) return false;
-      if (busca && !`${t.titulo} ${t.descricao ?? ""}`.toLowerCase().includes(busca.toLowerCase())) return false;
+      if (busca && !`${t.titulo} ${t.descricao ?? ""}`.toLowerCase().includes(busca.toLowerCase()))
+        return false;
       return true;
     });
   }, [tarefas, onlyMine, fStatus, fPrio, busca, user?.id]);
 
   const overdueCount = useMemo(
-    () => tarefas.filter((t: any) => overdueInfo(t)?.kind === "overdue" && (!onlyMine || t.responsavel_id === user?.id)).length,
-    [tarefas, onlyMine, user?.id]
+    () =>
+      tarefas.filter(
+        (t: any) =>
+          overdueInfo(t)?.kind === "overdue" && (!onlyMine || t.responsavel_id === user?.id),
+      ).length,
+    [tarefas, onlyMine, user?.id],
   );
 
   const { data: pessoas = [] } = useQuery({
@@ -198,7 +223,8 @@ function TarefasPage() {
           prioridade: form.prioridade,
           status: form.status,
           concluida: form.status === "concluida",
-          concluida_em: form.status === "concluida" ? (original?.concluida_em || new Date().toISOString()) : null,
+          concluida_em:
+            form.status === "concluida" ? original?.concluida_em || new Date().toISOString() : null,
           data_vencimento: form.data_vencimento || null,
           assigned_to: assigned,
         };
@@ -239,7 +265,15 @@ function TarefasPage() {
   });
 
   const respondAssignment = useMutation({
-    mutationFn: async ({ id, decision, note }: { id: string; decision: "aceita" | "recusada"; note?: string }) => {
+    mutationFn: async ({
+      id,
+      decision,
+      note,
+    }: {
+      id: string;
+      decision: "aceita" | "recusada";
+      note?: string;
+    }) => {
       const { error } = await supabase
         .from("tarefas")
         .update({
@@ -327,7 +361,9 @@ function TarefasPage() {
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Tarefas</h1>
-          <p className="text-muted-foreground">Organize, atribua e movimente tarefas no modo Kanban ou Lista.</p>
+          <p className="text-muted-foreground">
+            Organize, atribua e movimente tarefas no modo Kanban ou Lista.
+          </p>
         </div>
 
         <div className="flex items-center gap-2">
@@ -340,7 +376,7 @@ function TarefasPage() {
                 "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all cursor-pointer",
                 viewMode === "kanban"
                   ? "bg-background text-foreground shadow-xs font-semibold"
-                  : "hover:text-foreground"
+                  : "hover:text-foreground",
               )}
             >
               <Columns3 className="h-3.5 w-3.5" />
@@ -353,7 +389,7 @@ function TarefasPage() {
                 "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all cursor-pointer",
                 viewMode === "lista"
                   ? "bg-background text-foreground shadow-xs font-semibold"
-                  : "hover:text-foreground"
+                  : "hover:text-foreground",
               )}
             >
               <List className="h-3.5 w-3.5" />
@@ -373,7 +409,9 @@ function TarefasPage() {
       {overdueCount > 0 && (
         <Card className="p-3 border-destructive/40 bg-destructive/10 flex items-center gap-2 text-destructive">
           <AlertTriangle className="h-4 w-4 shrink-0" />
-          <span className="text-sm font-medium">{overdueCount} tarefa(s) vencida(s) sem conclusão.</span>
+          <span className="text-sm font-medium">
+            {overdueCount} tarefa(s) vencida(s) sem conclusão.
+          </span>
         </Card>
       )}
 
@@ -456,15 +494,25 @@ function TarefasPage() {
                   col.columnBg,
                   isDragOver
                     ? "border-primary ring-2 ring-primary/30 bg-primary/5 shadow-md scale-[1.01]"
-                    : "hover:border-border"
+                    : "hover:border-border",
                 )}
               >
                 {/* Column Header */}
-                <div className={cn("flex items-center justify-between pb-3 mb-3 border-b-2", col.headerBorder)}>
+                <div
+                  className={cn(
+                    "flex items-center justify-between pb-3 mb-3 border-b-2",
+                    col.headerBorder,
+                  )}
+                >
                   <div className="flex items-center gap-2">
                     <Icon className="h-4 w-4" />
-                    <h2 className="font-semibold text-sm tracking-tight text-foreground">{col.label}</h2>
-                    <Badge variant="outline" className={cn("text-xs font-semibold px-2 py-0.5", col.badgeClass)}>
+                    <h2 className="font-semibold text-sm tracking-tight text-foreground">
+                      {col.label}
+                    </h2>
+                    <Badge
+                      variant="outline"
+                      className={cn("text-xs font-semibold px-2 py-0.5", col.badgeClass)}
+                    >
                       {colTasks.length}
                     </Badge>
                   </div>
@@ -506,7 +554,7 @@ function TarefasPage() {
                           canToggle ? "cursor-grab active:cursor-grabbing" : "cursor-default",
                           isDragging && "opacity-40 scale-95 border-dashed border-primary",
                           od?.kind === "overdue" && "border-destructive/60 bg-destructive/5",
-                          od?.kind === "soon" && "border-warning/60 bg-warning/5"
+                          od?.kind === "soon" && "border-warning/60 bg-warning/5",
                         )}
                       >
                         {/* Drag Handle & Top Row */}
@@ -517,7 +565,7 @@ function TarefasPage() {
                                 "text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-sm",
                                 t.prioridade === "alta" && "bg-destructive/15 text-destructive",
                                 t.prioridade === "media" && "bg-warning/15 text-warning",
-                                t.prioridade === "baixa" && "bg-muted text-muted-foreground"
+                                t.prioridade === "baixa" && "bg-muted text-muted-foreground",
                               )}
                             >
                               {PRIO_LABEL[t.prioridade] ?? t.prioridade}
@@ -550,31 +598,45 @@ function TarefasPage() {
                                   </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end" className="w-44">
-                                  <DropdownMenuLabel className="text-xs">Mover para</DropdownMenuLabel>
+                                  <DropdownMenuLabel className="text-xs">
+                                    Mover para
+                                  </DropdownMenuLabel>
                                   <DropdownMenuSeparator />
                                   <DropdownMenuItem
                                     disabled={t.status === "pendente"}
-                                    onClick={() => updateStatus.mutate({ id: t.id, status: "pendente" })}
+                                    onClick={() =>
+                                      updateStatus.mutate({ id: t.id, status: "pendente" })
+                                    }
                                   >
                                     <Clock className="h-3.5 w-3.5 text-amber-500 mr-2" />
                                     <span>Pendente</span>
-                                    {t.status === "pendente" && <Check className="h-3.5 w-3.5 ml-auto" />}
+                                    {t.status === "pendente" && (
+                                      <Check className="h-3.5 w-3.5 ml-auto" />
+                                    )}
                                   </DropdownMenuItem>
                                   <DropdownMenuItem
                                     disabled={t.status === "em_andamento"}
-                                    onClick={() => updateStatus.mutate({ id: t.id, status: "em_andamento" })}
+                                    onClick={() =>
+                                      updateStatus.mutate({ id: t.id, status: "em_andamento" })
+                                    }
                                   >
                                     <PlayCircle className="h-3.5 w-3.5 text-blue-500 mr-2" />
                                     <span>Em Andamento</span>
-                                    {t.status === "em_andamento" && <Check className="h-3.5 w-3.5 ml-auto" />}
+                                    {t.status === "em_andamento" && (
+                                      <Check className="h-3.5 w-3.5 ml-auto" />
+                                    )}
                                   </DropdownMenuItem>
                                   <DropdownMenuItem
                                     disabled={t.status === "concluida"}
-                                    onClick={() => updateStatus.mutate({ id: t.id, status: "concluida" })}
+                                    onClick={() =>
+                                      updateStatus.mutate({ id: t.id, status: "concluida" })
+                                    }
                                   >
                                     <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 mr-2" />
                                     <span>Concluída</span>
-                                    {t.status === "concluida" && <Check className="h-3.5 w-3.5 ml-auto" />}
+                                    {t.status === "concluida" && (
+                                      <Check className="h-3.5 w-3.5 ml-auto" />
+                                    )}
                                   </DropdownMenuItem>
                                 </DropdownMenuContent>
                               </DropdownMenu>
@@ -595,11 +657,12 @@ function TarefasPage() {
                                 <DropdownMenuItem onClick={() => setDetailId(t.id)}>
                                   <History className="h-3.5 w-3.5 mr-2" /> Detalhes & Histórico
                                 </DropdownMenuItem>
-                                {t.created_by === user?.id && (!t.assigned_to || t.assignment_status === "pendente") && (
-                                  <DropdownMenuItem onClick={() => openEdit(t)}>
-                                    <Pencil className="h-3.5 w-3.5 mr-2" /> Editar
-                                  </DropdownMenuItem>
-                                )}
+                                {t.created_by === user?.id &&
+                                  (!t.assigned_to || t.assignment_status === "pendente") && (
+                                    <DropdownMenuItem onClick={() => openEdit(t)}>
+                                      <Pencil className="h-3.5 w-3.5 mr-2" /> Editar
+                                    </DropdownMenuItem>
+                                  )}
                                 {canDelete && (
                                   <>
                                     <DropdownMenuSeparator />
@@ -621,14 +684,11 @@ function TarefasPage() {
                         </div>
 
                         {/* Title & Description */}
-                        <div
-                          className="mt-2 cursor-pointer"
-                          onClick={() => setDetailId(t.id)}
-                        >
+                        <div className="mt-2 cursor-pointer" onClick={() => setDetailId(t.id)}>
                           <h3
                             className={cn(
                               "font-semibold text-sm text-foreground leading-snug line-clamp-2",
-                              t.concluida && "line-through text-muted-foreground"
+                              t.concluida && "line-through text-muted-foreground",
                             )}
                           >
                             {t.titulo}
@@ -667,7 +727,9 @@ function TarefasPage() {
                             <Button
                               size="sm"
                               className="h-7 text-xs flex-1"
-                              onClick={() => respondAssignment.mutate({ id: t.id, decision: "aceita" })}
+                              onClick={() =>
+                                respondAssignment.mutate({ id: t.id, decision: "aceita" })
+                              }
                             >
                               Aceitar
                             </Button>
@@ -675,7 +737,9 @@ function TarefasPage() {
                               size="sm"
                               variant="outline"
                               className="h-7 text-xs flex-1"
-                              onClick={() => respondAssignment.mutate({ id: t.id, decision: "recusada" })}
+                              onClick={() =>
+                                respondAssignment.mutate({ id: t.id, decision: "recusada" })
+                              }
                             >
                               Recusar
                             </Button>
@@ -684,13 +748,19 @@ function TarefasPage() {
 
                         {/* Footer info: Responsável & Vencimento */}
                         <div className="flex items-center justify-between gap-2 mt-3 pt-2 border-t text-[11px] text-muted-foreground">
-                          <div className="flex items-center gap-1 truncate max-w-[130px]" title={t.responsavel?.nome ?? "Sem responsável"}>
+                          <div
+                            className="flex items-center gap-1 truncate max-w-[130px]"
+                            title={t.responsavel?.nome ?? "Sem responsável"}
+                          >
                             <User className="h-3 w-3 shrink-0" />
                             <span className="truncate">{t.responsavel?.nome ?? "—"}</span>
                           </div>
 
                           {t.data_vencimento && (
-                            <div className="flex items-center gap-1 shrink-0" title={`Vencimento: ${safeFormatDate(t.data_vencimento, "dd/MM/yyyy")}`}>
+                            <div
+                              className="flex items-center gap-1 shrink-0"
+                              title={`Vencimento: ${safeFormatDate(t.data_vencimento, "dd/MM/yyyy")}`}
+                            >
                               <Calendar className="h-3 w-3" />
                               <span>{safeFormatDate(t.data_vencimento, "dd/MM/yy")}</span>
                             </div>
@@ -745,7 +815,7 @@ function TarefasPage() {
                 className={cn(
                   "p-4 transition-all hover:shadow-xs",
                   od?.kind === "overdue" && "border-destructive/60 bg-destructive/5",
-                  od?.kind === "soon" && "border-warning/60 bg-warning/5"
+                  od?.kind === "soon" && "border-warning/60 bg-warning/5",
                 )}
               >
                 <div className="flex items-start gap-3">
@@ -757,7 +827,12 @@ function TarefasPage() {
                   />
                   <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setDetailId(t.id)}>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className={cn("font-medium", t.concluida && "line-through text-muted-foreground")}>
+                      <h3
+                        className={cn(
+                          "font-medium",
+                          t.concluida && "line-through text-muted-foreground",
+                        )}
+                      >
                         {t.titulo}
                       </h3>
                       <span
@@ -765,7 +840,7 @@ function TarefasPage() {
                           "text-[10px] uppercase tracking-wide px-2 py-0.5 rounded",
                           t.prioridade === "alta" && "bg-destructive/15 text-destructive",
                           t.prioridade === "media" && "bg-warning/15 text-warning",
-                          t.prioridade === "baixa" && "bg-muted text-muted-foreground"
+                          t.prioridade === "baixa" && "bg-muted text-muted-foreground",
                         )}
                       >
                         {PRIO_LABEL[t.prioridade] ?? t.prioridade}
@@ -796,7 +871,11 @@ function TarefasPage() {
                         </span>
                       )}
                     </div>
-                    {t.descricao && <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{t.descricao}</p>}
+                    {t.descricao && (
+                      <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                        {t.descricao}
+                      </p>
+                    )}
                     <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground flex-wrap">
                       <span>Responsável: {t.responsavel?.nome ?? "—"}</span>
                       {t.data_vencimento && (
@@ -808,7 +887,9 @@ function TarefasPage() {
                     {canToggle ? (
                       <Select
                         value={t.status}
-                        onValueChange={(v) => updateStatus.mutate({ id: t.id, status: v as TaskStatus })}
+                        onValueChange={(v) =>
+                          updateStatus.mutate({ id: t.id, status: v as TaskStatus })
+                        }
                       >
                         <SelectTrigger className="w-40 h-8">
                           <SelectValue />
@@ -820,7 +901,9 @@ function TarefasPage() {
                         </SelectContent>
                       </Select>
                     ) : (
-                      <span className="text-xs px-2 py-1 rounded bg-muted">{STATUS_LABEL[t.status as TaskStatus] ?? t.status}</span>
+                      <span className="text-xs px-2 py-1 rounded bg-muted">
+                        {STATUS_LABEL[t.status as TaskStatus] ?? t.status}
+                      </span>
                     )}
                     <div className="flex gap-1">
                       {t.assigned_to === user?.id && t.assignment_status === "pendente" && (
@@ -828,25 +911,40 @@ function TarefasPage() {
                           <Button
                             size="sm"
                             variant="default"
-                            onClick={() => respondAssignment.mutate({ id: t.id, decision: "aceita" })}
+                            onClick={() =>
+                              respondAssignment.mutate({ id: t.id, decision: "aceita" })
+                            }
                           >
                             Aceitar
                           </Button>
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => respondAssignment.mutate({ id: t.id, decision: "recusada" })}
+                            onClick={() =>
+                              respondAssignment.mutate({ id: t.id, decision: "recusada" })
+                            }
                           >
                             Recusar
                           </Button>
                         </>
                       )}
-                      {t.created_by === user?.id && (!t.assigned_to || t.assignment_status === "pendente") && (
-                        <Button size="icon" variant="ghost" onClick={() => openEdit(t)} title="Editar">
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                      )}
-                      <Button size="icon" variant="ghost" onClick={() => setDetailId(t.id)} title="Detalhes">
+                      {t.created_by === user?.id &&
+                        (!t.assigned_to || t.assignment_status === "pendente") && (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => openEdit(t)}
+                            title="Editar"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        )}
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => setDetailId(t.id)}
+                        title="Detalhes"
+                      >
                         <History className="h-4 w-4" />
                       </Button>
                       {canDelete && (
@@ -867,7 +965,9 @@ function TarefasPage() {
             );
           })}
           {filtered.length === 0 && (
-            <Card className="p-8 text-center text-muted-foreground">Nenhuma tarefa encontrada.</Card>
+            <Card className="p-8 text-center text-muted-foreground">
+              Nenhuma tarefa encontrada.
+            </Card>
           )}
         </div>
       )}
@@ -912,7 +1012,10 @@ function TarefasPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <Label>Status inicial</Label>
-                  <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
+                  <Select
+                    value={form.status}
+                    onValueChange={(v) => setForm({ ...form, status: v })}
+                  >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -925,7 +1028,10 @@ function TarefasPage() {
                 </div>
                 <div className="space-y-1">
                   <Label>Prioridade</Label>
-                  <Select value={form.prioridade} onValueChange={(v) => setForm({ ...form, prioridade: v })}>
+                  <Select
+                    value={form.prioridade}
+                    onValueChange={(v) => setForm({ ...form, prioridade: v })}
+                  >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -947,7 +1053,10 @@ function TarefasPage() {
               </div>
               <div className="space-y-1">
                 <Label>Atribuir a (envia para aceitar/recusar)</Label>
-                <Select value={form.assigned_to ?? ""} onValueChange={(v) => setForm({ ...form, assigned_to: v })}>
+                <Select
+                  value={form.assigned_to ?? ""}
+                  onValueChange={(v) => setForm({ ...form, assigned_to: v })}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Ninguém (eu mesmo)" />
                   </SelectTrigger>
@@ -1024,7 +1133,9 @@ function TarefaDetailDialog({
         tarefa_id: tarefa.id,
         executor_id: execForm.executor_id || user?.id || null,
         executor_nome:
-          execForm.executor_nome || pessoas.find((p) => p.id === (execForm.executor_id || user?.id))?.nome || null,
+          execForm.executor_nome ||
+          pessoas.find((p) => p.id === (execForm.executor_id || user?.id))?.nome ||
+          null,
         executado_em: execForm.executado_em
           ? new Date(execForm.executado_em).toISOString()
           : new Date().toISOString(),
@@ -1052,7 +1163,10 @@ function TarefaDetailDialog({
 
   const remove = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("tarefa_execucoes" as any).delete().eq("id", id);
+      const { error } = await supabase
+        .from("tarefa_execucoes" as any)
+        .delete()
+        .eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -1074,10 +1188,12 @@ function TarefaDetailDialog({
           {tarefa.descricao && <p className="text-muted-foreground">{tarefa.descricao}</p>}
           <div className="grid grid-cols-2 gap-2 text-xs">
             <div>
-              <span className="text-muted-foreground">Status:</span> {STATUS_LABEL[tarefa.status as TaskStatus] ?? tarefa.status}
+              <span className="text-muted-foreground">Status:</span>{" "}
+              {STATUS_LABEL[tarefa.status as TaskStatus] ?? tarefa.status}
             </div>
             <div>
-              <span className="text-muted-foreground">Prioridade:</span> {PRIO_LABEL[tarefa.prioridade] ?? tarefa.prioridade}
+              <span className="text-muted-foreground">Prioridade:</span>{" "}
+              {PRIO_LABEL[tarefa.prioridade] ?? tarefa.prioridade}
             </div>
             <div>
               <span className="text-muted-foreground">Vencimento:</span>{" "}
@@ -1161,9 +1277,12 @@ function TarefaDetailDialog({
             )}
 
             <div className="space-y-2">
-              {execs.length === 0 && <p className="text-xs text-muted-foreground">Sem registros.</p>}
+              {execs.length === 0 && (
+                <p className="text-xs text-muted-foreground">Sem registros.</p>
+              )}
               {execs.map((e: any) => {
-                const nome = e.executor_nome ?? pessoas.find((p: any) => p.id === e.executor_id)?.nome ?? "—";
+                const nome =
+                  e.executor_nome ?? pessoas.find((p: any) => p.id === e.executor_id)?.nome ?? "—";
                 const mine = e.created_by === user?.id;
                 return (
                   <div key={e.id} className="rounded-md border p-2 text-xs flex items-start gap-2">
@@ -1174,7 +1293,11 @@ function TarefaDetailDialog({
                           — {safeFormatDate(e.executado_em, "dd/MM/yyyy HH:mm")}
                         </span>
                       </div>
-                      {e.observacao && <div className="text-muted-foreground mt-0.5 whitespace-pre-wrap">{e.observacao}</div>}
+                      {e.observacao && (
+                        <div className="text-muted-foreground mt-0.5 whitespace-pre-wrap">
+                          {e.observacao}
+                        </div>
+                      )}
                     </div>
                     {(mine || canEdit) && (
                       <div className="flex gap-1">
@@ -1216,4 +1339,3 @@ function TarefaDetailDialog({
     </Dialog>
   );
 }
-

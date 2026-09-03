@@ -1,20 +1,53 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
-import { useProfile, useCurrentUser, useUserRoles, useMyModulePermissions, useMyCustomRoles, useAllCustomRolePerms, useAllSystemRolePerms, effectivePerm, useAuthorizedObras, canManage, type AppModule } from "@/lib/permissions";
 import {
-  LayoutDashboard, Users, CheckSquare, HardHat, Building2, LogOut,
-  Boxes, Wrench, Package, Wallet, MapPin, ShieldCheck, Menu, X,
-  PanelLeftClose, PanelLeftOpen, FolderOpen, UserCog, Receipt,
+  useProfile,
+  useCurrentUser,
+  useUserRoles,
+  useMyModulePermissions,
+  useMyCustomRoles,
+  useAllCustomRolePerms,
+  useAllSystemRolePerms,
+  effectivePerm,
+  useAuthorizedObras,
+  canManage,
+  type AppModule,
+} from "@/lib/permissions";
+import {
+  LayoutDashboard,
+  Users,
+  CheckSquare,
+  HardHat,
+  Building2,
+  LogOut,
+  Boxes,
+  Wrench,
+  Package,
+  Wallet,
+  MapPin,
+  ShieldCheck,
+  Menu,
+  X,
+  PanelLeftClose,
+  PanelLeftOpen,
+  FolderOpen,
+  UserCog,
+  Receipt,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { useEffect, useState, type ReactNode } from "react";
-import { useObraAtual } from "@/lib/obra-context";
+import { useObraAtual } from "@/lib/obra-context.types";
 import { NotificationsBell } from "@/components/NotificationsBell";
 import { GlobalFloatingActions } from "@/components/GlobalFloatingActions";
-
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { location } = useRouterState();
@@ -65,7 +98,13 @@ export function AppShell({ children }: { children: ReactNode }) {
     navigate({ to: "/auth", replace: true });
   };
 
-  const items: { to: string; label: string; icon: any; module: AppModule; externalLink?: string }[] = [
+  const items: {
+    to: string;
+    label: string;
+    icon: any;
+    module: AppModule;
+    externalLink?: string;
+  }[] = [
     { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, module: "dashboard" },
     { to: "/funcionarios", label: "Funcionários", icon: Users, module: "funcionarios" },
     { to: "/tarefas", label: "Tarefas", icon: CheckSquare, module: "tarefas" },
@@ -75,12 +114,28 @@ export function AppShell({ children }: { children: ReactNode }) {
     { to: "/materiais", label: "Materiais", icon: Package, module: "materiais" },
     { to: "/epis", label: "EPI / EPC", icon: HardHat, module: "epis" },
     { to: "/financeiro", label: "Financeiro", icon: Wallet, module: "financeiro" },
-    { to: "/prestacao", label: "Prestação de contas", icon: Receipt, module: "prestacao", externalLink: "https://prestacontasms.lovable.app/" },
+    {
+      to: "/prestacao",
+      label: "Prestação de contas",
+      icon: Receipt,
+      module: "prestacao",
+      externalLink: "https://prestacontasms.lovable.app/",
+    },
     { to: "/documentos", label: "Documentos", icon: FolderOpen, module: "documentos" },
     { to: "/acessos", label: "Acessos", icon: ShieldCheck, module: "acessos" },
   ];
 
-  const nav = items.filter((it) => effectivePerm(it.module, roles, overrides, (myCustomRoles ?? []).map((c) => c.id), customRolePerms ?? [], systemRolePerms ?? []).can_view);
+  const nav = items.filter(
+    (it) =>
+      effectivePerm(
+        it.module,
+        roles,
+        overrides,
+        (myCustomRoles ?? []).map((c) => c.id),
+        customRolePerms ?? [],
+        systemRolePerms ?? [],
+      ).can_view,
+  );
 
   const renderSidebar = (mini: boolean) => (
     <aside
@@ -89,7 +144,12 @@ export function AppShell({ children }: { children: ReactNode }) {
         mini ? "w-16" : "w-64",
       )}
     >
-      <div className={cn("flex items-center gap-3 border-b border-sidebar-border p-4", mini && "justify-center p-3")}>
+      <div
+        className={cn(
+          "flex items-center gap-3 border-b border-sidebar-border p-4",
+          mini && "justify-center p-3",
+        )}
+      >
         <div className="h-9 w-9 rounded-lg bg-sidebar-primary flex items-center justify-center shrink-0">
           <Building2 className="h-5 w-5 text-sidebar-primary-foreground" />
         </div>
@@ -111,7 +171,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           {nav.map((item) => {
             const active = location.pathname.startsWith(item.to);
             const Icon = item.icon;
-            
+
             const linkClass = cn(
               "flex items-center rounded-md text-sm transition-colors",
               mini ? "justify-center h-10 w-10 mx-auto" : "gap-3 px-3 py-2",
@@ -170,7 +230,10 @@ export function AppShell({ children }: { children: ReactNode }) {
             <p className="text-xs opacity-70 truncate">{authUser?.email}</p>
             <div className="mt-1 flex flex-wrap gap-1">
               {(roles ?? []).map((r) => (
-                <span key={r} className="text-[10px] uppercase tracking-wide bg-sidebar-accent text-sidebar-accent-foreground px-2 py-0.5 rounded">
+                <span
+                  key={r}
+                  className="text-[10px] uppercase tracking-wide bg-sidebar-accent text-sidebar-accent-foreground px-2 py-0.5 rounded"
+                >
                   {r}
                 </span>
               ))}
@@ -208,17 +271,31 @@ export function AppShell({ children }: { children: ReactNode }) {
             <Menu className="h-5 w-5" />
           </Button>
           <div className="flex-1 max-w-[220px]">
-            <Select value={obraId ?? "all"} onValueChange={(v) => setObraId(v === "all" ? null : v)}>
-              <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Obra" /></SelectTrigger>
+            <Select
+              value={obraId ?? "all"}
+              onValueChange={(v) => setObraId(v === "all" ? null : v)}
+            >
+              <SelectTrigger className="h-9 text-xs">
+                <SelectValue placeholder="Obra" />
+              </SelectTrigger>
               <SelectContent>
                 {canSeeAllObras && <SelectItem value="all">Todas as obras</SelectItem>}
-                {obras.map((o: any) => <SelectItem key={o.id} value={o.id}>{o.nome}</SelectItem>)}
+                {obras.map((o: any) => (
+                  <SelectItem key={o.id} value={o.id}>
+                    {o.nome}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
           <div className="flex items-center gap-1">
             <NotificationsBell />
-            <Button variant="ghost" size="icon" aria-label="Perfil" onClick={() => navigate({ to: "/perfil" })}>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Perfil"
+              onClick={() => navigate({ to: "/perfil" })}
+            >
               <UserCog className="h-5 w-5" />
             </Button>
           </div>
@@ -232,28 +309,46 @@ export function AppShell({ children }: { children: ReactNode }) {
             aria-label={collapsed ? "Expandir menu" : "Recolher menu"}
             title={collapsed ? "Expandir menu" : "Recolher menu"}
           >
-            {collapsed ? <PanelLeftOpen className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
+            {collapsed ? (
+              <PanelLeftOpen className="h-5 w-5" />
+            ) : (
+              <PanelLeftClose className="h-5 w-5" />
+            )}
           </Button>
           <div className="flex items-center gap-3 text-sm">
             <MapPin className="h-4 w-4 text-muted-foreground" />
             <span className="text-muted-foreground">Obra:</span>
-            <Select value={obraId ?? "all"} onValueChange={(v) => setObraId(v === "all" ? null : v)}>
-              <SelectTrigger className="h-9 w-[220px]"><SelectValue placeholder={canSeeAllObras ? "Todas as obras" : "Selecione a obra"} /></SelectTrigger>
+            <Select
+              value={obraId ?? "all"}
+              onValueChange={(v) => setObraId(v === "all" ? null : v)}
+            >
+              <SelectTrigger className="h-9 w-[220px]">
+                <SelectValue placeholder={canSeeAllObras ? "Todas as obras" : "Selecione a obra"} />
+              </SelectTrigger>
               <SelectContent>
                 {canSeeAllObras && <SelectItem value="all">Todas as obras</SelectItem>}
-                {obras.map((o: any) => <SelectItem key={o.id} value={o.id}>{o.nome}</SelectItem>)}
+                {obras.map((o: any) => (
+                  <SelectItem key={o.id} value={o.id}>
+                    {o.nome}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
             <NotificationsBell />
-            <Button variant="ghost" size="icon" aria-label="Perfil" onClick={() => navigate({ to: "/perfil" })} title="Meu perfil">
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Perfil"
+              onClick={() => navigate({ to: "/perfil" })}
+              title="Meu perfil"
+            >
               <UserCog className="h-5 w-5" />
             </Button>
           </div>
         </div>
 
-
         <div className="max-w-7xl mx-auto w-full p-4 lg:p-8">{children}</div>
-        
+
         <GlobalFloatingActions />
       </main>
     </div>

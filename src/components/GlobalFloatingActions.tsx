@@ -5,8 +5,20 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { useCurrentUser } from "@/lib/permissions";
@@ -15,8 +27,13 @@ export function GlobalFloatingActions() {
   const qc = useQueryClient();
   const { data: user } = useCurrentUser();
   const [taskOpen, setTaskOpen] = useState(false);
-  
-  const [form, setForm] = useState({ titulo: "", descricao: "", prioridade: "media", data_vencimento: "" });
+
+  const [form, setForm] = useState({
+    titulo: "",
+    descricao: "",
+    prioridade: "media",
+    data_vencimento: "",
+  });
 
   const create = useMutation({
     mutationFn: async () => {
@@ -44,8 +61,8 @@ export function GlobalFloatingActions() {
   return (
     <>
       <div className="fixed bottom-6 right-6 flex flex-col gap-3 z-50">
-        <Button 
-          size="icon" 
+        <Button
+          size="icon"
           className="h-14 w-14 rounded-full shadow-lg bg-primary hover:bg-primary/90 text-primary-foreground transition-transform hover:scale-105"
           onClick={() => setTaskOpen(true)}
           title="Adicionar Tarefa Rápida"
@@ -62,17 +79,29 @@ export function GlobalFloatingActions() {
           <div className="grid gap-4 py-4">
             <div className="space-y-2">
               <Label>Título</Label>
-              <Input value={form.titulo} onChange={e => setForm({...form, titulo: e.target.value})} placeholder="Ex: Comprar cimento" />
+              <Input
+                value={form.titulo}
+                onChange={(e) => setForm({ ...form, titulo: e.target.value })}
+                placeholder="Ex: Comprar cimento"
+              />
             </div>
             <div className="space-y-2">
               <Label>Descrição</Label>
-              <Textarea value={form.descricao} onChange={e => setForm({...form, descricao: e.target.value})} />
+              <Textarea
+                value={form.descricao}
+                onChange={(e) => setForm({ ...form, descricao: e.target.value })}
+              />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Prioridade</Label>
-                <Select value={form.prioridade} onValueChange={v => setForm({...form, prioridade: v})}>
-                  <SelectTrigger><SelectValue/></SelectTrigger>
+                <Select
+                  value={form.prioridade}
+                  onValueChange={(v) => setForm({ ...form, prioridade: v })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="baixa">Baixa</SelectItem>
                     <SelectItem value="media">Média</SelectItem>
@@ -82,13 +111,21 @@ export function GlobalFloatingActions() {
               </div>
               <div className="space-y-2">
                 <Label>Vencimento</Label>
-                <Input type="date" value={form.data_vencimento} onChange={e => setForm({...form, data_vencimento: e.target.value})} />
+                <Input
+                  type="date"
+                  value={form.data_vencimento}
+                  onChange={(e) => setForm({ ...form, data_vencimento: e.target.value })}
+                />
               </div>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setTaskOpen(false)}>Cancelar</Button>
-            <Button onClick={() => create.mutate()} disabled={create.isPending}>Salvar Tarefa</Button>
+            <Button variant="outline" onClick={() => setTaskOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={() => create.mutate()} disabled={create.isPending}>
+              Salvar Tarefa
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

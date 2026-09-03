@@ -1,4 +1,5 @@
 import { differenceInDays, parseISO } from "date-fns";
+import type { Funcionario } from "@/integrations/supabase/database.types";
 
 export type Status = "verde" | "amarelo" | "vermelho";
 
@@ -23,12 +24,21 @@ export function statusFromDate(date: string | null | undefined, today = new Date
 }
 
 export type FuncionarioConf = {
-  funcionario: any;
-  items: { key: string; label: string; status: Status | null; dias: number | null; data: string | null }[];
+  funcionario: Funcionario;
+  items: {
+    key: string;
+    label: string;
+    status: Status | null;
+    dias: number | null;
+    data: string | null;
+  }[];
   pior: Status;
 };
 
-export function computeConformidade(funcionarios: any[], today = new Date()): FuncionarioConf[] {
+export function computeConformidade(
+  funcionarios: Funcionario[],
+  today = new Date(),
+): FuncionarioConf[] {
   return funcionarios.map((f) => {
     const items = VENC_FIELDS.map(({ key, label }) => {
       const v = f[key];
@@ -36,12 +46,18 @@ export function computeConformidade(funcionarios: any[], today = new Date()): Fu
       const dias = differenceInDays(parseISO(v), today);
       return { key, label, status: statusFromDays(dias), dias, data: v };
     });
-    const pior: Status = items.some((i) => i.status === "vermelho") ? "vermelho"
-      : items.some((i) => i.status === "amarelo") ? "amarelo" : "verde";
+    const pior: Status = items.some((i) => i.status === "vermelho")
+      ? "vermelho"
+      : items.some((i) => i.status === "amarelo")
+        ? "amarelo"
+        : "verde";
     return { funcionario: f, items, pior };
   });
 }
 
 export function countAlertasVencimento(conf: FuncionarioConf[]): number {
-  return conf.reduce((acc, c) => acc + c.items.filter((i) => i.status && i.status !== "verde").length, 0);
+  return conf.reduce(
+    (acc, c) => acc + c.items.filter((i) => i.status && i.status !== "verde").length,
+    0,
+  );
 }

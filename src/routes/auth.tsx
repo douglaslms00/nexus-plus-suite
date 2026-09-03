@@ -44,7 +44,8 @@ function AuthPage() {
     e.preventDefault();
     setLoading(true);
     const { error } = await supabase.auth.signUp({
-      email, password,
+      email,
+      password,
       options: {
         emailRedirectTo: `${window.location.origin}/dashboard`,
         data: { nome },
@@ -63,7 +64,9 @@ function AuthPage() {
       numero: /[0-9]/.test(senha),
       especial: /[!@#$%^&*(),.?":{}|<>]/.test(senha),
     };
-    Object.values(requisitos).forEach((válido) => { if (válido) pontos++; });
+    Object.values(requisitos).forEach((válido) => {
+      if (válido) pontos++;
+    });
 
     if (senha.length >= 8 && pontos >= 3) setPasswordStrength("forte");
     else if (senha.length >= 6 && pontos >= 2) setPasswordStrength("media");
@@ -106,19 +109,47 @@ function AuthPage() {
               <form onSubmit={handleLogin} className="space-y-4 mt-4">
                 <div className="space-y-2">
                   <Label htmlFor="login-email">E-mail</Label>
-                  <Input id="login-email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+                  <Input
+                    id="login-email"
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="login-password">Senha</Label>
                   <div className="relative">
-                    <Input id="login-password" type={showPassword ? "text" : "password"} required value={password} onChange={(e) => setPassword(e.target.value)} />
-                    <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent" onClick={() => setShowPassword(!showPassword)}>
-                      {showPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
+                    <Input
+                      id="login-password"
+                      type={showPassword ? "text" : "password"}
+                      required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                      onClick={() => setShowPassword(!showPassword)}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-4 w-4 text-muted-foreground" />
+                      ) : (
+                        <Eye className="h-4 w-4 text-muted-foreground" />
+                      )}
                     </Button>
                   </div>
                 </div>
                 <div className="flex justify-end">
-                  <Button type="button" variant="link" className="px-0 font-normal h-auto text-xs" onClick={handleForgotPassword} disabled={loading}>
+                  <Button
+                    type="button"
+                    variant="link"
+                    className="px-0 font-normal h-auto text-xs"
+                    onClick={handleForgotPassword}
+                    disabled={loading}
+                  >
                     Esqueci minha senha
                   </Button>
                 </div>
@@ -131,44 +162,101 @@ function AuthPage() {
               <form onSubmit={handleSignup} className="space-y-4 mt-4">
                 <div className="space-y-2">
                   <Label htmlFor="signup-nome">Nome completo</Label>
-                  <Input id="signup-nome" required value={nome} onChange={(e) => setNome(e.target.value)} />
+                  <Input
+                    id="signup-nome"
+                    required
+                    value={nome}
+                    onChange={(e) => setNome(e.target.value)}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="signup-email">E-mail</Label>
-                  <Input id="signup-email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+                  <Input
+                    id="signup-email"
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="signup-password">Senha</Label>
                   <div className="relative">
-                    <Input id="signup-password" type={showPassword ? "text" : "password"} required minLength={6} value={password} onChange={(e) => { setPassword(e.target.value); validarSenha(e.target.value); }} />
-                    <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent" onClick={() => setShowPassword(!showPassword)}>
-                      {showPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
+                    <Input
+                      id="signup-password"
+                      type={showPassword ? "text" : "password"}
+                      required
+                      minLength={6}
+                      value={password}
+                      onChange={(e) => {
+                        setPassword(e.target.value);
+                        validarSenha(e.target.value);
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                      onClick={() => setShowPassword(!showPassword)}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-4 w-4 text-muted-foreground" />
+                      ) : (
+                        <Eye className="h-4 w-4 text-muted-foreground" />
+                      )}
                     </Button>
                   </div>
                   <div className="text-xs mt-1">
-                    <span className={passwordStrength === "forte" ? "text-success" : passwordStrength === "media" ? "text-warning" : "text-destructive"}>
+                    <span
+                      className={
+                        passwordStrength === "forte"
+                          ? "text-success"
+                          : passwordStrength === "media"
+                            ? "text-warning"
+                            : "text-destructive"
+                      }
+                    >
                       {passwordStrength}
                     </span>
                     <div className="mt-1 grid grid-cols-2 gap-1">
-                      {validarSenha(password).minuscula && <span className="text-success">✓ Letra minúscula</span>}
-                      {!validarSenha(password).minuscula && <span className="text-destructive">✗ Letra minúscula</span>}
-                      {validarSenha(password).maiuscula && <span className="text-success">✓ Letra maiúscula</span>}
-                      {!validarSenha(password).maiuscula && <span className="text-destructive">✗ Letra maiúscula</span>}
-                      {validarSenha(password).numero && <span className="text-success">✓ Número</span>}
-                      {!validarSenha(password).numero && <span className="text-destructive">✗ Número</span>}
-                      {validarSenha(password).especial && <span className="text-success">✓ Caracteres especiais</span>}
-                      {!validarSenha(password).especial && <span className="text-destructive">✗ Caracteres especiais</span>}
+                      {validarSenha(password).minuscula && (
+                        <span className="text-success">✓ Letra minúscula</span>
+                      )}
+                      {!validarSenha(password).minuscula && (
+                        <span className="text-destructive">✗ Letra minúscula</span>
+                      )}
+                      {validarSenha(password).maiuscula && (
+                        <span className="text-success">✓ Letra maiúscula</span>
+                      )}
+                      {!validarSenha(password).maiuscula && (
+                        <span className="text-destructive">✗ Letra maiúscula</span>
+                      )}
+                      {validarSenha(password).numero && (
+                        <span className="text-success">✓ Número</span>
+                      )}
+                      {!validarSenha(password).numero && (
+                        <span className="text-destructive">✗ Número</span>
+                      )}
+                      {validarSenha(password).especial && (
+                        <span className="text-success">✓ Caracteres especiais</span>
+                      )}
+                      {!validarSenha(password).especial && (
+                        <span className="text-destructive">✗ Caracteres especiais</span>
+                      )}
                     </div>
                   </div>
                   <div className="text-xs text-muted-foreground mt-1">
-                    Mínimo 6 caracteres, no máximo 20. Deve conter letras maiúsculas, minúsculas, números e caracteres especiais.
+                    Mínimo 6 caracteres, no máximo 20. Deve conter letras maiúsculas, minúsculas,
+                    números e caracteres especiais.
                   </div>
                 </div>
                 <Button type="submit" className="w-full mt-2" disabled={loading}>
                   {loading ? "Criando..." : "Criar conta"}
                 </Button>
                 <p className="text-xs text-muted-foreground text-center mt-4">
-                  Novos cadastros recebem o perfil <strong>Colaborador</strong> por padrão. Um Admin pode promover.
+                  Novos cadastros recebem o perfil <strong>Colaborador</strong> por padrão. Um Admin
+                  pode promover.
                 </p>
               </form>
             </TabsContent>
@@ -178,4 +266,3 @@ function AuthPage() {
     </div>
   );
 }
-

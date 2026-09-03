@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { statusFromDays, statusFromDate, computeConformidade, countAlertasVencimento } from "./conformidade";
+import {
+  statusFromDays,
+  statusFromDate,
+  computeConformidade,
+  countAlertasVencimento,
+} from "./conformidade";
 import { addDays, format } from "date-fns";
 
 const isoIn = (n: number, base = new Date()) => format(addDays(base, n), "yyyy-MM-dd");
@@ -36,9 +41,24 @@ describe("statusFromDate", () => {
 describe("computeConformidade + countAlertasVencimento", () => {
   const today = new Date("2026-06-03");
   const funcs = [
-    { id: "1", nome: "A", vencimento_treinamento: isoIn(-1, today), vencimento_experiencia: isoIn(60, today) },
-    { id: "2", nome: "B", vencimento_treinamento: isoIn(10, today), vencimento_experiencia: isoIn(-3, today) },
-    { id: "3", nome: "C", vencimento_treinamento: isoIn(90, today), vencimento_experiencia: isoIn(180, today) },
+    {
+      id: "1",
+      nome: "A",
+      vencimento_treinamento: isoIn(-1, today),
+      vencimento_experiencia: isoIn(60, today),
+    },
+    {
+      id: "2",
+      nome: "B",
+      vencimento_treinamento: isoIn(10, today),
+      vencimento_experiencia: isoIn(-3, today),
+    },
+    {
+      id: "3",
+      nome: "C",
+      vencimento_treinamento: isoIn(90, today),
+      vencimento_experiencia: isoIn(180, today),
+    },
   ];
   const conf = computeConformidade(funcs, today);
 
@@ -53,7 +73,9 @@ describe("computeConformidade + countAlertasVencimento", () => {
   });
 
   it("contador bate com soma manual dos itens não verdes", () => {
-    const manual = conf.flatMap((c) => c.items).filter((i) => i.status && i.status !== "verde").length;
+    const manual = conf
+      .flatMap((c) => c.items)
+      .filter((i) => i.status && i.status !== "verde").length;
     expect(countAlertasVencimento(conf)).toBe(manual);
   });
 });

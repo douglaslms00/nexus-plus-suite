@@ -14,15 +14,17 @@ function PrestacaoPage() {
 
   const acessarPrestaContas = async () => {
     setLoading(true);
-    const { data: { session } } = await supabase.auth.getSession();
-    
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
     // We append the access token to the URL so the target Lovable app can read it and authenticate automatically
     // The target app needs to extract this token and set it using supabase.auth.setSession()
     let url = "https://prestacontasms.lovable.app/auth";
     if (session?.access_token) {
       url += `?access_token=${session.access_token}&refresh_token=${session.refresh_token}`;
     }
-    
+
     window.open(url, "_blank");
     setLoading(false);
   };
@@ -46,11 +48,12 @@ function PrestacaoPage() {
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground mb-8">
-            Clique no botão abaixo para acessar o sistema. Você não precisará fazer login novamente se já estiver conectado aqui.
+            Clique no botão abaixo para acessar o sistema. Você não precisará fazer login novamente
+            se já estiver conectado aqui.
           </p>
-          <Button 
-            size="lg" 
-            className="w-full h-14 text-base" 
+          <Button
+            size="lg"
+            className="w-full h-14 text-base"
             onClick={acessarPrestaContas}
             disabled={loading}
           >
