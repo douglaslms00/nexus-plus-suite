@@ -325,6 +325,7 @@ function FuncionariosPage() {
                 onSubmit={(e) => { e.preventDefault(); upsert.mutate(form); }}
                 className="space-y-4"
               >
+                <Tabs value={abaForm} onValueChange={(v) => setAbaForm(v as "dados" | "treinamentos")}>
                   <TabsList className="w-full">
                     <TabsTrigger value="dados" className="flex-1">Dados</TabsTrigger>
                     <TabsTrigger value="treinamentos" className="flex-1">Treinamentos</TabsTrigger>
