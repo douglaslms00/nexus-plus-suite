@@ -12,7 +12,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Folder, FolderPlus, Upload, Trash2, Download, ChevronRight, ArrowLeft, FileText } from "lucide-react";
 import { toast } from "sonner";
-import { format, parseISO } from "date-fns";
+import { safeFormatDate } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/documentos")({ component: DocumentosPage });
 
@@ -224,7 +224,7 @@ function Browser({ escopo, canEdit, canDelete }: { escopo: Escopo; canEdit: bool
               <div className="min-w-0">
                 <p className="text-sm font-medium truncate">{d.nome}</p>
                 <p className="text-xs text-muted-foreground">
-                  {format(parseISO(d.created_at), "dd/MM/yyyy HH:mm")} · {((d.tamanho ?? 0) / 1024).toFixed(1)} KB
+                  {safeFormatDate(d.created_at, "dd/MM/yyyy HH:mm")} · {((d.tamanho ?? 0) / 1024).toFixed(1)} KB
                 </p>
               </div>
             </div>

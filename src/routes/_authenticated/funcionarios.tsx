@@ -16,8 +16,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Trash2, Pencil, FileText, Upload, Download } from "lucide-react";
 import { toast } from "sonner";
 import { uploadAnexo, getAnexoUrl } from "@/lib/upload";
-import { differenceInDays, parseISO, format, addMonths } from "date-fns";
-import { cn } from "@/lib/utils";
+import { differenceInDays, addMonths } from "date-fns";
+import { cn, safeParseISO, safeFormatDate } from "@/lib/utils";
 import { lerFichaRegistro, lerFichaRegistroPdf } from "@/lib/ocr.functions";
 
 export const Route = createFileRoute("/_authenticated/funcionarios")({
@@ -47,7 +47,7 @@ type Funcionario = any;
 
 function vencColor(date?: string | null) {
   if (!date) return "text-muted-foreground";
-  const days = differenceInDays(parseISO(date), new Date());
+  const days = differenceInDays(safeParseISO(date), new Date());
   if (days < 0) return "text-destructive font-semibold";
   if (days <= 30) return "text-warning font-semibold";
   return "text-success";
@@ -55,7 +55,7 @@ function vencColor(date?: string | null) {
 
 function diasParaVencimento(dateInput: string | Date | null): number {
   if (!dateInput) return 9999;
-  const date = typeof dateInput === "string" ? parseISO(dateInput) : dateInput;
+  const date = typeof dateInput === "string" ? safeParseISO(dateInput) : dateInput;
   return differenceInDays(date, new Date());
 }
 
@@ -68,7 +68,7 @@ function countVencimentosAbertos(func: any): { proximos: number; vencidos: numbe
     if (!keyVenc) continue;
     const date = func[keyVenc];
     if (!date) continue;
-    const dias = differenceInDays(parseISO(date), hoje);
+    const dias = differenceInDays(safeParseISO(date), hoje);
     if (dias < 0) vencidos++;
     else if (dias <= 30) proximos++;
   }
@@ -81,7 +81,7 @@ function countTreinamentosAbertos(treinamentos: readonly TreinamentoItem[]): { p
   const hoje = new Date();
   for (const t of treinamentos) {
     if (!t.data_validade || !t.nome.trim()) continue;
-    const dias = differenceInDays(parseISO(t.data_validade), hoje);
+    const dias = differenceInDays(safeParseISO(t.data_validade), hoje);
     if (dias < 0) vencidos++;
     else if (dias <= 30) proximos++;
   }
@@ -93,7 +93,7 @@ function countTreinamentosAbertos(treinamentos: readonly TreinamentoItem[]): { p
 function isExperienciaConcluida(f: any) {
   if (f?.experiencia_concluida) return true;
   if (f?.vencimento_experiencia) {
-    return differenceInDays(parseISO(f.vencimento_experiencia), new Date()) < 0;
+    return differenceInDays(safeParseISO(f.vencimento_experiencia), new Date()) < 0;
   }
   return false;
 }
@@ -154,8 +154,8 @@ function FuncionariosPage() {
       if (fObra !== "todas" && f.obra_id !== fObra) return false;
       if (fVenc !== "todos") {
         const dates = VENC.map(([k]) => f[k]).filter(Boolean) as string[];
-        const hasOverdue = dates.some((d) => differenceInDays(parseISO(d), new Date()) < 0);
-        const hasSoon = dates.some((d) => { const x = differenceInDays(parseISO(d), new Date()); return x >= 0 && x <= 30; });
+        const hasOverdue = dates.some((d) => differenceInDays(safeParseISO(d), new Date()) < 0);
+        const hasSoon = dates.some((d) => { const x = differenceInDays(safeParseISO(d), new Date()); return x >= 0 && x <= 30; });
         if (fVenc === "vencidos" && !hasOverdue) return false;
         if (fVenc === "proximos" && !hasSoon) return false;
       }
@@ -164,7 +164,7 @@ function FuncionariosPage() {
   }, [funcionarios, busca, fStatus, fObra, fVenc]);
 
   const openNew = () => { setEditing(null); setAbaForm("dados"); setFichaRegistro(null); 
-  const validaExp = form.validade_experiencia ? differenceInDays(parseISO(form.validade_experiencia), new Date()) < 0 : false;
+  const validaExp = form.validade_experiencia ? differenceInDays(safeParseISO(form.validade_experiencia), new Date()) < 0 : false;
   setForm({ ativo: true, experiencia_concluida: validaExp }); 
   setTreinamentos([novoTreinamento()]); setOpen(true); };
   const openEdit = async (f: Funcionario) => {
@@ -570,7 +570,7 @@ function FuncionariosPage() {
                       {obras.find((o: any) => o.id === f.obra_id)?.nome ?? <span className="text-muted-foreground">—</span>}
                     </TableCell>
                     <TableCell>{f.cpf ?? "—"}</TableCell>
-                    <TableCell className="whitespace-nowrap">{f.data_admissao ? format(parseISO(f.data_admissao), "dd/MM/yyyy") : "—"}</TableCell>
+                    <TableCell className="whitespace-nowrap">{safeFormatDate(f.data_admissao, "dd/MM/yyyy")}</TableCell>
                     <TableCell>{f.telefone ?? "—"}</TableCell>
                     <TableCell>{f.matricula ?? "—"}</TableCell>
                     <TableCell>{f.cidade ?? "—"}</TableCell>
@@ -613,7 +613,7 @@ function FuncionariosPage() {
                   <TableCell className="font-medium">{f.nome}</TableCell>
                   <TableCell><div>{f.funcao ?? "—"}</div><div className="text-xs text-muted-foreground">{f.setor ?? "—"}</div></TableCell>
                   <TableCell>{obras.find((o: any) => o.id === f.obra_id)?.nome ?? "—"}</TableCell>
-                  {["vencimento_aso", "vencimento_ferias", "vencimento_folga_campo", "vencimento_treinamento"].map((key) => <TableCell key={key} className={cn("text-xs whitespace-nowrap", vencColor(f[key]))}>{f[key] ? format(parseISO(f[key]), "dd/MM/yyyy") : "—"}</TableCell>)}
+                  {["vencimento_aso", "vencimento_ferias", "vencimento_folga_campo", "vencimento_treinamento"].map((key) => <TableCell key={key} className={cn("text-xs whitespace-nowrap", vencColor(f[key]))}>{safeFormatDate(f[key], "dd/MM/yyyy")}</TableCell>)}
                   <TableCell className="text-right"><div className="flex justify-end gap-1">
                     <Button size="icon" variant="ghost" title="Documentos" onClick={() => setDocsFor(f)}><FileText className="h-4 w-4" /></Button>
                     {canEdit && <Button size="icon" variant="ghost" title="Editar" onClick={() => openEdit(f)}><Pencil className="h-4 w-4" /></Button>}
@@ -704,7 +704,7 @@ function DocumentosDialog({ funcionario, onClose, canEdit, canDelete }: { funcio
                 <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
                 <div className="min-w-0">
                   <div className="text-sm truncate">{d.nome}</div>
-                  <div className="text-xs text-muted-foreground">{format(parseISO(d.created_at), "dd/MM/yy HH:mm")} {d.tamanho ? `· ${Math.round(d.tamanho / 1024)} KB` : ""}</div>
+                  <div className="text-xs text-muted-foreground">{safeFormatDate(d.created_at, "dd/MM/yy HH:mm")} {d.tamanho ? `· ${Math.round(d.tamanho / 1024)} KB` : ""}</div>
                 </div>
               </div>
               <div className="flex gap-1">

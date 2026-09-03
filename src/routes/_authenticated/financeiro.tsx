@@ -14,7 +14,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Plus, Trash2, Check, AlertTriangle, FileDown, FileText } from "lucide-react";
 import { toast } from "sonner";
-import { differenceInDays, parseISO } from "date-fns";
+import { differenceInDays } from "date-fns";
+import { safeParseISO } from "@/lib/utils";
 import { exportCSV, exportPDF } from "@/lib/exports";
 
 export const Route = createFileRoute("/_authenticated/financeiro")({ component: FinanceiroPage });
@@ -239,7 +240,7 @@ function FinanceiroPage() {
               return (
                 <TabsContent key={tab} value={tab} className="space-y-2">
                   {list.map((c: any) => {
-                    const dias = c.data_vencimento ? differenceInDays(parseISO(c.data_vencimento), new Date()) : 0;
+                    const dias = c.data_vencimento ? differenceInDays(safeParseISO(c.data_vencimento), new Date()) : 0;
                     const atrasado = c.status !== "pago" && dias < 0;
                     const isOwner = c.user_id === user?.id;
                     const podeMarcar = escopoAtivo === "pessoal" ? isOwner : canEdit;

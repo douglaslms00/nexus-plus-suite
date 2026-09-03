@@ -10,8 +10,7 @@ import {
   Users, CheckSquare, HardHat, AlertTriangle, Package, CalendarClock, Wallet, ShieldCheck, MapPin,
   ClipboardCheck, FileDown, FileText, ArrowUpDown,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { parseISO, format } from "date-fns";
+import { cn, safeFormatDate } from "@/lib/utils";
 import { isAdmin, useUserRoles } from "@/lib/permissions";
 import { useObraAtual } from "@/lib/obra-context";
 import { exportCSV, exportPDF } from "@/lib/exports";
@@ -118,7 +117,7 @@ function DashboardPage() {
     const rows = sorted.map((c) => [
       c.funcionario.nome,
       c.pior === "verde" ? "Em dia" : c.pior === "amarelo" ? "Vence em breve" : "Vencido",
-      ...c.items.map((i) => i.data ? `${format(parseISO(i.data), "dd/MM/yyyy")} (${i.status})` : "—"),
+      ...c.items.map((i) => i.data ? `${safeFormatDate(i.data, "dd/MM/yyyy")} (${i.status})` : "—"),
     ]);
     return { headers, rows };
   };
@@ -235,7 +234,7 @@ function DashboardPage() {
                                 i.status === "amarelo" && "text-warning",
                                 i.status === "vermelho" && "text-destructive font-medium")}>
                                 <StatusDot status={i.status} />
-                                {format(parseISO(i.data!), "dd/MM/yy")}
+                                {safeFormatDate(i.data!, "dd/MM/yy")}
                               </span>
                             ) : <span className="text-muted-foreground">—</span>}
                           </td>

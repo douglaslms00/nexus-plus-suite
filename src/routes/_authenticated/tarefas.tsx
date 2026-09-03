@@ -39,8 +39,8 @@ import {
   Check,
 } from "lucide-react";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
-import { differenceInCalendarDays, parseISO, format } from "date-fns";
+import { cn, safeParseISO, safeFormatDate } from "@/lib/utils";
+import { differenceInCalendarDays } from "date-fns";
 
 export const Route = createFileRoute("/_authenticated/tarefas")({
   component: TarefasPage,
@@ -95,7 +95,7 @@ const KANBAN_COLUMNS: {
 
 function overdueInfo(t: any) {
   if (!t.data_vencimento || t.concluida || t.status === "concluida") return null;
-  const days = differenceInCalendarDays(parseISO(t.data_vencimento), new Date());
+  const days = differenceInCalendarDays(safeParseISO(t.data_vencimento), new Date());
   if (days < 0) return { kind: "overdue" as const, days: Math.abs(days) };
   if (days <= 2) return { kind: "soon" as const, days };
   return null;
@@ -690,9 +690,9 @@ function TarefasPage() {
                           </div>
 
                           {t.data_vencimento && (
-                            <div className="flex items-center gap-1 shrink-0" title={`Vencimento: ${format(parseISO(t.data_vencimento), "dd/MM/yyyy")}`}>
+                            <div className="flex items-center gap-1 shrink-0" title={`Vencimento: ${safeFormatDate(t.data_vencimento, "dd/MM/yyyy")}`}>
                               <Calendar className="h-3 w-3" />
-                              <span>{format(parseISO(t.data_vencimento), "dd/MM/yy")}</span>
+                              <span>{safeFormatDate(t.data_vencimento, "dd/MM/yy")}</span>
                             </div>
                           )}
                         </div>
@@ -800,7 +800,7 @@ function TarefasPage() {
                     <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground flex-wrap">
                       <span>Responsável: {t.responsavel?.nome ?? "—"}</span>
                       {t.data_vencimento && (
-                        <span>Vence: {format(parseISO(t.data_vencimento), "dd/MM/yyyy")}</span>
+                        <span>Vence: {safeFormatDate(t.data_vencimento, "dd/MM/yyyy")}</span>
                       )}
                     </div>
                   </div>
@@ -1081,11 +1081,11 @@ function TarefaDetailDialog({
             </div>
             <div>
               <span className="text-muted-foreground">Vencimento:</span>{" "}
-              {tarefa.data_vencimento ? format(parseISO(tarefa.data_vencimento), "dd/MM/yyyy") : "—"}
+              {safeFormatDate(tarefa.data_vencimento, "dd/MM/yyyy")}
             </div>
             <div>
               <span className="text-muted-foreground">Concluída em:</span>{" "}
-              {tarefa.concluida_em ? format(parseISO(tarefa.concluida_em), "dd/MM/yyyy HH:mm") : "—"}
+              {safeFormatDate(tarefa.concluida_em, "dd/MM/yyyy HH:mm")}
             </div>
           </div>
           {od?.kind === "overdue" && (
@@ -1171,7 +1171,7 @@ function TarefaDetailDialog({
                       <div className="font-medium">
                         {nome}{" "}
                         <span className="text-muted-foreground font-normal">
-                          — {e.executado_em ? format(parseISO(e.executado_em), "dd/MM/yyyy HH:mm") : "—"}
+                          — {safeFormatDate(e.executado_em, "dd/MM/yyyy HH:mm")}
                         </span>
                       </div>
                       {e.observacao && <div className="text-muted-foreground mt-0.5 whitespace-pre-wrap">{e.observacao}</div>}

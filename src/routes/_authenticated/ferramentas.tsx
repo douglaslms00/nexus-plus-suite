@@ -16,7 +16,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Trash2, AlertTriangle, RotateCcw, Pencil, Paperclip } from "lucide-react";
 import { toast } from "sonner";
-import { differenceInDays, parseISO } from "date-fns";
+import { differenceInDays } from "date-fns";
+import { safeParseISO } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/ferramentas")({ component: FerramentasPage });
 
@@ -183,7 +184,7 @@ function FerramentasPage() {
               </TableHeader>
               <TableBody>
                 {ferramentas.map((f: any) => {
-                  const dias = f.proxima_manutencao ? differenceInDays(parseISO(f.proxima_manutencao), new Date()) : null;
+                  const dias = f.proxima_manutencao ? differenceInDays(safeParseISO(f.proxima_manutencao), new Date()) : null;
                   const alerta = dias !== null && dias <= 15;
                   return (
                     <TableRow key={f.id}>
