@@ -131,22 +131,18 @@ function PerfilPage() {
           <Card className="p-6 space-y-4">
             <div><Label>Nova senha</Label><Input type="password" value={pwd} onChange={(e) => setPwd(e.target.value)} /></div>
             <div><Label>Confirmar senha</Label><Input type="password" value={pwd2} onChange={(e) => setPwd2(e.target.value)} /></div>
-<div className="text-xs mt-1">
-              <span className={validarSenha(pwd).strength === "forte" ? "text-success" : validarSenha(pwd).strength === "media" ? "text-warning" : "text-destructive">
+            <div className="text-xs mt-1">
+              <span className={validarSenha(pwd).strength === "forte" ? "text-success" : validarSenha(pwd).strength === "media" ? "text-warning" : "text-destructive"}>
                 {validarSenha(pwd).strength}
               </span>
               <div className="mt-1 grid grid-cols-2 gap-1">
-                {validarSenha(pwd).requisitos.minuscula && <span className="text-success">✓ Letra minúscula</span>}
-                {!validarSenha(pwd).requisitos.minuscula && <span className="text-destructive">✗ Letra minúscula</span>}
-                {validarSenha(pwd).requisitos.maiuscula && <span className="text-success">✓ Letra maiúscula</span>}
-                {!validarSenha(pwd).requisitos.maiuscula && <span className="text-destructive">✗ Letra maiúscula</span>}
-                {validarSenha(pwd).requisitos.numero && <span className="text-success">✓ Número</span>}
-                {!validarSenha(pwd).requisitos.numero && <span className="text-destructive">✗ Número</span>}
-                {validarSenha(pwd).requisitos.especial && <span className="text-success">✓ Caracteres especiais</span>}
-                {!validarSenha(pwd).requisitos.especial && <span className="text-destructive">✗ Caracteres especiais</span>}
+                <span className={validarSenha(pwd).requisitos.minuscula ? "text-success" : "text-destructive"}>{validarSenha(pwd).requisitos.minuscula ? "✓" : "✗"} Letra minúscula</span>
+                <span className={validarSenha(pwd).requisitos.maiuscula ? "text-success" : "text-destructive"}>{validarSenha(pwd).requisitos.maiuscula ? "✓" : "✗"} Letra maiúscula</span>
+                <span className={validarSenha(pwd).requisitos.numero ? "text-success" : "text-destructive"}>{validarSenha(pwd).requisitos.numero ? "✓" : "✗"} Número</span>
+                <span className={validarSenha(pwd).requisitos.especial ? "text-success" : "text-destructive"}>{validarSenha(pwd).requisitos.especial ? "✓" : "✗"} Caracteres especiais</span>
               </div>
             </div>
-            </div>
+
             <Button onClick={() => changePwd.mutate()} disabled={changePwd.isPending}>
               {changePwd.isPending ? "Alterando..." : "Alterar senha"}
             </Button>
