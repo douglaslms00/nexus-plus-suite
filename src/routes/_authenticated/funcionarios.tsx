@@ -63,7 +63,8 @@ function countVencimentosAbertos(func: any): { proximos: number; vencidos: numbe
   let proximos = 0;
   let vencidos = 0;
   const hoje = new Date();
-  for (const [_, _, keyVenc] of VENC) {
+  for (const item of VENC) {
+    const keyVenc = item[2];
     const date = func[keyVenc];
     if (!date) continue;
     const dias = differenceInDays(parseISO(date), hoje);
