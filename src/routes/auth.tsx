@@ -181,10 +181,7 @@ function AuthPage() {
                       required
                       minLength={6}
                       value={password}
-                      onChange={(e) => {
-                        setPassword(e.target.value);
-                        validarSenha(e.target.value);
-                      }}
+                      onChange={(e) => setPassword(e.target.value)}
                     />
                     <Button
                       type="button"
