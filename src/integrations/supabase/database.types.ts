@@ -106,10 +106,10 @@ export type DocumentoPasta = Tables["documento_pastas"]["Row"];
 export type DocumentoPastaInsert = Tables["documento_pastas"]["Insert"];
 export type DocumentoPastaUpdate = Tables["documento_pastas"]["Update"];
 
-export type PrestacaoConta = Tables["prestacao_contas"]["Row"];
-export type PrestacaoContaInsert = Tables["prestacao_contas"]["Insert"];
-export type PrestacaoContaUpdate = Tables["prestacao_contas"]["Update"];
+export type PrestacaoConta = Tables["adiantamentos"]["Row"];
+export type PrestacaoContaInsert = Tables["adiantamentos"]["Insert"];
+export type PrestacaoContaUpdate = Tables["adiantamentos"]["Update"];
 
-export type Notificacao = Tables["notificacoes"]["Row"];
-export type NotificacaoInsert = Tables["notificacoes"]["Insert"];
-export type NotificacaoUpdate = Tables["notificacoes"]["Update"];
+export type Notificacao = Tables["notifications"]["Row"];
+export type NotificacaoInsert = Tables["notifications"]["Insert"];
+export type NotificacaoUpdate = Tables["notifications"]["Update"];

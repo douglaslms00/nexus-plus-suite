@@ -162,8 +162,15 @@ function FuncionariosPage() {
 
   const { data: funcionarios = [], isLoading } = useQuery({
     queryKey: ["funcionarios", obraId],
+    staleTime: 1000 * 60 * 2,
     queryFn: async () => {
-      let q = supabase.from("funcionarios").select("*").order("nome");
+      let q = supabase
+        .from("funcionarios")
+        .select(
+          "id, nome, cpf, telefone, email, funcao, setor, data_admissao, data_nascimento, endereco, cidade, matricula, obra_id, ativo, experiencia_concluida, vencimento_aso, vencimento_ficha_epi, vencimento_folga_campo, vencimento_ferias, vencimento_treinamento, vencimento_experiencia, data_aso, data_ferias, data_folga_campo",
+        )
+        .order("nome")
+        .limit(1000);
       if (obraId) q = q.eq("obra_id", obraId);
       const { data, error } = await q;
       if (error) throw error;
@@ -173,18 +180,26 @@ function FuncionariosPage() {
 
   const { data: obras = [] } = useQuery({
     queryKey: ["obras-min-func"],
-    queryFn: async () => (await supabase.from("obras").select("id, nome").order("nome")).data ?? [],
+    staleTime: 1000 * 60 * 10,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("obras").select("id, nome").order("nome");
+      if (error) throw error;
+      return data ?? [];
+    },
   });
 
   const { data: allTreinamentosRaw = [] } = useQuery({
-    queryKey: ["funcionario-treinamentos-all", funcionarios.map((f: any) => f.id).sort().join(",")],
+    queryKey: ["funcionario-treinamentos-all", obraId, funcionarios.length],
     enabled: funcionarios.length > 0,
+    staleTime: 1000 * 60 * 2,
     queryFn: async () => {
-      const ids = funcionarios.map((f: any) => f.id);
-      const { data, error } = await (supabase as any)
+      const ids = funcionarios.map((f: any) => f.id).slice(0, 500);
+      if (ids.length === 0) return [];
+      const { data, error } = await supabase
         .from("funcionario_treinamentos")
         .select("funcionario_id, nome, data_validade, data_realizacao")
-        .in("funcionario_id", ids);
+        .in("funcionario_id", ids)
+        .limit(2000);
       if (error) throw error;
       return data as Array<{
         funcionario_id: string;

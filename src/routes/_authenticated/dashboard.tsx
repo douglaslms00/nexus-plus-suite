@@ -30,7 +30,6 @@ import {
 import { cn, safeFormatDate } from "@/lib/utils";
 import { isAdmin, useUserRoles } from "@/lib/permissions";
 import { useObraAtual } from "@/lib/obra-context.types";
-import { exportCSV, exportPDF } from "@/lib/exports";
 import { VENC_FIELDS, computeConformidade, type Status } from "@/lib/conformidade";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({ component: DashboardPage });
@@ -62,45 +61,80 @@ function DashboardPage() {
 
   const { data: obras = [] } = useQuery({
     queryKey: ["dash-obras"],
-    queryFn: async () => (await supabase.from("obras").select("id, nome").order("nome")).data ?? [],
+    staleTime: 1000 * 60 * 5,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("obras").select("id, nome").order("nome");
+      if (error) throw error;
+      return data ?? [];
+    },
   });
   const obraAtualNome = obraId ? obras.find((o: any) => o.id === obraId)?.nome : null;
 
   const { data: funcionarios = [] } = useQuery({
     queryKey: ["dash-funcionarios", obraId],
     queryFn: async () => {
-      let q = supabase.from("funcionarios").select("*").eq("ativo", true);
+      let q = supabase
+        .from("funcionarios")
+        .select(
+          "id, nome, ativo, obra_id, vencimento_aso, vencimento_treinamento, vencimento_folga_campo, vencimento_ferias, vencimento_ficha_epi, vencimento_experiencia, experiencia_concluida",
+        )
+        .eq("ativo", true);
       if (obraId) q = q.eq("obra_id", obraId);
-      return (await q).data ?? [];
+      const { data, error } = await q;
+      if (error) throw error;
+      return data ?? [];
     },
   });
   const { data: tarefas = [] } = useQuery({
-    queryKey: ["dash-tarefas", obraId, funcionarios.map((f: any) => f.id).join(",")],
+    queryKey: ["dash-tarefas", obraId],
     queryFn: async () => {
-      let q = supabase.from("tarefas").select("*").neq("status", "concluida");
-      if (obraId) {
-        const ids = funcionarios.map((f: any) => f.id);
-        if (ids.length === 0) return [];
-        q = q.in("funcionario_id", ids);
-      }
-      return (await q).data ?? [];
+      const { data, error } = await supabase
+        .from("tarefas")
+        .select("id, status, titulo, data_vencimento")
+        .neq("status", "concluida")
+        .limit(100);
+      if (error) throw error;
+      return data ?? [];
     },
   });
   const { data: epis = [] } = useQuery({
     queryKey: ["dash-epis"],
-    queryFn: async () => (await supabase.from("epis").select("*").eq("ativo", true)).data ?? [],
+    staleTime: 1000 * 60 * 2,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("epis")
+        .select("id, nome, estoque_atual, estoque_minimo")
+        .eq("ativo", true)
+        .limit(200);
+      if (error) throw error;
+      return data ?? [];
+    },
   });
   const { data: materiais = [] } = useQuery({
     queryKey: ["dash-mat"],
-    queryFn: async () =>
-      (await supabase.from("materiais").select("*").eq("ativo", true)).data ?? [],
+    staleTime: 1000 * 60 * 2,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("materiais")
+        .select("id, nome, estoque_atual, estoque_minimo")
+        .eq("ativo", true)
+        .limit(200);
+      if (error) throw error;
+      return data ?? [];
+    },
   });
   const { data: contas = [] } = useQuery({
     queryKey: ["dash-contas", obraId],
     queryFn: async () => {
-      let q = supabase.from("contas_financeiras").select("*").neq("status", "pago");
+      let q = supabase
+        .from("contas_financeiras")
+        .select("id, tipo, status, obra_id")
+        .neq("status", "pago")
+        .limit(200);
       if (obraId) q = q.eq("obra_id", obraId);
-      return (await q).data ?? [];
+      const { data, error } = await q;
+      if (error) throw error;
+      return data ?? [];
     },
   });
 
@@ -121,11 +155,12 @@ function DashboardPage() {
     [conformidade],
   );
 
-  const epiAbaixoMin = epis.filter((e: any) => e.estoque_atual < e.estoque_minimo);
-  const matAbaixoMin = materiais.filter(
-    (m: any) => Number(m.estoque_atual) < Number(m.estoque_minimo),
+  const epiAbaixoMin = useMemo(() => epis.filter((e: any) => e.estoque_atual < e.estoque_minimo), [epis]);
+  const matAbaixoMin = useMemo(
+    () => materiais.filter((m: any) => Number(m.estoque_atual) < Number(m.estoque_minimo)),
+    [materiais],
   );
-  const contasPagar = contas.filter((c: any) => c.tipo === "pagar");
+  const contasPagar = useMemo(() => contas.filter((c: any) => c.tipo === "pagar"), [contas]);
   const alertasAtivos = alertasVencimento.length + epiAbaixoMin.length + matAbaixoMin.length;
 
   const pendentes = conformidade.filter((c) => c.pior !== "verde");
@@ -169,13 +204,15 @@ function DashboardPage() {
     return { headers, rows };
   };
   const obraTag = obraAtualNome ? `-${obraAtualNome.replace(/\s+/g, "_")}` : "";
-  const onCSV = () => {
+  const onCSV = async () => {
+    const { exportCSV } = await import("@/lib/exports");
     const { headers, rows } = exportRows();
     exportCSV(`conformidade${obraTag}`, headers, rows);
   };
-  const onPDF = () => {
+  const onPDF = async () => {
+    const { exportPDF } = await import("@/lib/exports");
     const { headers, rows } = exportRows();
-    exportPDF(
+    await exportPDF(
       `Conformidade${obraAtualNome ? ` - ${obraAtualNome}` : ""}`,
       headers,
       rows,

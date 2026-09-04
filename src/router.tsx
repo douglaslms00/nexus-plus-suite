@@ -67,17 +67,38 @@ function DefaultNotFound() {
   );
 }
 
-export const getRouter = () => {
-  const queryClient = new QueryClient({
-    defaultOptions: {
-      queries: {
-        staleTime: 1000 * 60 * 2, // 2 minutos de cache ativo
-        gcTime: 1000 * 60 * 15, // 15 minutos na memória
-        refetchOnWindowFocus: false,
-        retry: 1,
+let browserQueryClient: QueryClient | undefined;
+
+function getQueryClient() {
+  if (typeof window === "undefined") {
+    return new QueryClient({
+      defaultOptions: {
+        queries: {
+          staleTime: 1000 * 60 * 2,
+          gcTime: 1000 * 60 * 15,
+          refetchOnWindowFocus: false,
+          retry: 1,
+        },
       },
-    },
-  });
+    });
+  }
+  if (!browserQueryClient) {
+    browserQueryClient = new QueryClient({
+      defaultOptions: {
+        queries: {
+          staleTime: 1000 * 60 * 2,
+          gcTime: 1000 * 60 * 15,
+          refetchOnWindowFocus: false,
+          retry: 1,
+        },
+      },
+    });
+  }
+  return browserQueryClient;
+}
+
+export const getRouter = () => {
+  const queryClient = getQueryClient();
 
   const router = createRouter({
     routeTree,

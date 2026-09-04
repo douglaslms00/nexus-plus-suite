@@ -1,12 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import type { SupabaseClient } from "@supabase/supabase-js";
-import type {
-  Obra,
-  CustomRole,
-  CustomRolePerm,
-  SystemRolePerm,
-} from "@/integrations/supabase/database.types";
+import type { Obra } from "@/integrations/supabase/database.types";
 
 export type AppRole = "admin" | "gestor" | "colaborador" | "financeiro";
 
@@ -126,8 +120,9 @@ export function canFinance(roles?: AppRole[]) {
 export function useAuthorizedObras() {
   const { data: user } = useCurrentUser();
   const { data: roles } = useUserRoles();
+  const rolesKey = roles ? [...roles].sort().join(",") : "";
   return useQuery({
-    queryKey: ["authorized-obras", user?.id, roles],
+    queryKey: ["authorized-obras", user?.id, rolesKey],
     enabled: !!user?.id && !!roles,
     staleTime: 1000 * 60 * 5,
     queryFn: async (): Promise<{ id: string; nome: string }[]> => {
@@ -142,9 +137,9 @@ export function useAuthorizedObras() {
         .eq("user_id", user!.id);
       if (error) throw error;
       return (data ?? [])
-        .map((r: { obra: Obra }) => r.obra)
-        .filter(Boolean)
-        .sort((a: Obra, b: Obra) => a.nome.localeCompare(b.nome));
+        .map((r: { obra: { id: string; nome: string } | null }) => r.obra)
+        .filter((o): o is { id: string; nome: string } => !!o)
+        .sort((a, b) => a.nome.localeCompare(b.nome));
     },
   });
 }
@@ -230,7 +225,9 @@ export function useMyCustomRoles() {
         .select("custom_role:custom_roles(id, name, label, description)")
         .eq("user_id", user!.id);
       if (error) throw error;
-      return (data ?? []).map((r: { custom_role: CustomRole }) => r.custom_role).filter(Boolean);
+      return (data ?? [])
+        .map((r: { custom_role: CustomRole | null }) => r.custom_role)
+        .filter((c): c is CustomRole => !!c);
     },
   });
 }
