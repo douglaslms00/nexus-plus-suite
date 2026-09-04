@@ -16,6 +16,16 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -210,6 +220,7 @@ function FuncionariosPage() {
   const [lendoFicha, setLendoFicha] = useState(false);
   const [treinamentos, setTreinamentos] = useState<TreinamentoItem[]>([novoTreinamento()]);
   const [abaForm, setAbaForm] = useState<"dados" | "treinamentos">("dados");
+  const [funcionarioToDelete, setFuncionarioToDelete] = useState<Funcionario | null>(null);
 
   const [highlightId, setHighlightId] = useState<string | null>(() => {
     if (typeof window !== "undefined") return new URLSearchParams(window.location.search).get("highlight");
@@ -1112,9 +1123,7 @@ function FuncionariosPage() {
                               size="icon"
                               variant="ghost"
                               title="Excluir"
-                              onClick={() => {
-                                if (confirm(`Excluir ${f.nome}?`)) remove.mutate(f.id);
-                              }}
+                              onClick={() => setFuncionarioToDelete(f)}
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -1261,6 +1270,34 @@ function FuncionariosPage() {
         canEdit={canEdit}
         canDelete={canDelete}
       />
+
+      <AlertDialog
+        open={!!funcionarioToDelete}
+        onOpenChange={(o) => !o && setFuncionarioToDelete(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir funcionário?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir{" "}
+              <span className="font-semibold text-foreground">{funcionarioToDelete?.nome}</span>?
+              Essa ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setFuncionarioToDelete(null)}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (funcionarioToDelete) remove.mutate(funcionarioToDelete.id);
+                setFuncionarioToDelete(null);
+              }}
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
