@@ -1,7 +1,7 @@
-import { useEffect } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { Bell, Check, Trash2 } from "lucide-react";
+import { Bell, Check, Trash2, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useCurrentUser } from "@/lib/permissions";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,8 @@ type Notif = {
   titulo: string;
   mensagem: string | null;
   link: string | null;
+  ref_id: string | null;
+  ref_table: string | null;
   lida: boolean;
   created_at: string;
 };
@@ -24,6 +26,7 @@ export function NotificationsBell() {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const { data: user } = useCurrentUser();
+  const [open, setOpen] = useState(false);
 
   const { data: notifs = [] } = useQuery({
     queryKey: ["notifications", user?.id],
@@ -31,7 +34,7 @@ export function NotificationsBell() {
     queryFn: async (): Promise<Notif[]> => {
       const { data, error } = await supabase
         .from("notifications" as any)
-        .select("id, tipo, titulo, mensagem, link, lida, created_at, user_id")
+        .select("id, tipo, titulo, mensagem, link, ref_id, ref_table, lida, created_at, user_id")
         .eq("user_id", user?.id)
         .order("created_at", { ascending: false })
         .limit(50);
@@ -121,10 +124,27 @@ export function NotificationsBell() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["notifications", user?.id] }),
   });
 
+  const handleNavigate = useCallback(
+    (n: Notif) => {
+      if (!n.link) return;
+      if (!n.lida) markRead.mutate(n.id);
+      setOpen(false);
+      // Constrói URL com highlight do item para o destino poder destacar/scrollar
+      let target = n.link;
+      if (n.ref_id) {
+        const sep = target.includes("?") ? "&" : "?";
+        target = `${target}${sep}highlight=${n.ref_id}`;
+      }
+      // @ts-ignore - TanStack Router aceita string com query
+      navigate({ to: target as any });
+    },
+    [markRead, navigate],
+  );
+
   const unread = notifs.filter((n) => !n.lida).length;
 
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button variant="ghost" size="icon" className="relative" aria-label="Notificações">
           <Bell className="h-5 w-5" />
@@ -148,40 +168,59 @@ export function NotificationsBell() {
           {notifs.length === 0 && (
             <p className="p-6 text-center text-sm text-muted-foreground">Nenhuma notificação.</p>
           )}
-          {notifs.map((n) => (
-            <div
-              key={n.id}
-              className={cn(
-                "p-3 border-b hover:bg-muted/50 cursor-pointer flex gap-2 items-start",
-                !n.lida && "bg-primary/5",
-              )}
-              onClick={() => {
-                if (!n.lida) markRead.mutate(n.id);
-                if (n.link) navigate({ to: n.link });
-              }}
-            >
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">{n.titulo}</p>
-                {n.mensagem && (
-                  <p className="text-xs text-muted-foreground line-clamp-2">{n.mensagem}</p>
+          {notifs.map((n) => {
+            const clickable = !!n.link;
+            return (
+              <div
+                key={n.id}
+                role={clickable ? "button" : undefined}
+                tabIndex={clickable ? 0 : undefined}
+                title={clickable ? "Clique para ir ao item" : undefined}
+                className={cn(
+                  "p-3 border-b flex gap-2 items-start text-left w-full",
+                  clickable
+                    ? "cursor-pointer hover:bg-muted/60 hover:bg-accent/50 active:bg-muted transition-colors"
+                    : "cursor-default",
+                  !n.lida && "bg-primary/5",
                 )}
-                <p className="text-[10px] text-muted-foreground mt-1">
-                  {formatDistanceToNow(parseISO(n.created_at), { addSuffix: true, locale: ptBR })}
-                </p>
-              </div>
-              <Button
-                size="icon"
-                variant="ghost"
-                className="h-6 w-6 shrink-0"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  remove.mutate(n.id);
+                onClick={() => {
+                  if (clickable) handleNavigate(n);
+                  else if (!n.lida) markRead.mutate(n.id);
+                }}
+                onKeyDown={(e) => {
+                  if (clickable && (e.key === "Enter" || e.key === " ")) {
+                    e.preventDefault();
+                    handleNavigate(n);
+                  }
                 }}
               >
-                <Trash2 className="h-3 w-3" />
-              </Button>
-            </div>
-          ))}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate flex items-center gap-1">
+                    {n.titulo}
+                    {clickable && <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />}
+                  </p>
+                  {n.mensagem && (
+                    <p className="text-xs text-muted-foreground line-clamp-2">{n.mensagem}</p>
+                  )}
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    {formatDistanceToNow(parseISO(n.created_at), { addSuffix: true, locale: ptBR })}
+                  </p>
+                </div>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-6 w-6 shrink-0"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    remove.mutate(n.id);
+                  }}
+                  aria-label="Remover notificação"
+                >
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              </div>
+            );
+          })}
         </div>
       </PopoverContent>
     </Popover>

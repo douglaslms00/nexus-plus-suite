@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { canManage, isAdmin, useUserRoles, useModulePerm } from "@/lib/permissions";
 import { useObraAtual } from "@/lib/obra-context.types";
@@ -211,6 +211,11 @@ function FuncionariosPage() {
   const [treinamentos, setTreinamentos] = useState<TreinamentoItem[]>([novoTreinamento()]);
   const [abaForm, setAbaForm] = useState<"dados" | "treinamentos">("dados");
 
+  const [highlightId, setHighlightId] = useState<string | null>(() => {
+    if (typeof window !== "undefined") return new URLSearchParams(window.location.search).get("highlight");
+    return null;
+  });
+
   const filtered = useMemo(() => {
     return funcionarios.filter((f: any) => {
       if (
@@ -240,6 +245,23 @@ function FuncionariosPage() {
       return true;
     });
   }, [funcionarios, busca, fStatus, fObra, fVenc]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const h = params.get("highlight");
+    if (h) setHighlightId(h);
+  }, []);
+
+  useEffect(() => {
+    if (!highlightId || filtered.length === 0) return;
+    const el = document.getElementById(`func-${highlightId}`);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.classList.add("ring-2", "ring-primary", "ring-offset-1");
+      const t = setTimeout(() => el.classList.remove("ring-2", "ring-primary", "ring-offset-1"), 3000);
+      return () => clearTimeout(t);
+    }
+  }, [highlightId, filtered]);
 
   const openNew = () => {
     setEditing(null);
@@ -998,7 +1020,11 @@ function FuncionariosPage() {
                       : (listaTrein as unknown as TreinamentoItem[]);
                   const treinAbertos = countTreinamentosAbertos(treinListaFallback);
                   return (
-                    <TableRow key={f.id}>
+                    <TableRow
+                      key={f.id}
+                      id={`func-${f.id}`}
+                      className={cn(highlightId === f.id && "bg-primary/10 ring-1 ring-primary")}
+                    >
                       <TableCell>
                         <div className="font-medium">{f.nome}</div>
                         <div className="text-xs text-muted-foreground">{f.email}</div>
@@ -1133,7 +1159,11 @@ function FuncionariosPage() {
                   </TableRow>
                 )}
                 {filtered.map((f: any) => (
-                  <TableRow key={f.id}>
+                  <TableRow
+                    key={f.id}
+                    id={`func-${f.id}`}
+                    className={cn(highlightId === f.id && "bg-primary/10 ring-1 ring-primary")}
+                  >
                     <TableCell className="font-medium">{f.nome}</TableCell>
                     <TableCell>
                       <div>{f.funcao ?? "—"}</div>
