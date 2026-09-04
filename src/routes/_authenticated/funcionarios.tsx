@@ -390,6 +390,7 @@ function FuncionariosPage() {
     "validade_meses_treinamento",
     "vencimento_experiencia",
     "validade_meses_experiencia",
+    "data_experiencia",
   ];
 
   const upsert = useMutation({
@@ -635,7 +636,7 @@ function FuncionariosPage() {
                               ["ASO", "data_aso", "vencimento_aso"],
                               ["Férias", "data_ferias", "vencimento_ferias"],
                               ["Folga de campo", "data_folga_campo", "vencimento_folga_campo"],
-                              ["Experiência", "validade_experiencia", "vencimento_experiencia"],
+                              ["Experiência", "data_experiencia", "vencimento_experiencia"],
                             ] as const
                           ).map(([rotulo, keyData, keyVenc]) => (
                             <div
