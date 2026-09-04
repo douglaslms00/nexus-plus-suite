@@ -93,8 +93,10 @@ function countVencimentosAbertos(func: any): { proximos: number; vencidos: numbe
   let vencidos = 0;
   const hoje = new Date();
   for (const item of VENC) {
-    const keyVenc = item[2];
+    const keyVenc = item[0];
     if (!keyVenc) continue;
+    // Experiência concluída não gera alerta
+    if (keyVenc === "vencimento_experiencia" && isExperienciaConcluida(func)) continue;
     const date = func[keyVenc];
     if (!date) continue;
     const dias = differenceInDays(safeParseISO(date), hoje);
@@ -222,7 +224,11 @@ function FuncionariosPage() {
       if (fStatus === "inativos" && f.ativo) return false;
       if (fObra !== "todas" && f.obra_id !== fObra) return false;
       if (fVenc !== "todos") {
-        const dates = VENC.map(([k]) => f[k]).filter(Boolean) as string[];
+        const conclusaoExp = isExperienciaConcluida(f);
+        const dates = VENC.filter(([k]) => {
+          if (k === "vencimento_experiencia" && conclusaoExp) return false;
+          return !!f[k];
+        }).map(([k]) => f[k] as string);
         const hasOverdue = dates.some((d) => differenceInDays(safeParseISO(d), new Date()) < 0);
         const hasSoon = dates.some((d) => {
           const x = differenceInDays(safeParseISO(d), new Date());
@@ -1118,6 +1124,7 @@ function FuncionariosPage() {
                   <TableHead>ASO</TableHead>
                   <TableHead>Férias</TableHead>
                   <TableHead>Folgas</TableHead>
+                  <TableHead>Experiência</TableHead>
                   <TableHead>Treinamentos</TableHead>
                   <TableHead className="w-24 text-right">Ações</TableHead>
                 </TableRow>
@@ -1125,14 +1132,14 @@ function FuncionariosPage() {
               <TableBody>
                 {isLoading && (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                       Carregando...
                     </TableCell>
                   </TableRow>
                 )}
                 {!isLoading && filtered.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                       Nenhum funcionário encontrado.
                     </TableCell>
                   </TableRow>
@@ -1156,6 +1163,18 @@ function FuncionariosPage() {
                         {safeFormatDate(f[key], "dd/MM/yyyy")}
                       </TableCell>
                     ))}
+                    <TableCell
+                      className={cn(
+                        "text-xs whitespace-nowrap",
+                        isExperienciaConcluida(f)
+                          ? "text-success font-semibold"
+                          : vencColor(f.vencimento_experiencia),
+                      )}
+                    >
+                      {isExperienciaConcluida(f)
+                        ? "Concluído"
+                        : safeFormatDate(f.vencimento_experiencia, "dd/MM/yyyy")}
+                    </TableCell>
                     <TableCell>
                       {(() => {
                         const lista = treinamentosPorFuncionario.get(f.id) ?? [];

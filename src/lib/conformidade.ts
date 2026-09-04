@@ -35,14 +35,30 @@ export type FuncionarioConf = {
   pior: Status;
 };
 
+export function isExperienciaConcluida(
+  f: Pick<Funcionario, "experiencia_concluida" | "vencimento_experiencia">,
+  today = new Date(),
+): boolean {
+  if ((f as any)?.experiencia_concluida) return true;
+  const v = (f as any)?.vencimento_experiencia as string | null | undefined;
+  if (v) return differenceInDays(parseISO(v), today) < 0;
+  return false;
+}
+
 export function computeConformidade(
   funcionarios: Funcionario[],
   today = new Date(),
 ): FuncionarioConf[] {
   return funcionarios.map((f) => {
+    const experienciaConcluida = isExperienciaConcluida(f as any, today);
     const items = VENC_FIELDS.map(({ key, label }) => {
       const v = f[key];
       if (!v) return { key, label, status: null, dias: null, data: null };
+      // Experiência concluída não gera alerta: trata como sem status
+      if (key === "vencimento_experiencia" && experienciaConcluida) {
+        const dias = differenceInDays(parseISO(v), today);
+        return { key, label, status: null, dias, data: v };
+      }
       const dias = differenceInDays(parseISO(v), today);
       return { key, label, status: statusFromDays(dias), dias, data: v };
     });

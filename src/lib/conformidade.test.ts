@@ -4,6 +4,7 @@ import {
   statusFromDate,
   computeConformidade,
   countAlertasVencimento,
+  isExperienciaConcluida,
 } from "./conformidade";
 import { addDays, format } from "date-fns";
 
@@ -64,12 +65,14 @@ describe("computeConformidade + countAlertasVencimento", () => {
 
   it("usa a pior status como status geral", () => {
     expect(conf[0].pior).toBe("vermelho");
-    expect(conf[1].pior).toBe("vermelho");
+    // B: experiência vencida é considerada concluída -> não entra no pior, sobra apenas treinamento amarelo
+    expect(conf[1].pior).toBe("amarelo");
     expect(conf[2].pior).toBe("verde");
   });
 
   it("conta apenas itens não verdes", () => {
-    expect(countAlertasVencimento(conf)).toBe(3);
+    // Experiência vencida (-3) é concluída e não deve ser contada
+    expect(countAlertasVencimento(conf)).toBe(2);
   });
 
   it("contador bate com soma manual dos itens não verdes", () => {
@@ -77,5 +80,26 @@ describe("computeConformidade + countAlertasVencimento", () => {
       .flatMap((c) => c.items)
       .filter((i) => i.status && i.status !== "verde").length;
     expect(countAlertasVencimento(conf)).toBe(manual);
+  });
+
+  it("experiência concluída não gera alerta", () => {
+    const expConcluida = { vencimento_experiencia: isoIn(-3, today), experiencia_concluida: false } as any;
+    const expFlag = { vencimento_experiencia: isoIn(60, today), experiencia_concluida: true } as any;
+    const expAtiva = { vencimento_experiencia: isoIn(10, today), experiencia_concluida: false } as any;
+    expect(isExperienciaConcluida(expConcluida, today)).toBe(true);
+    expect(isExperienciaConcluida(expFlag, today)).toBe(true);
+    expect(isExperienciaConcluida(expAtiva, today)).toBe(false);
+    const c = computeConformidade(
+      [
+        { id: "x", nome: "X", vencimento_experiencia: isoIn(-1, today) } as any,
+        { id: "y", nome: "Y", vencimento_experiencia: isoIn(5, today) } as any,
+      ],
+      today,
+    );
+    // vencida deve ter status null (concluído) e não contar
+    expect(c[0].items.find((i) => i.key === "vencimento_experiencia")?.status).toBeNull();
+    expect(c[1].items.find((i) => i.key === "vencimento_experiencia")?.status).toBe("amarelo");
+    expect(countAlertasVencimento([c[0]])).toBe(0);
+    expect(countAlertasVencimento([c[1]])).toBe(1);
   });
 });
