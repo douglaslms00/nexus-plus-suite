@@ -21,8 +21,6 @@ function AuthPage() {
   const [password, setPassword] = useState("");
   const [nome, setNome] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [passwordStrength, setPasswordStrength] = useState("fraca");
-  const [passwordVisible, setPasswordVisible] = useState(false);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
