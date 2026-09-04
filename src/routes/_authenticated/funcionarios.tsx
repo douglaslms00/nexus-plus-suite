@@ -164,6 +164,38 @@ function FuncionariosPage() {
     queryFn: async () => (await supabase.from("obras").select("id, nome").order("nome")).data ?? [],
   });
 
+  const { data: allTreinamentosRaw = [] } = useQuery({
+    queryKey: ["funcionario-treinamentos-all", funcionarios.map((f: any) => f.id).sort().join(",")],
+    enabled: funcionarios.length > 0,
+    queryFn: async () => {
+      const ids = funcionarios.map((f: any) => f.id);
+      const { data, error } = await (supabase as any)
+        .from("funcionario_treinamentos")
+        .select("funcionario_id, nome, data_validade, data_realizacao")
+        .in("funcionario_id", ids);
+      if (error) throw error;
+      return data as Array<{
+        funcionario_id: string;
+        nome: string;
+        data_validade: string | null;
+        data_realizacao: string | null;
+      }>;
+    },
+  });
+
+  const treinamentosPorFuncionario = useMemo(() => {
+    const m = new Map<string, Array<{ nome: string; data_validade: string | null }>>();
+    for (const t of allTreinamentosRaw as any[]) {
+      const list = m.get(t.funcionario_id) ?? [];
+      list.push(t);
+      m.set(t.funcionario_id, list);
+    }
+    for (const [, arr] of m) {
+      arr.sort((a, b) => (a.data_validade ?? "").localeCompare(b.data_validade ?? ""));
+    }
+    return m;
+  }, [allTreinamentosRaw]);
+
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Funcionario | null>(null);
   const [form, setForm] = useState<any>({});
@@ -390,6 +422,7 @@ function FuncionariosPage() {
       toast.success(editing ? "Funcionário atualizado" : "Funcionário criado");
       qc.invalidateQueries({ queryKey: ["funcionarios"] });
       qc.invalidateQueries({ queryKey: ["dash-funcionarios"] });
+      qc.invalidateQueries({ queryKey: ["funcionario-treinamentos-all"] });
       setOpen(false);
     },
     onError: (e: any) => toast.error(e.message),
@@ -936,7 +969,12 @@ function FuncionariosPage() {
                 )}
                 {filtered.map((f: any) => {
                   const abertos = countVencimentosAbertos(f);
-                  const treinAbertos = countTreinamentosAbertos(treinamentos);
+                  const listaTrein = treinamentosPorFuncionario.get(f.id) ?? [];
+                  const treinListaFallback =
+                    listaTrein.length === 0 && f.vencimento_treinamento
+                      ? [{ nome: "", data_validade: f.vencimento_treinamento } as TreinamentoItem]
+                      : (listaTrein as unknown as TreinamentoItem[]);
+                  const treinAbertos = countTreinamentosAbertos(treinListaFallback);
                   return (
                     <TableRow key={f.id}>
                       <TableCell>
@@ -1049,7 +1087,6 @@ function FuncionariosPage() {
                 <TableRow>
                   <TableHead>Nome</TableHead>
                   <TableHead>Função / Setor</TableHead>
-                  <TableHead>Obra</TableHead>
                   <TableHead>ASO</TableHead>
                   <TableHead>Férias</TableHead>
                   <TableHead>Folgas</TableHead>
@@ -1060,14 +1097,14 @@ function FuncionariosPage() {
               <TableBody>
                 {isLoading && (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                       Carregando...
                     </TableCell>
                   </TableRow>
                 )}
                 {!isLoading && filtered.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                       Nenhum funcionário encontrado.
                     </TableCell>
                   </TableRow>
@@ -1079,12 +1116,10 @@ function FuncionariosPage() {
                       <div>{f.funcao ?? "—"}</div>
                       <div className="text-xs text-muted-foreground">{f.setor ?? "—"}</div>
                     </TableCell>
-                    <TableCell>{obras.find((o: any) => o.id === f.obra_id)?.nome ?? "—"}</TableCell>
                     {[
                       "vencimento_aso",
                       "vencimento_ferias",
                       "vencimento_folga_campo",
-                      "vencimento_treinamento",
                     ].map((key) => (
                       <TableCell
                         key={key}
@@ -1093,6 +1128,38 @@ function FuncionariosPage() {
                         {safeFormatDate(f[key], "dd/MM/yyyy")}
                       </TableCell>
                     ))}
+                    <TableCell>
+                      {(() => {
+                        const lista = treinamentosPorFuncionario.get(f.id) ?? [];
+                        const fallback =
+                          lista.length === 0 && f.vencimento_treinamento
+                            ? [{ nome: "", data_validade: f.vencimento_treinamento }]
+                            : lista;
+                        if (fallback.length === 0)
+                          return <span className="text-muted-foreground text-xs">—</span>;
+                        return (
+                          <div className="flex flex-col gap-1">
+                            {fallback.map((t: any, idx: number) => (
+                              <span
+                                key={idx}
+                                className={cn(
+                                  "text-xs whitespace-nowrap",
+                                  vencColor(t.data_validade),
+                                )}
+                                title={
+                                  t.nome
+                                    ? `${t.nome} - ${safeFormatDate(t.data_validade, "dd/MM/yyyy")}`
+                                    : safeFormatDate(t.data_validade, "dd/MM/yyyy")
+                                }
+                              >
+                                {t.nome ? `${t.nome}: ` : ""}
+                                {safeFormatDate(t.data_validade, "dd/MM/yyyy")}
+                              </span>
+                            ))}
+                          </div>
+                        );
+                      })()}
+                    </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
                         <Button
