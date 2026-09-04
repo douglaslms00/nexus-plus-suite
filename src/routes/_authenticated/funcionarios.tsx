@@ -245,10 +245,7 @@ function FuncionariosPage() {
     setEditing(null);
     setAbaForm("dados");
     setFichaRegistro(null);
-    const validaExp = form.validade_experiencia
-      ? differenceInDays(safeParseISO(form.validade_experiencia), new Date()) < 0
-      : false;
-    setForm({ ativo: true, experiencia_concluida: validaExp });
+    setForm({ ativo: true });
     setTreinamentos([novoTreinamento()]);
     setOpen(true);
   };
@@ -627,16 +624,7 @@ function FuncionariosPage() {
                         </div>
                       </div>
 
-                      <div className="col-span-2 flex items-center gap-6 pt-2 border-t">
-                        <label className="flex items-center gap-2 text-sm">
-                          <Checkbox
-                            checked={!!form.experiencia_concluida}
-                            onCheckedChange={(v) =>
-                              setForm({ ...form, experiencia_concluida: !!v })
-                            }
-                          />
-                          Experiência concluída
-                        </label>
+                      <div className="col-span-2 flex items-center gap-2 pt-2 border-t">
                         <label className="flex items-center gap-2 text-sm">
                           <Checkbox
                             checked={!!form.ativo}
