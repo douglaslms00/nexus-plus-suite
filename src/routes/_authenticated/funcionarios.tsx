@@ -164,13 +164,7 @@ function FuncionariosPage() {
     queryKey: ["funcionarios", obraId],
     staleTime: 1000 * 60 * 2,
     queryFn: async () => {
-      let q = supabase
-        .from("funcionarios")
-        .select(
-          "id, nome, cpf, telefone, email, funcao, setor, data_admissao, data_nascimento, endereco, cidade, matricula, obra_id, ativo, experiencia_concluida, vencimento_aso, vencimento_ficha_epi, vencimento_folga_campo, vencimento_ferias, vencimento_treinamento, vencimento_experiencia, data_aso, data_ferias, data_folga_campo",
-        )
-        .order("nome")
-        .limit(1000);
+      let q = supabase.from("funcionarios").select("*").order("nome").limit(1000);
       if (obraId) q = q.eq("obra_id", obraId);
       const { data, error } = await q;
       if (error) throw error;
@@ -189,11 +183,11 @@ function FuncionariosPage() {
   });
 
   const { data: allTreinamentosRaw = [] } = useQuery({
-    queryKey: ["funcionario-treinamentos-all", obraId, funcionarios.length],
+    queryKey: ["funcionario-treinamentos-all", funcionarios.map((f: any) => f.id).sort().join(",")],
     enabled: funcionarios.length > 0,
     staleTime: 1000 * 60 * 2,
     queryFn: async () => {
-      const ids = funcionarios.map((f: any) => f.id).slice(0, 500);
+      const ids = funcionarios.map((f: any) => f.id);
       if (ids.length === 0) return [];
       const { data, error } = await supabase
         .from("funcionario_treinamentos")
