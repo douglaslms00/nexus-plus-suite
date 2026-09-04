@@ -769,7 +769,35 @@ function FuncionariosPage() {
                           type="button"
                           size="sm"
                           variant="outline"
-                          onClick={() => setTreinamentos((prev) => [...prev, novoTreinamento()])}
+                          onClick={() => {
+                            const sel = (form.treinamentoSelecionado ?? "").trim();
+                            if (!sel) {
+                              toast.error("Selecione um treinamento na listbox acima");
+                              return;
+                            }
+                            if (sel === "outro") {
+                              setTreinamentos((prev) => [...prev, novoTreinamento()]);
+                              setForm((prev: any) => ({ ...prev, treinamentoSelecionado: "" }));
+                              return;
+                            }
+                            if (treinamentos.some((t) => t.nome === sel)) {
+                              toast.warning("Treinamento já adicionado");
+                              return;
+                            }
+                            setTreinamentos((prev) => {
+                              // se houver apenas 1 card vazio, preenche ele ao invés de criar outro
+                              if (
+                                prev.length === 1 &&
+                                !prev[0].nome.trim() &&
+                                !prev[0].data_realizacao &&
+                                !prev[0].data_validade
+                              ) {
+                                return [novoTreinamentoWithNome(sel)];
+                              }
+                              return [...prev, novoTreinamentoWithNome(sel)];
+                            });
+                            setForm((prev: any) => ({ ...prev, treinamentoSelecionado: "" }));
+                          }}
                         >
                           <Plus className="h-3 w-3 mr-1" /> Adicionar treinamento
                         </Button>
