@@ -21,8 +21,6 @@ function AuthPage() {
   const [password, setPassword] = useState("");
   const [nome, setNome] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [passwordStrength, setPasswordStrength] = useState("fraca");
-  const [passwordVisible, setPasswordVisible] = useState(false);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -57,24 +55,19 @@ function AuthPage() {
   };
 
   const validarSenha = (senha: string) => {
-    let pontos = 0;
     const requisitos = {
       minuscula: /[a-z]/.test(senha),
       maiuscula: /[A-Z]/.test(senha),
       numero: /[0-9]/.test(senha),
       especial: /[!@#$%^&*(),.?":{}|<>]/.test(senha),
     };
-    Object.values(requisitos).forEach((válido) => {
-      if (válido) pontos++;
-    });
-
-    if (senha.length >= 8 && pontos >= 3) setPasswordStrength("forte");
-    else if (senha.length >= 6 && pontos >= 2) setPasswordStrength("media");
-    else if (senha.length >= 4) setPasswordStrength("fraca");
-    else setPasswordStrength("fraca");
-
-    return requisitos;
+    const pontos = Object.values(requisitos).filter(Boolean).length;
+    const forca =
+      senha.length >= 8 && pontos >= 3 ? "forte" : senha.length >= 6 && pontos >= 2 ? "media" : "fraca";
+    return { ...requisitos, forca };
   };
+  const senhaInfo = validarSenha(password);
+  const passwordStrength = senhaInfo.forca;
 
   const handleForgotPassword = async () => {
     if (!email) {
@@ -188,10 +181,7 @@ function AuthPage() {
                       required
                       minLength={6}
                       value={password}
-                      onChange={(e) => {
-                        setPassword(e.target.value);
-                        validarSenha(e.target.value);
-                      }}
+                      onChange={(e) => setPassword(e.target.value)}
                     />
                     <Button
                       type="button"
