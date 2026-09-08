@@ -220,10 +220,19 @@ function FuncionariosPage() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Funcionario | null>(null);
   const [form, setForm] = useState<any>({});
-  const [busca, setBusca] = useState("");
+  const [busca, setBusca] = useState(() => {
+    if (typeof window !== "undefined") return new URLSearchParams(window.location.search).get("busca") || "";
+    return "";
+  });
   const [fStatus, setFStatus] = useState<"todos" | "ativos" | "inativos">("todos");
   const [fObra, setFObra] = useState<string>("todas");
-  const [fVenc, setFVenc] = useState<"todos" | "vencidos" | "proximos">("todos");
+  const [fVenc, setFVenc] = useState<"todos" | "vencidos" | "proximos">(() => {
+    if (typeof window !== "undefined") {
+      const v = new URLSearchParams(window.location.search).get("venc");
+      if (v === "vencidos" || v === "proximos") return v;
+    }
+    return "todos";
+  });
   const [docsFor, setDocsFor] = useState<Funcionario | null>(null);
   const [fichaRegistro, setFichaRegistro] = useState<File | null>(null);
   const [lendoFicha, setLendoFicha] = useState(false);

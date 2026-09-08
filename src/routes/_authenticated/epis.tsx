@@ -83,6 +83,23 @@ function EpisPage() {
 
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<any>({ tipo: "EPI", estoque_atual: 0, estoque_minimo: 0 });
+  const [busca, setBusca] = useState(() => {
+    if (typeof window !== "undefined") return new URLSearchParams(window.location.search).get("busca") || "";
+    return "";
+  });
+  const [soBaixo, setSoBaixo] = useState(() => {
+    if (typeof window !== "undefined") return new URLSearchParams(window.location.search).get("soBaixo") === "true";
+    return false;
+  });
+
+  const episFiltrados = useMemo(() => {
+    const q = busca.trim().toLowerCase();
+    return epis.filter((e: any) => {
+      if (soBaixo && !(Number(e.estoque_atual) < Number(e.estoque_minimo))) return false;
+      if (!q) return true;
+      return (e.nome ?? "").toLowerCase().includes(q) || (e.ca ?? "").toLowerCase().includes(q);
+    });
+  }, [epis, busca, soBaixo]);
 
   const createEpi = useMutation({
     mutationFn: async () => {
@@ -374,7 +391,34 @@ function EpisPage() {
           <TabsTrigger value="catalogo">Catálogo</TabsTrigger>
           <TabsTrigger value="movs">Histórico de movimentações</TabsTrigger>
         </TabsList>
-        <TabsContent value="catalogo">
+        <TabsContent value="catalogo" className="space-y-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <Input
+              placeholder="Buscar por nome ou CA..."
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              className="max-w-xs"
+            />
+            <Button
+              variant={soBaixo ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSoBaixo(!soBaixo)}
+            >
+              Abaixo do mínimo
+            </Button>
+            {busca || soBaixo ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setBusca("");
+                  setSoBaixo(false);
+                }}
+              >
+                Limpar filtros
+              </Button>
+            ) : null}
+          </div>
           <Card>
             <Table>
               <TableHeader>
@@ -388,7 +432,7 @@ function EpisPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {epis.map((e: any) => {
+                {episFiltrados.map((e: any) => {
                   const baixo = e.estoque_atual < e.estoque_minimo;
                   return (
                     <TableRow key={e.id}>

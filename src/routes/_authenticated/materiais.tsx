@@ -84,8 +84,14 @@ function MateriaisPage() {
   const [openMv, setOpenMv] = useState(false);
   const [fM, setFM] = useState<any>({ unidade: "un" });
   const [fMv, setFMv] = useState<any>({ tipo: "entrada" });
-  const [busca, setBusca] = useState("");
-  const [soBaixo, setSoBaixo] = useState(false);
+  const [busca, setBusca] = useState(() => {
+    if (typeof window !== "undefined") return new URLSearchParams(window.location.search).get("busca") || "";
+    return "";
+  });
+  const [soBaixo, setSoBaixo] = useState(() => {
+    if (typeof window !== "undefined") return new URLSearchParams(window.location.search).get("soBaixo") === "true";
+    return false;
+  });
 
   const materiaisFiltrados = useMemo(() => {
     const q = busca.trim().toLowerCase();
