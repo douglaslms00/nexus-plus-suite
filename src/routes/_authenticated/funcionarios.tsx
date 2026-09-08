@@ -315,11 +315,11 @@ function FuncionariosPage() {
       setTreinamentos(
         data && data.length > 0
           ? data.map((t: any) => ({
-              id: t.id,
-              nome: t.nome ?? "",
-              data_realizacao: t.data_realizacao ?? "",
-              data_validade: t.data_validade ?? "",
-            }))
+            id: t.id,
+            nome: t.nome ?? "",
+            data_realizacao: t.data_realizacao ?? "",
+            data_validade: t.data_validade ?? "",
+          }))
           : [novoTreinamento()],
       );
     } catch {
@@ -703,7 +703,7 @@ function FuncionariosPage() {
                             <SelectValue placeholder="Selecione um treinamento" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="NR-1">
+                            <SelectItem value="NR-1 - OS ">
                               NR-1 - Disposições Gerais e Gerenciamento de Riscos Ocupacionais
                             </SelectItem>
                             <SelectItem value="NR-2">NR-2 - Inspeção Prévia (Revogada)</SelectItem>
@@ -728,7 +728,7 @@ function FuncionariosPage() {
                             <SelectItem value="NR-10">
                               NR-10 - Segurança em Instalações e Serviços em Eletricidade
                             </SelectItem>
-                            <SelectItem value="NR-10 (SEP - Sistema Elétrico de Potência)">
+                            <SelectItem value="NR-10 - (SEP - Sistema Elétrico de Potência)">
                               NR-10 (SEP - Sistema Elétrico de Potência)
                             </SelectItem>
                             <SelectItem value="NR-11">
@@ -929,7 +929,7 @@ function FuncionariosPage() {
                                   >
                                     {(diasParaVencimento(t.data_validade) <= -1 ? "EXPIRADO" : "") +
                                       (diasParaVencimento(t.data_validade) <= 30 &&
-                                      diasParaVencimento(t.data_validade) > -1
+                                        diasParaVencimento(t.data_validade) > -1
                                         ? " (vence em breve)"
                                         : "")}
                                   </span>
@@ -1084,44 +1084,44 @@ function FuncionariosPage() {
                             abertos.vencidos > 0 ||
                             treinAbertos.proximos > 0 ||
                             treinAbertos.vencidos > 0) && (
-                            <span className="mr-1 inline-flex items-center gap-1.5">
-                              {abertos.proximos > 0 && (
-                                <span
-                                  title={`${abertos.proximos} vencimento(s) próximo(s)`}
-                                  className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-xs font-semibold leading-none text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/15 dark:text-amber-400"
-                                >
-                                  <Bell className="h-3.5 w-3.5 shrink-0" /> {abertos.proximos}
-                                </span>
-                              )}
-                              {abertos.vencidos > 0 && (
-                                <span
-                                  title={`${abertos.vencidos} vencimento(s) vencido(s)`}
-                                  className="inline-flex items-center gap-1 rounded-full border border-red-300 bg-red-100 px-2 py-0.5 text-xs font-semibold leading-none text-red-700 dark:border-red-500/40 dark:bg-red-500/15 dark:text-red-400"
-                                >
-                                  <AlertTriangle className="h-3.5 w-3.5 shrink-0" />{" "}
-                                  {abertos.vencidos}
-                                </span>
-                              )}
-                              {treinAbertos.proximos > 0 && (
-                                <span
-                                  title={`${treinAbertos.proximos} treinamento(s) a vencer em 30 dias`}
-                                  className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-xs font-semibold leading-none text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/15 dark:text-amber-400"
-                                >
-                                  <ClipboardList className="h-3.5 w-3.5 shrink-0" />{" "}
-                                  {treinAbertos.proximos}
-                                </span>
-                              )}
-                              {treinAbertos.vencidos > 0 && (
-                                <span
-                                  title={`${treinAbertos.vencidos} treinamento(s) vencido(s)`}
-                                  className="inline-flex items-center gap-1 rounded-full border border-red-300 bg-red-100 px-2 py-0.5 text-xs font-semibold leading-none text-red-700 dark:border-red-500/40 dark:bg-red-500/15 dark:text-red-400"
-                                >
-                                  <AlertCircle className="h-3.5 w-3.5 shrink-0" />{" "}
-                                  {treinAbertos.vencidos}
-                                </span>
-                              )}
-                            </span>
-                          )}
+                              <span className="mr-1 inline-flex items-center gap-1.5">
+                                {abertos.proximos > 0 && (
+                                  <span
+                                    title={`${abertos.proximos} vencimento(s) próximo(s)`}
+                                    className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-xs font-semibold leading-none text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/15 dark:text-amber-400"
+                                  >
+                                    <Bell className="h-3.5 w-3.5 shrink-0" /> {abertos.proximos}
+                                  </span>
+                                )}
+                                {abertos.vencidos > 0 && (
+                                  <span
+                                    title={`${abertos.vencidos} vencimento(s) vencido(s)`}
+                                    className="inline-flex items-center gap-1 rounded-full border border-red-300 bg-red-100 px-2 py-0.5 text-xs font-semibold leading-none text-red-700 dark:border-red-500/40 dark:bg-red-500/15 dark:text-red-400"
+                                  >
+                                    <AlertTriangle className="h-3.5 w-3.5 shrink-0" />{" "}
+                                    {abertos.vencidos}
+                                  </span>
+                                )}
+                                {treinAbertos.proximos > 0 && (
+                                  <span
+                                    title={`${treinAbertos.proximos} treinamento(s) a vencer em 30 dias`}
+                                    className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-xs font-semibold leading-none text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/15 dark:text-amber-400"
+                                  >
+                                    <ClipboardList className="h-3.5 w-3.5 shrink-0" />{" "}
+                                    {treinAbertos.proximos}
+                                  </span>
+                                )}
+                                {treinAbertos.vencidos > 0 && (
+                                  <span
+                                    title={`${treinAbertos.vencidos} treinamento(s) vencido(s)`}
+                                    className="inline-flex items-center gap-1 rounded-full border border-red-300 bg-red-100 px-2 py-0.5 text-xs font-semibold leading-none text-red-700 dark:border-red-500/40 dark:bg-red-500/15 dark:text-red-400"
+                                  >
+                                    <AlertCircle className="h-3.5 w-3.5 shrink-0" />{" "}
+                                    {treinAbertos.vencidos}
+                                  </span>
+                                )}
+                              </span>
+                            )}
                           <Button
                             size="icon"
                             variant="ghost"
