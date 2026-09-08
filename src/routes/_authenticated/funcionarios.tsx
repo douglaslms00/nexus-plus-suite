@@ -704,7 +704,7 @@ function FuncionariosPage() {
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="NR-1 - OS ">
-                              NR-1 - Disposições Gerais e Gerenciamento de Riscos Ocupacionais
+                              NR-1 OS - Disposições Gerais e Gerenciamento de Riscos Ocupacionais
                             </SelectItem>
                             <SelectItem value="NR-2">NR-2 - Inspeção Prévia (Revogada)</SelectItem>
                             <SelectItem value="NR-3">NR-3 - Embargo e Interdição</SelectItem>
@@ -729,7 +729,7 @@ function FuncionariosPage() {
                               NR-10 - Segurança em Instalações e Serviços em Eletricidade
                             </SelectItem>
                             <SelectItem value="NR-10 - (SEP - Sistema Elétrico de Potência)">
-                              NR-10 (SEP - Sistema Elétrico de Potência)
+                              NR-10 - (SEP - Sistema Elétrico de Potência)
                             </SelectItem>
                             <SelectItem value="NR-11">
                               NR-11 - Transporte, Movimentação, Armazenagem e Manuseio de Materiais
