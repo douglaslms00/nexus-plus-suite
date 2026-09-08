@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useCurrentUser, useModulePerm } from "@/lib/permissions";
+import { useCurrentUser, useModulePerm, useUserRoles, canManage } from "@/lib/permissions";
 import { useObraAtual } from "@/lib/obra-context.types";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -36,7 +36,9 @@ type Escopo = "obra" | "pessoal";
 
 function DocumentosPage() {
   const perm = useModulePerm("documentos");
-  const [escopo, setEscopo] = useState<Escopo>("obra");
+  const { data: roles } = useUserRoles();
+  const gestor = canManage(roles);
+  const [escopo, setEscopo] = useState<Escopo>(gestor ? "obra" : "pessoal");
 
   if (!perm.can_view) {
     return (
@@ -51,23 +53,32 @@ function DocumentosPage() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Documentos</h1>
         <p className="text-muted-foreground">
-          Organize arquivos em pastas — compartilhados por obra ou pessoais.
+          {gestor
+            ? "Organize arquivos em pastas — compartilhados por obra ou pessoais."
+            : "Seus arquivos pessoais. Documentos da obra são gerenciados pelos gestores."}
         </p>
       </div>
       <Tabs value={escopo} onValueChange={(v) => setEscopo(v as Escopo)}>
         <TabsList>
-          <TabsTrigger value="obra">Obra</TabsTrigger>
+          {gestor && <TabsTrigger value="obra">Obra</TabsTrigger>}
           <TabsTrigger value="pessoal">Meus documentos</TabsTrigger>
         </TabsList>
-        <TabsContent value="obra">
-          <Browser escopo="obra" canEdit={perm.can_edit} canDelete={perm.can_delete} />
-        </TabsContent>
+        {gestor && (
+          <TabsContent value="obra">
+            <Browser
+              escopo="obra"
+              canEdit={perm.can_edit && gestor}
+              canDelete={perm.can_delete && gestor}
+            />
+          </TabsContent>
+        )}
         <TabsContent value="pessoal">
           <Browser escopo="pessoal" canEdit canDelete />
         </TabsContent>
       </Tabs>
     </div>
   );
+
 }
 
 function Browser({
