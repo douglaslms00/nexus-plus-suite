@@ -1109,32 +1109,124 @@ export type Database = {
       obras: {
         Row: {
           created_at: string
+          data_alvara: string | null
+          data_ltcat: string | null
+          data_outros: string | null
+          data_pcmso: string | null
+          data_pgr: string | null
+          descricao_outros: string | null
           endereco: string | null
           id: string
           nome: string
           observacoes: string | null
           status: string
           updated_at: string
+          validade_meses_alvara: number | null
+          validade_meses_ltcat: number | null
+          validade_meses_outros: number | null
+          validade_meses_pcmso: number | null
+          validade_meses_pgr: number | null
+          vencimento_alvara: string | null
+          vencimento_ltcat: string | null
+          vencimento_outros: string | null
+          vencimento_pcmso: string | null
+          vencimento_pgr: string | null
         }
         Insert: {
           created_at?: string
+          data_alvara?: string | null
+          data_ltcat?: string | null
+          data_outros?: string | null
+          data_pcmso?: string | null
+          data_pgr?: string | null
+          descricao_outros?: string | null
           endereco?: string | null
           id?: string
           nome: string
           observacoes?: string | null
           status?: string
           updated_at?: string
+          validade_meses_alvara?: number | null
+          validade_meses_ltcat?: number | null
+          validade_meses_outros?: number | null
+          validade_meses_pcmso?: number | null
+          validade_meses_pgr?: number | null
+          vencimento_alvara?: string | null
+          vencimento_ltcat?: string | null
+          vencimento_outros?: string | null
+          vencimento_pcmso?: string | null
+          vencimento_pgr?: string | null
         }
         Update: {
           created_at?: string
+          data_alvara?: string | null
+          data_ltcat?: string | null
+          data_outros?: string | null
+          data_pcmso?: string | null
+          data_pgr?: string | null
+          descricao_outros?: string | null
           endereco?: string | null
           id?: string
           nome?: string
           observacoes?: string | null
           status?: string
           updated_at?: string
+          validade_meses_alvara?: number | null
+          validade_meses_ltcat?: number | null
+          validade_meses_outros?: number | null
+          validade_meses_pcmso?: number | null
+          validade_meses_pgr?: number | null
+          vencimento_alvara?: string | null
+          vencimento_ltcat?: string | null
+          vencimento_outros?: string | null
+          vencimento_pcmso?: string | null
+          vencimento_pgr?: string | null
         }
         Relationships: []
+      }
+      obra_vencimentos: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          data_emissao: string | null
+          data_vencimento: string | null
+          id: string
+          nome: string
+          obra_id: string
+          observacoes: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          data_emissao?: string | null
+          data_vencimento?: string | null
+          id?: string
+          nome: string
+          obra_id: string
+          observacoes?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          data_emissao?: string | null
+          data_vencimento?: string | null
+          id?: string
+          nome?: string
+          obra_id?: string
+          observacoes?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "obra_vencimentos_obra_id_fkey"
+            columns: ["obra_id"]
+            isOneToOne: false
+            referencedRelation: "obras"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       permission_audit_log: {
         Row: {
