@@ -866,6 +866,10 @@ export type Database = {
           created_at: string
           created_by: string | null
           data_admissao: string | null
+          data_aso: string | null
+          data_experiencia: string | null
+          data_ferias: string | null
+          data_folga_campo: string | null
           email: string | null
           endereco: string | null
           experiencia_concluida: boolean
@@ -897,6 +901,10 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           data_admissao?: string | null
+          data_aso?: string | null
+          data_experiencia?: string | null
+          data_ferias?: string | null
+          data_folga_campo?: string | null
           email?: string | null
           endereco?: string | null
           experiencia_concluida?: boolean
@@ -928,6 +936,10 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           data_admissao?: string | null
+          data_aso?: string | null
+          data_experiencia?: string | null
+          data_ferias?: string | null
+          data_folga_campo?: string | null
           email?: string | null
           endereco?: string | null
           experiencia_concluida?: boolean

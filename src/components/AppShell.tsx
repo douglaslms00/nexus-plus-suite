@@ -48,6 +48,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useObraAtual } from "@/lib/obra-context.types";
 import { NotificationsBell } from "@/components/NotificationsBell";
 import { GlobalFloatingActions } from "@/components/GlobalFloatingActions";
+import { InstallAppButton } from "@/components/InstallAppButton";
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { location } = useRouterState();
@@ -289,6 +290,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </Select>
           </div>
           <div className="flex items-center gap-1">
+            <InstallAppButton compact />
             <NotificationsBell />
             <Button
               variant="ghost"
@@ -334,6 +336,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 ))}
               </SelectContent>
             </Select>
+            <InstallAppButton />
             <NotificationsBell />
             <Button
               variant="ghost"

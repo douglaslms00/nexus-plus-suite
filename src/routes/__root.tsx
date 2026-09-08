@@ -96,10 +96,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     ],
     links: [
       { rel: "stylesheet", href: appCss },
-      { rel: "manifest", href: "/manifest.json" },
+      { rel: "manifest", href: "/manifest.webmanifest" },
       { rel: "icon", href: "/favicon.ico", sizes: "any" },
       { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
-      { rel: "icon", type: "image/png", sizes: "192x192", href: "/logo192.png" },
+      { rel: "icon", type: "image/png", sizes: "192x192", href: "/icon-192.png" },
       { rel: "apple-touch-icon", href: "/apple-touch-icon.png", sizes: "180x180" },
     ],
   }),
@@ -141,8 +141,13 @@ function AuthListener() {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   useEffect(() => {
+    // Remove service workers antigos que serviam conteúdo desatualizado.
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("/sw.js");
+      void navigator.serviceWorker.getRegistrations().then((regs) => {
+        regs.forEach((reg) => {
+          if (reg.active?.scriptURL.endsWith("/sw.js")) void reg.unregister();
+        });
+      });
     }
   }, []);
   return (
