@@ -108,7 +108,10 @@ function ObrasPage() {
         .select("obra_id, nome, data_vencimento, data_emissao")
         .in("obra_id", ids)
         .limit(2000);
-      if (error) throw error;
+      if (error) {
+        if ((error as any).code === "PGRST205") return [];
+        throw error;
+      }
       return data as Array<{ obra_id: string; nome: string; data_vencimento: string | null; data_emissao: string | null }>;
     },
   });
@@ -180,6 +183,7 @@ function ObrasPage() {
       };
       // tenta salvar com colunas novas, com fallback se coluna ainda não existir no banco (evita quebrar antes da migration aplicar)
       const cols = Object.keys(payload);
+      const faltantes = new Set<string>();
       const tentar = async (isUpdate: boolean) => {
         let dados = { ...payload };
         for (let i = 0; i <= cols.length; i++) {
@@ -191,7 +195,10 @@ function ObrasPage() {
           const msg: string = error.message ?? "";
           const miss = [...msg.matchAll(/Could not find the '([^']+)' column/g)].map((m) => m[1]);
           if (miss.length === 0) throw error;
-          miss.forEach((c) => delete dados[c]);
+          miss.forEach((c) => {
+            faltantes.add(c);
+            delete dados[c];
+          });
           if (Object.keys(dados).length === 0) throw error;
         }
       };
@@ -202,11 +209,16 @@ function ObrasPage() {
         const res: any = await tentar(false);
         obraId = res?.id;
       }
+      if (faltantes.size > 0) {
+        toast.warning(`Vencimentos ainda não existem no banco: ${[...faltantes].join(", ")}. Aplique a migration 20260909130000_obras_vencimentos.sql no Supabase SQL Editor.`);
+      }
       // salva vencimentos dinâmicos "Outros"
       if (obraId) {
         const validos = outrosVenc.filter((t) => t.nome.trim());
-        await (supabase as any).from("obra_vencimentos").delete().eq("obra_id", obraId);
-        if (validos.length > 0) {
+        const { error: delErr } = await (supabase as any).from("obra_vencimentos").delete().eq("obra_id", obraId);
+        if (delErr && delErr.code === "PGRST205") {
+          if (validos.length > 0) toast.warning('Tabela obra_vencimentos ainda não existe. Aplique a migration 20260909130000_obras_vencimentos.sql');
+        } else if (validos.length > 0) {
           const rows = validos.map((t) => ({
             obra_id: obraId,
             nome: t.nome.trim(),
@@ -214,7 +226,10 @@ function ObrasPage() {
             data_vencimento: t.data_vencimento || null,
           }));
           const { error } = await (supabase as any).from("obra_vencimentos").insert(rows);
-          if (error) console.warn("Outros vencimentos não salvos:", error.message);
+          if (error) {
+            if ((error as any).code === "PGRST205") toast.warning('Tabela obra_vencimentos ainda não existe. Aplique a migration.');
+            else console.warn("Outros vencimentos não salvos:", error.message);
+          }
         }
       }
     },
