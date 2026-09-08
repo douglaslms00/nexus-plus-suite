@@ -7,17 +7,66 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Building2, Eye, EyeOff, Lock, Shield, MessageCircle } from "lucide-react";
+import { Building2, Eye, EyeOff } from "lucide-react";
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
   component: AuthPage,
 });
 
+function onlyDigits(v: string) {
+  return v.replace(/\D/g, "");
+}
+
+function formatCpf(v: string) {
+  const d = onlyDigits(v).slice(0, 11);
+  if (d.length <= 3) return d;
+  if (d.length <= 6) return `${d.slice(0, 3)}.${d.slice(3)}`;
+  if (d.length <= 9) return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6)}`;
+  return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
+}
+
+function validarCPF(cpf: string): boolean {
+  const c = onlyDigits(cpf);
+  if (c.length !== 11 || /^(\d)\1+$/.test(c)) return false;
+  let sum = 0;
+  for (let i = 0; i < 9; i++) sum += parseInt(c[i]) * (10 - i);
+  let rest = (sum * 10) % 11;
+  if (rest === 10 || rest === 11) rest = 0;
+  if (rest !== parseInt(c[9])) return false;
+  sum = 0;
+  for (let i = 0; i < 10; i++) sum += parseInt(c[i]) * (11 - i);
+  rest = (sum * 10) % 11;
+  if (rest === 10 || rest === 11) rest = 0;
+  if (rest !== parseInt(c[10])) return false;
+  return true;
+}
+
+function isEmail(v: string) {
+  return v.includes("@");
+}
+
+async function resolveEmail(identifier: string): Promise<string | null> {
+  const trimmed = identifier.trim();
+  if (isEmail(trimmed)) return trimmed.toLowerCase();
+  const digits = onlyDigits(trimmed);
+  if (digits.length !== 11) return null;
+  const { data, error } = await (supabase as any).rpc("get_email_by_cpf", { cpf_input: trimmed });
+  if (error) {
+    console.warn("get_email_by_cpf error", error);
+    return null;
+  }
+  if (!data) return null;
+  // data pode ser string direta ou null
+  return typeof data === "string" ? data : null;
+}
+
 function AuthPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [loginId, setLoginId] = useState("");
   const [email, setEmail] = useState("");
+  const [signupCpf, setSignupCpf] = useState("");
   const [password, setPassword] = useState("");
   const [nome, setNome] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -30,25 +79,55 @@ function AuthPage() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    const identifier = loginId.trim();
+    if (!identifier) return toast.error("Informe e-mail ou CPF.");
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
-    if (error) return toast.error(error.message);
-    toast.success("Bem-vindo!");
-    navigate({ to: "/dashboard", replace: true });
+    try {
+      const emailToUse = await resolveEmail(identifier);
+      if (!emailToUse) {
+        if (!isEmail(identifier)) {
+          toast.error("CPF não encontrado ou não cadastrado. Verifique o CPF ou use seu e-mail.");
+        } else {
+          toast.error("E-mail não encontrado.");
+        }
+        setLoading(false);
+        return;
+      }
+      const { error } = await supabase.auth.signInWithPassword({ email: emailToUse, password });
+      if (error) return toast.error(error.message);
+      toast.success("Bem-vindo!");
+      navigate({ to: "/dashboard", replace: true });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
+    const cpfDigits = onlyDigits(signupCpf);
+    if (signupCpf && !validarCPF(signupCpf)) {
+      return toast.error("CPF inválido. Verifique o número digitado.");
+    }
     setLoading(true);
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         emailRedirectTo: `${window.location.origin}/dashboard`,
-        data: { nome },
+        data: { nome, cpf: cpfDigits || undefined },
       },
     });
+    // Se o usuário já foi criado mas precisa confirmar e-mail, tenta salvar cpf diretamente se houver sessão
+    if (!error && data.user && cpfDigits) {
+      try {
+        // Tenta atualizar perfil imediatamente se já houver sessão (quando confirmação desativada)
+        // Caso não haja sessão, o trigger handle_new_user já salvou via metadados
+        const { data: sess } = await supabase.auth.getSession();
+        if (sess.session) {
+          await (supabase as any).from("profiles").update({ cpf: cpfDigits }).eq("id", data.user.id);
+        }
+      } catch {}
+    }
     setLoading(false);
     if (error) return toast.error(error.message);
     toast.success("Conta criada! Verifique seu e-mail para confirmar.");
@@ -70,11 +149,18 @@ function AuthPage() {
   const passwordStrength = senhaInfo.forca;
 
   const handleForgotPassword = async () => {
-    if (!email) {
-      return toast.error("Por favor, preencha o campo de e-mail para recuperar a senha.");
+    const identifier = loginId.trim() || email.trim();
+    if (!identifier) {
+      return toast.error("Preencha e-mail ou CPF para recuperar a senha.");
     }
     setLoading(true);
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    const emailToUse = await resolveEmail(identifier);
+    if (!emailToUse) {
+      setLoading(false);
+      if (!isEmail(identifier)) return toast.error("CPF não encontrado. Verifique o CPF cadastrado.");
+      return toast.error("E-mail não encontrado.");
+    }
+    const { error } = await supabase.auth.resetPasswordForEmail(emailToUse, {
       redirectTo: `${window.location.origin}/auth?reset=true`,
     });
     setLoading(false);
@@ -101,14 +187,33 @@ function AuthPage() {
             <TabsContent value="login">
               <form onSubmit={handleLogin} className="space-y-4 mt-4">
                 <div className="space-y-2">
-                  <Label htmlFor="login-email">E-mail</Label>
+                  <Label htmlFor="login-identifier">E-mail ou CPF</Label>
                   <Input
-                    id="login-email"
-                    type="email"
+                    id="login-identifier"
+                    type="text"
                     required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="seu@email.com ou 000.000.000-00"
+                    value={loginId}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      // Se parece CPF (apenas numeros/pontos/tracos) formata, senao mantem livre
+                      if (!v.includes("@") && /[0-9]/.test(v)) {
+                        // se digitou numeros, aplica mascara quando tiver ate 11 digitos e nao contem @
+                        const digits = onlyDigits(v);
+                        if (digits.length <= 11 && (v.length === 0 || /[0-9.\- ]/.test(v))) {
+                          // detecta se usuario esta digitando CPF: se nao tem @, formata
+                          if (digits.length > 3 && !v.includes("@")) {
+                            setLoginId(formatCpf(v));
+                          } else {
+                            setLoginId(v);
+                          }
+                          return;
+                        }
+                      }
+                      setLoginId(v);
+                    }}
                   />
+                  <p className="text-xs text-muted-foreground">Você pode entrar com e-mail ou CPF cadastrado.</p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="login-password">Senha</Label>
@@ -171,6 +276,20 @@ function AuthPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                   />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="signup-cpf">CPF (opcional, para login com CPF)</Label>
+                  <Input
+                    id="signup-cpf"
+                    type="text"
+                    placeholder="000.000.000-00"
+                    value={signupCpf}
+                    onChange={(e) => setSignupCpf(formatCpf(e.target.value))}
+                    maxLength={14}
+                  />
+                  {signupCpf && !validarCPF(signupCpf) && (
+                    <p className="text-xs text-destructive">CPF inválido</p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="signup-password">Senha</Label>

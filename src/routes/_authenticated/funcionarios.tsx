@@ -728,8 +728,8 @@ function FuncionariosPage() {
                             <SelectItem value="NR-10">
                               NR-10 - Segurança em Instalações e Serviços em Eletricidade
                             </SelectItem>
-                            <SelectItem value="NR-10 - (SEP - Sistema Elétrico de Potência)">
-                              NR-10 - (SEP - Sistema Elétrico de Potência)
+                            <SelectItem value="NR-10 (SEP - Sistema Elétrico de Potência)">
+                              NR-10 (SEP - Sistema Elétrico de Potência)
                             </SelectItem>
                             <SelectItem value="NR-11">
                               NR-11 - Transporte, Movimentação, Armazenagem e Manuseio de Materiais

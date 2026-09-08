@@ -1175,6 +1175,7 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          cpf: string | null
           created_at: string
           email: string | null
           id: string
@@ -1184,6 +1185,7 @@ export type Database = {
         }
         Insert: {
           avatar_url?: string | null
+          cpf?: string | null
           created_at?: string
           email?: string | null
           id: string
@@ -1193,6 +1195,7 @@ export type Database = {
         }
         Update: {
           avatar_url?: string | null
+          cpf?: string | null
           created_at?: string
           email?: string | null
           id?: string
@@ -1538,6 +1541,7 @@ export type Database = {
         Returns: boolean
       }
       ensure_profile: { Args: never; Returns: undefined }
+      get_email_by_cpf: { Args: { cpf_input: string }; Returns: string }
       gerar_notificacoes_vencimentos: { Args: never; Returns: number }
       has_obra_access: {
         Args: { _obra_id: string; _user_id: string }

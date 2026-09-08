@@ -22,15 +22,28 @@ function PerfilPage() {
   const [nome, setNome] = useState("");
   const [setor, setSetor] = useState("");
   const [email, setEmail] = useState("");
+  const [cpf, setCpf] = useState("");
   const [pwd, setPwd] = useState("");
   const [pwd2, setPwd2] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+
+  function onlyDigits(v: string) {
+    return v.replace(/\D/g, "");
+  }
+  function formatCpf(v: string) {
+    const d = onlyDigits(v).slice(0, 11);
+    if (d.length <= 3) return d;
+    if (d.length <= 6) return `${d.slice(0, 3)}.${d.slice(3)}`;
+    if (d.length <= 9) return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6)}`;
+    return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
+  }
 
   useEffect(() => {
     if (profile) {
       setNome(profile.nome ?? "");
       setSetor((profile as any).setor ?? "");
       setEmail((profile as any).email ?? user?.email ?? "");
+      setCpf((profile as any).cpf ? formatCpf((profile as any).cpf) : "");
       setAvatarUrl((profile as any).avatar_url ?? null);
     }
   }, [profile, user?.email]);
@@ -54,11 +67,17 @@ function PerfilPage() {
 
   const saveProfile = useMutation({
     mutationFn: async () => {
+      const cpfDigits = onlyDigits(cpf);
+      if (cpf && cpfDigits.length !== 11) throw new Error("CPF deve ter 11 dígitos");
       const { error } = await supabase
         .from("profiles")
-        .update({ nome, setor, avatar_url: avatarUrl } as any)
+        .update({ nome, setor, avatar_url: avatarUrl, cpf: cpfDigits || null } as any)
         .eq("id", user!.id);
       if (error) throw error;
+      if (cpfDigits) {
+        const { error: metaErr } = await supabase.auth.updateUser({ data: { cpf: cpfDigits } } as any);
+        if (metaErr) console.warn(metaErr.message);
+      }
       if (email && email !== user?.email) {
         const { error: eErr } = await supabase.auth.updateUser({ email });
         if (eErr) throw eErr;
@@ -156,6 +175,16 @@ function PerfilPage() {
             <div>
               <Label>E-mail</Label>
               <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+            </div>
+            <div>
+              <Label>CPF (para login com CPF)</Label>
+              <Input
+                placeholder="000.000.000-00"
+                value={cpf}
+                onChange={(e) => setCpf(formatCpf(e.target.value))}
+                maxLength={14}
+              />
+              <p className="text-xs text-muted-foreground mt-1">Seu CPF será usado para permitir login com CPF.</p>
             </div>
             <Button onClick={() => saveProfile.mutate()} disabled={saveProfile.isPending}>
               {saveProfile.isPending ? "Salvando..." : "Salvar"}
