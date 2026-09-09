@@ -58,7 +58,51 @@ import { VENC_FIELDS, computeConformidade, type Status } from "@/lib/conformidad
 import { differenceInDays } from "date-fns";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/_authenticated/dashboard")({ component: DashboardPage });
+function DashboardErrorFallback({ error, reset }: { error: Error; reset: () => void }) {
+  return (
+    <div className="flex min-h-[60vh] items-center justify-center px-4">
+      <div className="max-w-lg w-full text-center rounded-lg border bg-card p-6 shadow-sm">
+        <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-amber-100 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400">
+          <AlertTriangle className="h-5 w-5" />
+        </div>
+        <h2 className="text-lg font-semibold">Falha ao carregar o Dashboard</h2>
+        <p className="mt-2 text-sm text-muted-foreground break-words">
+          {error?.message ?? "Erro inesperado ao montar o painel."}
+        </p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Os demais módulos continuam funcionando. Use o botão abaixo para tentar novamente ou verifique o console do
+          navegador (F12) para mais detalhes.
+        </p>
+        <div className="mt-5 flex flex-wrap justify-center gap-2">
+          <Button onClick={() => reset()} className="gap-1">
+            <RefreshCw className="h-3.5 w-3.5" /> Tentar novamente
+          </Button>
+          <Button variant="outline" onClick={() => window.location.reload()}>
+            Recarregar página
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export const Route = createFileRoute("/_authenticated/dashboard")({
+  component: DashboardPage,
+  errorComponent: DashboardErrorFallback,
+});
+
+function colunasMissing(msg: string): string[] {
+  const out: string[] = [];
+  const re = /Could not find the '([^']+)' column of '[^']+'\s*in the schema cache/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(msg))) out.push(m[1]);
+  return out;
+}
+
+function logDashWarn(scope: string, err: unknown) {
+  const msg = err instanceof Error ? err.message : String(err);
+  console.warn(`[dashboard:${scope}]`, msg);
+}
 
 function StatusDot({ status }: { status: Status }) {
   return (
@@ -123,40 +167,77 @@ function DashboardPage() {
   const [stockEntryObra, setStockEntryObra] = useState<string>(obraId || "");
 
   // 1. Obras
-  const { data: obras = [] } = useQuery({
+  const {
+    data: obras = [],
+    error: obrasError,
+  } = useQuery({
     queryKey: ["dash-obras"],
     staleTime: 1000 * 60 * 5,
+    retry: 1,
     queryFn: async () => {
       const { data, error } = await supabase.from("obras").select("id, nome").order("nome");
-      if (error) throw error;
+      if (error) {
+        logDashWarn("obras", error);
+        // Fallback silencioso: retorna vazio em vez de quebrar todo o dashboard
+        return [];
+      }
       return data ?? [];
     },
   });
   const obraAtualNome = obraId ? obras.find((o: any) => o.id === obraId)?.nome : null;
 
-  // 2. Funcionários
-  const { data: funcionarios = [], isLoading: loadingFunc } = useQuery({
+  // 2. Funcionários — tolerante a colunas que não existem mais no schema (ex.: vencimento_treinamento)
+  const {
+    data: funcionarios = [],
+    isLoading: loadingFunc,
+    error: funcionariosError,
+  } = useQuery({
     queryKey: ["dash-funcionarios", obraId],
+    retry: 1,
     queryFn: async () => {
-      let q = supabase
-        .from("funcionarios")
-        .select(
-          "id, nome, ativo, obra_id, funcao, setor, telefone, email, cpf, data_admissao, vencimento_aso, vencimento_treinamento, vencimento_folga_campo, vencimento_ferias, vencimento_ficha_epi, vencimento_experiencia, experiencia_concluida",
-        )
-        .eq("ativo", true)
-        .order("nome");
-      if (obraId) q = q.eq("obra_id", obraId);
-      const { data, error } = await q;
-      if (error) throw error;
+      const baseSelect =
+        "id, nome, ativo, obra_id, funcao, setor, telefone, email, cpf, data_admissao, vencimento_aso, vencimento_treinamento, vencimento_folga_campo, vencimento_ferias, vencimento_ficha_epi, vencimento_experiencia, experiencia_concluida";
+      const trySelect = async (sel: string) => {
+        let q: any = supabase.from("funcionarios").select(sel).eq("ativo", true).order("nome");
+        if (obraId) q = q.eq("obra_id", obraId);
+        return await q;
+      };
+      let { data, error } = await trySelect(baseSelect);
+      if (error) {
+        const miss = colunasMissing(error.message ?? "");
+        if (miss.length > 0) {
+          logDashWarn("funcionarios-missing-cols", `${miss.join(", ")} — tentando fallback com select("*")`);
+          // Fallback 1: select("*") — funciona mesmo se o cache do PostgREST estiver desatualizado
+          const fb = await (async () => {
+            let q: any = supabase.from("funcionarios").select("*").eq("ativo", true).order("nome");
+            if (obraId) q = q.eq("obra_id", obraId);
+            return await q;
+          })();
+          if (!fb.error) return fb.data ?? [];
+          // Fallback 2: remove colunas faltantes e tenta de novo
+          const filtered = baseSelect
+            .split(",")
+            .map((s) => s.trim())
+            .filter((c) => !miss.includes(c))
+            .join(", ");
+          const retry = await trySelect(filtered);
+          if (!retry.error) return retry.data ?? [];
+          logDashWarn("funcionarios", retry.error);
+          return [];
+        }
+        logDashWarn("funcionarios", error);
+        return [];
+      }
       return data ?? [];
     },
   });
 
   // Treinamentos de NR detalhados dos funcionários
-  const { data: allTreinamentos = [] } = useQuery({
+  const { data: allTreinamentos = [], error: treinamentosError } = useQuery({
     queryKey: ["dash-treinamentos", obraId],
     enabled: funcionarios.length > 0,
     staleTime: 1000 * 60 * 2,
+    retry: 1,
     queryFn: async () => {
       const ids = funcionarios.map((f: any) => f.id);
       if (ids.length === 0) return [];
@@ -164,7 +245,10 @@ function DashboardPage() {
         .from("funcionario_treinamentos")
         .select("id, funcionario_id, nome, data_validade, data_realizacao")
         .in("funcionario_id", ids);
-      if (error) throw error;
+      if (error) {
+        logDashWarn("treinamentos", error);
+        return [];
+      }
       return data ?? [];
     },
   });
@@ -180,8 +264,9 @@ function DashboardPage() {
   }, [allTreinamentos]);
 
   // 3. Tarefas
-  const { data: tarefas = [] } = useQuery({
+  const { data: tarefas = [], error: tarefasError } = useQuery({
     queryKey: ["dash-tarefas", obraId],
+    retry: 1,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("tarefas")
@@ -189,15 +274,25 @@ function DashboardPage() {
         .neq("status", "concluida")
         .order("data_vencimento", { ascending: true })
         .limit(100);
-      if (error) throw error;
+      if (error) {
+        logDashWarn("tarefas", error);
+        // Fallback: tenta select(*) se coluna não existir mais
+        const miss = colunasMissing(error.message ?? "");
+        if (miss.length > 0) {
+          const fb = await supabase.from("tarefas").select("*").neq("status", "concluida").limit(100);
+          if (!fb.error) return fb.data ?? [];
+        }
+        return [];
+      }
       return data ?? [];
     },
   });
 
   // 4. EPIs
-  const { data: epis = [] } = useQuery({
+  const { data: epis = [], error: episError } = useQuery({
     queryKey: ["dash-epis"],
     staleTime: 1000 * 60 * 2,
+    retry: 1,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("epis")
@@ -205,15 +300,21 @@ function DashboardPage() {
         .eq("ativo", true)
         .order("nome")
         .limit(300);
-      if (error) throw error;
+      if (error) {
+        logDashWarn("epis", error);
+        const fb = await supabase.from("epis").select("*").eq("ativo", true).limit(300);
+        if (!fb.error) return fb.data ?? [];
+        return [];
+      }
       return data ?? [];
     },
   });
 
   // 5. Materiais
-  const { data: materiais = [] } = useQuery({
+  const { data: materiais = [], error: materiaisError } = useQuery({
     queryKey: ["dash-mat"],
     staleTime: 1000 * 60 * 2,
+    retry: 1,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("materiais")
@@ -221,14 +322,20 @@ function DashboardPage() {
         .eq("ativo", true)
         .order("nome")
         .limit(300);
-      if (error) throw error;
+      if (error) {
+        logDashWarn("materiais", error);
+        const fb = await supabase.from("materiais").select("*").eq("ativo", true).limit(300);
+        if (!fb.error) return fb.data ?? [];
+        return [];
+      }
       return data ?? [];
     },
   });
 
   // 6. Contas Financeiras a Pagar
-  const { data: contas = [] } = useQuery({
+  const { data: contas = [], error: contasError } = useQuery({
     queryKey: ["dash-contas", obraId],
+    retry: 1,
     queryFn: async () => {
       let q = supabase
         .from("contas_financeiras")
@@ -238,14 +345,25 @@ function DashboardPage() {
         .limit(200);
       if (obraId) q = q.eq("obra_id", obraId);
       const { data, error } = await q;
-      if (error) throw error;
+      if (error) {
+        logDashWarn("contas", error);
+        const miss = colunasMissing(error.message ?? "");
+        if (miss.length > 0) {
+          let q2: any = supabase.from("contas_financeiras").select("*").neq("status", "pago").limit(200);
+          if (obraId) q2 = q2.eq("obra_id", obraId);
+          const fb = await q2;
+          if (!fb.error) return fb.data ?? [];
+        }
+        return [];
+      }
       return data ?? [];
     },
   });
 
   // 7. Ferramentas (manutenções e empréstimos em aberto)
-  const { data: ferramentasAlertas = [] } = useQuery({
+  const { data: ferramentasAlertas = [], error: ferramentasError } = useQuery({
     queryKey: ["dash-ferramentas", obraId],
+    retry: 1,
     queryFn: async () => {
       let q = supabase
         .from("ferramentas")
@@ -253,37 +371,89 @@ function DashboardPage() {
         .not("proxima_manutencao", "is", null);
       if (obraId) q = q.eq("obra_id", obraId);
       const { data, error } = await q;
-      if (error) return [];
+      if (error) {
+        logDashWarn("ferramentas", error);
+        return [];
+      }
       const hoje = new Date();
       return (data ?? []).filter((f: any) => {
         if (!f.proxima_manutencao) return false;
-        const dias = differenceInDays(safeParseISO(f.proxima_manutencao), hoje);
-        return dias <= 30; // Vencida ou nos próximos 30 dias
+        try {
+          const dias = differenceInDays(safeParseISO(f.proxima_manutencao), hoje);
+          return dias <= 30; // Vencida ou nos próximos 30 dias
+        } catch {
+          return false;
+        }
       });
     },
   });
 
-  const { data: emprestimosAtrasados = [] } = useQuery({
+  const { data: emprestimosAtrasados = [], error: emprestimosError } = useQuery({
     queryKey: ["dash-emprestimos", obraId],
+    retry: 1,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("ferramenta_emprestimos")
         .select("id, data_emprestimo, prevista_devolucao, data_devolucao, ferramentas(nome), funcionarios(nome)")
         .is("data_devolucao", null)
         .not("prevista_devolucao", "is", null);
-      if (error) return [];
+      if (error) {
+        logDashWarn("emprestimos", error);
+        return [];
+      }
       const hoje = new Date();
       return (data ?? []).filter((e: any) => {
         if (!e.prevista_devolucao) return false;
-        return differenceInDays(safeParseISO(e.prevista_devolucao), hoje) < 0;
+        try {
+          return differenceInDays(safeParseISO(e.prevista_devolucao), hoje) < 0;
+        } catch {
+          return false;
+        }
       });
     },
   });
 
   // ---------------------------------------------
-  // Processamento e Conformidade
+  // Processamento e Conformidade — com guarda contra dados corruptos
   // ---------------------------------------------
-  const conformidade = useMemo(() => computeConformidade(funcionarios), [funcionarios]);
+  const conformidade = useMemo(() => {
+    try {
+      return computeConformidade(funcionarios);
+    } catch (e) {
+      logDashWarn("conformidade", e);
+      return [];
+    }
+  }, [funcionarios]);
+
+  const dashErrors = useMemo(() => {
+    const list: Array<{ key: string; msg: string }> = [];
+    const push = (k: string, err: unknown) => {
+      if (!err) return;
+      const m = err instanceof Error ? err.message : String((err as any)?.message ?? err);
+      list.push({ key: k, msg: m });
+    };
+    push("obras", obrasError);
+    push("funcionarios", funcionariosError);
+    push("treinamentos", treinamentosError);
+    push("tarefas", tarefasError);
+    push("epis", episError);
+    push("materiais", materiaisError);
+    push("contas", contasError);
+    push("ferramentas", ferramentasError);
+    push("emprestimos", emprestimosError);
+    // Filtra erros que já foram tratados com fallback silencioso (mensagem vazia)
+    return list.filter((e) => e.msg && e.msg.trim().length > 0);
+  }, [
+    obrasError,
+    funcionariosError,
+    treinamentosError,
+    tarefasError,
+    episError,
+    materiaisError,
+    contasError,
+    ferramentasError,
+    emprestimosError,
+  ]);
 
   const alertasVencimento = useMemo(
     () =>
@@ -741,6 +911,42 @@ function DashboardPage() {
           </Link>
         </Card>
       )}
+
+      {/* Aviso de degradação parcial — mostra qual consulta falhou sem quebrar a tela inteira */}
+      {dashErrors.length > 0 && (
+        <Card className="p-3 border-amber-300 bg-amber-50/60 dark:bg-amber-950/20 dark:border-amber-800">
+          <div className="flex items-start gap-2.5">
+            <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold text-amber-800 dark:text-amber-300">
+                Alguns dados do Dashboard não puderam ser carregados. O painel continua funcionando com dados parciais.
+              </p>
+              <ul className="mt-1.5 space-y-1">
+                {dashErrors.map((e) => (
+                  <li key={e.key} className="text-[11px] text-amber-700 dark:text-amber-400 break-words">
+                    <span className="font-mono font-semibold">{e.key}:</span> {e.msg.slice(0, 220)}
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-2 flex gap-2">
+                <Button size="sm" variant="outline" className="h-7 text-xs" onClick={handleRefresh}>
+                  <RefreshCw className="h-3 w-3 mr-1" /> Tentar novamente
+                </Button>
+                <span className="text-[11px] text-muted-foreground self-center">
+                  Veja também o console do navegador (F12) para detalhes completos.
+                </span>
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {(loadingFunc) && funcionarios.length === 0 && !funcionariosError ? (
+        <Card className="p-6 text-center text-sm text-muted-foreground">
+          <RefreshCw className="h-5 w-5 animate-spin mx-auto mb-2 text-primary" />
+          Carregando dados do dashboard...
+        </Card>
+      ) : null}
 
       {/* Cards de Indicadores Interativos (KPIs) */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
