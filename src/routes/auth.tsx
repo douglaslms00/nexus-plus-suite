@@ -67,7 +67,7 @@ function AuthPage() {
     const emailToUse = email.trim().toLowerCase();
     if (!emailToUse) return toast.error("Informe seu e-mail.");
     setLoading(true);
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email: emailToUse,
       password,
       options: {
@@ -77,6 +77,12 @@ function AuthPage() {
     });
     setLoading(false);
     if (error) return toast.error(error.message);
+    // Se "Confirm email" estiver desligado no Supabase, a sessão já vem ativa.
+    if (data.session) {
+      toast.success("Bem-vindo!");
+      navigate({ to: "/dashboard", replace: true });
+      return;
+    }
     toast.success("Conta criada! Verifique seu e-mail para confirmar.");
   };
 
