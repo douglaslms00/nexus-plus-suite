@@ -77,17 +77,11 @@ function AuthPage() {
   const passwordStrength = senhaInfo.forca;
 
   const handleForgotPassword = async () => {
-    const identifier = loginId.trim() || email.trim();
-    if (!identifier) {
-      return toast.error("Preencha e-mail ou CPF para recuperar a senha.");
+    const emailToUse = email.trim().toLowerCase();
+    if (!emailToUse) {
+      return toast.error("Preencha seu e-mail para recuperar a senha.");
     }
     setLoading(true);
-    const emailToUse = await resolveEmail(identifier);
-    if (!emailToUse) {
-      setLoading(false);
-      if (!isEmail(identifier)) return toast.error("CPF não encontrado. Verifique o CPF cadastrado.");
-      return toast.error("E-mail não encontrado.");
-    }
     const { error } = await supabase.auth.resetPasswordForEmail(emailToUse, {
       redirectTo: `${window.location.origin}/auth?reset=true`,
     });
@@ -95,6 +89,7 @@ function AuthPage() {
     if (error) return toast.error(error.message);
     toast.success("Instruções de recuperação de senha enviadas para seu e-mail!");
   };
+
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary via-primary to-sidebar-accent p-4">
