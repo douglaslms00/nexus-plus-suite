@@ -33,7 +33,6 @@ import {
   FolderOpen,
   UserCog,
   Receipt,
-  Truck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -52,7 +51,7 @@ import { GlobalFloatingActions } from "@/components/GlobalFloatingActions";
 import { InstallAppButton } from "@/components/InstallAppButton";
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const location = useRouterState({ select: (s) => s.location });
+  const { location } = useRouterState();
   const navigate = useNavigate();
   const { data: profile } = useProfile();
   const { data: authUser } = useCurrentUser();
@@ -70,14 +69,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       setCollapsed(window.localStorage.getItem("sidebar-collapsed") === "1");
     }
     // Garante que o perfil do usuário exista (para aparecer nas listas de usuários)
-    try {
-      void (supabase as any).rpc("ensure_profile").then(
-        () => undefined,
-        (err: unknown) => console.warn("[AppShell] ensure_profile falhou:", err),
-      );
-    } catch (err) {
-      console.warn("[AppShell] ensure_profile indisponível:", err);
-    }
+    void (supabase as any).rpc("ensure_profile");
   }, []);
 
   useEffect(() => {
@@ -123,7 +115,6 @@ export function AppShell({ children }: { children: ReactNode }) {
     { to: "/materiais", label: "Materiais", icon: Package, module: "materiais" },
     { to: "/epis", label: "EPI / EPC", icon: HardHat, module: "epis" },
     { to: "/financeiro", label: "Financeiro", icon: Wallet, module: "financeiro" },
-    { to: "/frota", label: "Gestão de Frota", icon: Truck, module: "frota" },
     {
       to: "/prestacao",
       label: "Prestação de contas",

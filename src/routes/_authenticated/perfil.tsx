@@ -11,7 +11,6 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Upload } from "lucide-react";
 import { toast } from "sonner";
-import { safeRandomUUID } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/perfil")({ component: PerfilPage });
 
@@ -68,18 +67,15 @@ function PerfilPage() {
 
   const saveProfile = useMutation({
     mutationFn: async () => {
-      if (!user?.id) throw new Error("Usuário ainda carregando, tente novamente");
       const cpfDigits = onlyDigits(cpf);
       if (cpf && cpfDigits.length !== 11) throw new Error("CPF deve ter 11 dígitos");
       const { error } = await supabase
         .from("profiles")
         .update({ nome, setor, avatar_url: avatarUrl, cpf: cpfDigits || null } as any)
-        .eq("id", user.id);
+        .eq("id", user!.id);
       if (error) throw error;
       if (cpfDigits) {
-        const { error: metaErr } = await supabase.auth.updateUser({
-          data: { cpf: cpfDigits },
-        } as any);
+        const { error: metaErr } = await supabase.auth.updateUser({ data: { cpf: cpfDigits } } as any);
         if (metaErr) console.warn(metaErr.message);
       }
       if (email && email !== user?.email) {
@@ -116,12 +112,8 @@ function PerfilPage() {
   });
 
   const onAvatar = async (file: File) => {
-    if (!user?.id) {
-      toast.error("Usuário ainda carregando, tente novamente");
-      return;
-    }
     const ext = file.name.split(".").pop();
-    const path = `avatars/${user.id}/${safeRandomUUID()}.${ext}`;
+    const path = `avatars/${user!.id}/${crypto.randomUUID()}.${ext}`;
     const { error } = await supabase.storage.from("anexos").upload(path, file, { upsert: true });
     if (error) {
       toast.error(error.message);
@@ -192,9 +184,7 @@ function PerfilPage() {
                 onChange={(e) => setCpf(formatCpf(e.target.value))}
                 maxLength={14}
               />
-              <p className="text-xs text-muted-foreground mt-1">
-                Seu CPF será usado para permitir login com CPF.
-              </p>
+              <p className="text-xs text-muted-foreground mt-1">Seu CPF será usado para permitir login com CPF.</p>
             </div>
             <Button onClick={() => saveProfile.mutate()} disabled={saveProfile.isPending}>
               {saveProfile.isPending ? "Salvando..." : "Salvar"}

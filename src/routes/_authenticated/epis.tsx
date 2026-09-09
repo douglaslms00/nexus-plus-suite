@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { canManage, isAdmin, useUserRoles, useModulePerm } from "@/lib/permissions";
 import { Button } from "@/components/ui/button";
@@ -84,13 +84,11 @@ function EpisPage() {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<any>({ tipo: "EPI", estoque_atual: 0, estoque_minimo: 0 });
   const [busca, setBusca] = useState(() => {
-    if (typeof window !== "undefined")
-      return new URLSearchParams(window.location.search).get("busca") || "";
+    if (typeof window !== "undefined") return new URLSearchParams(window.location.search).get("busca") || "";
     return "";
   });
   const [soBaixo, setSoBaixo] = useState(() => {
-    if (typeof window !== "undefined")
-      return new URLSearchParams(window.location.search).get("soBaixo") === "true";
+    if (typeof window !== "undefined") return new URLSearchParams(window.location.search).get("soBaixo") === "true";
     return false;
   });
 

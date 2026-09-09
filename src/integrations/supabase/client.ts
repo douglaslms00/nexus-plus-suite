@@ -30,29 +30,12 @@ function createSupabaseFetch(supabaseKey: string): typeof fetch {
   };
 }
 
-function getEnv(key: string): string | undefined {
-  // Vite substitui import.meta.env.VITE_* em build-time. process.env só existe no servidor.
-  const viteVal =
-    typeof import.meta !== "undefined" &&
-    (import.meta as unknown as { env?: Record<string, string | undefined> }).env?.[key];
-  if (viteVal) return viteVal;
-  if (typeof process !== "undefined" && process.env) {
-    return process.env[key.replace(/^VITE_/, "")] ?? process.env[key];
-  }
-  return undefined;
-}
-
 function createSupabaseClient() {
-  // URL e chave PUBLISHABLE são públicas por design (vão para o bundle do
-  // navegador em todo build). Os fallbacks abaixo garantem que o app publicado
-  // funcione mesmo quando a hospedagem compila sem VITE_* configurado.
-  // Se as envs existirem, elas têm precedência. NUNCA colocar chaves secret/
-  // service_role aqui — essas ficam só no servidor (client.server.ts).
-  const SUPABASE_URL =
-    getEnv("VITE_SUPABASE_URL") ?? "https://yrkdbrkijpwilhptmqii.supabase.co";
+  // Use import.meta.env for client-side (Vite build-time replacement)
+  // Fall back to process.env for SSR (server-side rendering)
+  const SUPABASE_URL = import.meta.env["VITE_SUPABASE_URL"] || process.env["SUPABASE_URL"];
   const SUPABASE_PUBLISHABLE_KEY =
-    getEnv("VITE_SUPABASE_PUBLISHABLE_KEY") ??
-    "sb_publishable_ZAcaq2p3P4SsJX1fQSrtWA_RO2p97rB";
+    import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"] || process.env["SUPABASE_PUBLISHABLE_KEY"];
 
   if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
     const missing = [

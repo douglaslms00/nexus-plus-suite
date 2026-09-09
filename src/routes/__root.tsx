@@ -46,11 +46,6 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
         <p className="mt-2 text-sm text-muted-foreground">
           Um erro inesperado ocorreu. Tente novamente mais tarde.
         </p>
-        {error?.message && (
-          <p className="mt-2 rounded-md bg-muted p-2 text-xs text-muted-foreground break-words">
-            {error.message}
-          </p>
-        )}
         <button
           onClick={() => {
             router.invalidate();
@@ -132,22 +127,13 @@ function AuthListener() {
   const router = useRouter();
   const queryClient = useQueryClient();
   useEffect(() => {
-    let subscription: { unsubscribe: () => void } | undefined;
-    try {
-      const {
-        data: { subscription: sub },
-      } = supabase.auth.onAuthStateChange(() => {
-        router.invalidate();
-        queryClient.invalidateQueries();
-      });
-      subscription = sub;
-    } catch (err) {
-      // Ex.: env do Supabase ausente no build publicado — não derruba a árvore,
-      // o ErrorComponent/beforeLoad já sinaliza o problema.
-      console.error("[AuthListener]", err);
-      return;
-    }
-    return () => subscription?.unsubscribe();
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(() => {
+      router.invalidate();
+      queryClient.invalidateQueries();
+    });
+    return () => subscription.unsubscribe();
   }, [router, queryClient]);
   return null;
 }

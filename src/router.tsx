@@ -1,11 +1,9 @@
 import { QueryClient } from "@tanstack/react-query";
-import { createRouter } from "@tanstack/react-router";
+import { createRouter, useRouter } from "@tanstack/react-router";
 import { routeTree } from "./routeTree.gen";
 
-// Fallbacks não usam useRouter() de propósito: se o próprio router falhar ao
-// ser criado, o contexto não existe e um segundo throw resultaria em tela branca
-// sem nenhuma UI de erro.
 function DefaultErrorFallback({ error, reset }: { error: Error; reset: () => void }) {
+  const router = useRouter();
   return (
     <div className="flex min-h-[60vh] items-center justify-center px-4">
       <div className="max-w-md w-full text-center rounded-lg border bg-card p-6 shadow-sm">
@@ -17,7 +15,7 @@ function DefaultErrorFallback({ error, reset }: { error: Error; reset: () => voi
         <div className="mt-5 flex flex-wrap justify-center gap-2">
           <button
             onClick={() => {
-              window.history.back();
+              router.history.back();
             }}
             className="rounded-md border px-4 py-2 text-sm font-medium hover:bg-accent"
           >
@@ -25,8 +23,8 @@ function DefaultErrorFallback({ error, reset }: { error: Error; reset: () => voi
           </button>
           <button
             onClick={() => {
+              router.invalidate();
               reset();
-              window.location.reload();
             }}
             className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
           >
@@ -42,6 +40,7 @@ function DefaultErrorFallback({ error, reset }: { error: Error; reset: () => voi
 }
 
 function DefaultNotFound() {
+  const router = useRouter();
   return (
     <div className="flex min-h-[60vh] items-center justify-center px-4">
       <div className="max-w-md w-full text-center rounded-lg border bg-card p-6 shadow-sm">
@@ -51,7 +50,7 @@ function DefaultNotFound() {
         </p>
         <div className="mt-5 flex flex-wrap justify-center gap-2">
           <button
-            onClick={() => window.history.back()}
+            onClick={() => router.history.back()}
             className="rounded-md border px-4 py-2 text-sm font-medium hover:bg-accent"
           >
             Voltar

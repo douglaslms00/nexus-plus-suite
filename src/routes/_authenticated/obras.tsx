@@ -26,7 +26,7 @@ import {
 import { Plus, Trash2, MapPin, Pencil, AlertTriangle, Bell, CalendarClock } from "lucide-react";
 import { toast } from "sonner";
 import { differenceInDays } from "date-fns";
-import { cn, safeParseISO, safeFormatDate, safeRandomUUID } from "@/lib/utils";
+import { cn, safeParseISO, safeFormatDate } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/obras")({ component: ObrasPage });
 
@@ -40,7 +40,7 @@ const VENC_OBRAS: ReadonlyArray<readonly [string, string, string]> = [
 
 type ObraVencItem = { id: string; nome: string; data_emissao: string; data_vencimento: string };
 function novoVenc(): ObraVencItem {
-  return { id: safeRandomUUID(), nome: "", data_emissao: "", data_vencimento: "" };
+  return { id: crypto.randomUUID(), nome: "", data_emissao: "", data_vencimento: "" };
 }
 
 function vencColor(date?: string | null) {
@@ -65,10 +65,7 @@ function countVencimentosObra(obra: any): { proximos: number; vencidos: number }
   return { proximos, vencidos };
 }
 
-function countOutrosVencimentos(itens: readonly ObraVencItem[]): {
-  proximos: number;
-  vencidos: number;
-} {
+function countOutrosVencimentos(itens: readonly ObraVencItem[]): { proximos: number; vencidos: number } {
   let proximos = 0;
   let vencidos = 0;
   const hoje = new Date();
@@ -100,20 +97,14 @@ function ObrasPage() {
   });
 
   const { data: todosOutros = [] } = useQuery({
-    queryKey: [
-      "obra-vencimentos-all",
-      obras
-        .map((o: any) => o.id)
-        .sort()
-        .join(","),
-    ],
+    queryKey: ["obra-vencimentos-all", obras.map((o: any) => o.id).sort().join(",")],
     enabled: obras.length > 0,
     staleTime: 1000 * 60 * 2,
     queryFn: async () => {
       const ids = obras.map((o: any) => o.id);
       if (ids.length === 0) return [];
       const { data, error } = await supabase
-        .from("obra_vencimentos" as never)
+        .from("obra_vencimentos")
         .select("obra_id, nome, data_vencimento, data_emissao")
         .in("obra_id", ids)
         .limit(2000);
@@ -121,12 +112,7 @@ function ObrasPage() {
         if ((error as any).code === "PGRST205") return [];
         throw error;
       }
-      return data as unknown as Array<{
-        obra_id: string;
-        nome: string;
-        data_vencimento: string | null;
-        data_emissao: string | null;
-      }>;
+      return data as Array<{ obra_id: string; nome: string; data_vencimento: string | null; data_emissao: string | null }>;
     },
   });
 
@@ -224,22 +210,14 @@ function ObrasPage() {
         obraId = res?.id;
       }
       if (faltantes.size > 0) {
-        toast.warning(
-          `Vencimentos ainda não existem no banco: ${[...faltantes].join(", ")}. Aplique a migration 20260909130000_obras_vencimentos.sql no Supabase SQL Editor.`,
-        );
+        toast.warning(`Vencimentos ainda não existem no banco: ${[...faltantes].join(", ")}. Aplique a migration 20260909130000_obras_vencimentos.sql no Supabase SQL Editor.`);
       }
       // salva vencimentos dinâmicos "Outros"
       if (obraId) {
         const validos = outrosVenc.filter((t) => t.nome.trim());
-        const { error: delErr } = await (supabase as any)
-          .from("obra_vencimentos")
-          .delete()
-          .eq("obra_id", obraId);
+        const { error: delErr } = await (supabase as any).from("obra_vencimentos").delete().eq("obra_id", obraId);
         if (delErr && delErr.code === "PGRST205") {
-          if (validos.length > 0)
-            toast.warning(
-              "Tabela obra_vencimentos ainda não existe. Aplique a migration 20260909130000_obras_vencimentos.sql",
-            );
+          if (validos.length > 0) toast.warning('Tabela obra_vencimentos ainda não existe. Aplique a migration 20260909130000_obras_vencimentos.sql');
         } else if (validos.length > 0) {
           const rows = validos.map((t) => ({
             obra_id: obraId,
@@ -249,8 +227,7 @@ function ObrasPage() {
           }));
           const { error } = await (supabase as any).from("obra_vencimentos").insert(rows);
           if (error) {
-            if ((error as any).code === "PGRST205")
-              toast.warning("Tabela obra_vencimentos ainda não existe. Aplique a migration.");
+            if ((error as any).code === "PGRST205") toast.warning('Tabela obra_vencimentos ainda não existe. Aplique a migration.');
             else console.warn("Outros vencimentos não salvos:", error.message);
           }
         }
@@ -285,10 +262,7 @@ function ObrasPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Obras</h1>
-          <p className="text-muted-foreground">
-            Centros de custo, localizações e controle de vencimentos (Alvará, PGR, PCMSO, LTCAT e
-            Outros).
-          </p>
+          <p className="text-muted-foreground">Centros de custo, localizações e controle de vencimentos (Alvará, PGR, PCMSO, LTCAT e Outros).</p>
         </div>
         {canCreate && (
           <Dialog
@@ -355,9 +329,7 @@ function ObrasPage() {
 
                 {/* Vencimentos fixos */}
                 <div className="pt-3 border-t space-y-3">
-                  <p className="text-sm font-semibold flex items-center gap-2">
-                    <CalendarClock className="h-4 w-4" /> Vencimentos da obra
-                  </p>
+                  <p className="text-sm font-semibold flex items-center gap-2"><CalendarClock className="h-4 w-4" /> Vencimentos da obra</p>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {(
                       [
@@ -402,9 +374,7 @@ function ObrasPage() {
 
                   {/* Outros - campo fixo + descrição */}
                   <div className="rounded-lg border p-3 space-y-2 bg-muted/10">
-                    <span className="text-xs font-medium text-muted-foreground">
-                      Outros (campo fixo)
-                    </span>
+                    <span className="text-xs font-medium text-muted-foreground">Outros (campo fixo)</span>
                     <div className="space-y-1">
                       <Label className="text-xs">Descrição</Label>
                       <Input
@@ -416,19 +386,11 @@ function ObrasPage() {
                     <div className="grid grid-cols-2 gap-2">
                       <div className="space-y-1">
                         <Label className="text-xs">Data de emissão</Label>
-                        <Input
-                          type="date"
-                          value={form.data_outros ?? ""}
-                          onChange={(e) => setForm({ ...form, data_outros: e.target.value })}
-                        />
+                        <Input type="date" value={form.data_outros ?? ""} onChange={(e) => setForm({ ...form, data_outros: e.target.value })} />
                       </div>
                       <div className="space-y-1">
                         <Label className="text-xs">Vencimento</Label>
-                        <Input
-                          type="date"
-                          value={form.vencimento_outros ?? ""}
-                          onChange={(e) => setForm({ ...form, vencimento_outros: e.target.value })}
-                        />
+                        <Input type="date" value={form.vencimento_outros ?? ""} onChange={(e) => setForm({ ...form, vencimento_outros: e.target.value })} />
                       </div>
                     </div>
                     {form.vencimento_outros && (
@@ -448,94 +410,37 @@ function ObrasPage() {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <p className="text-sm font-semibold">Outros vencimentos (adicionais)</p>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setOutrosVenc((prev) => [...prev, novoVenc()])}
-                      >
+                      <Button type="button" size="sm" variant="outline" onClick={() => setOutrosVenc((prev) => [...prev, novoVenc()])}>
                         <Plus className="h-3 w-3 mr-1" /> Adicionar
                       </Button>
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      Use para cadastrar múltiplos documentos além dos fixos acima.
-                    </p>
+                    <p className="text-xs text-muted-foreground">Use para cadastrar múltiplos documentos além dos fixos acima.</p>
                     <div className="space-y-2">
                       {outrosVenc.map((t, i) => (
-                        <div
-                          key={t.id}
-                          className="rounded-lg border p-3 space-y-2 bg-muted/10 relative"
-                        >
+                        <div key={t.id} className="rounded-lg border p-3 space-y-2 bg-muted/10 relative">
                           <div className="flex items-center justify-between">
-                            <span className="text-xs font-medium text-muted-foreground">
-                              Documento {i + 1}
-                            </span>
+                            <span className="text-xs font-medium text-muted-foreground">Documento {i + 1}</span>
                             {outrosVenc.length > 1 && (
-                              <Button
-                                type="button"
-                                size="icon"
-                                variant="ghost"
-                                className="h-6 w-6"
-                                onClick={() =>
-                                  setOutrosVenc((prev) => prev.filter((_, idx) => idx !== i))
-                                }
-                              >
+                              <Button type="button" size="icon" variant="ghost" className="h-6 w-6" onClick={() => setOutrosVenc((prev) => prev.filter((_, idx) => idx !== i))}>
                                 <Trash2 className="h-3 w-3" />
                               </Button>
                             )}
                           </div>
                           <div className="space-y-1">
                             <Label className="text-xs">Nome do documento</Label>
-                            <Input
-                              placeholder="Ex: AVCB, Licença Ambiental, Habite-se..."
-                              value={t.nome}
-                              onChange={(e) =>
-                                setOutrosVenc((prev) =>
-                                  prev.map((x, idx) =>
-                                    idx === i ? { ...x, nome: e.target.value } : x,
-                                  ),
-                                )
-                              }
-                            />
+                            <Input placeholder="Ex: AVCB, Licença Ambiental, Habite-se..." value={t.nome} onChange={(e) => setOutrosVenc((prev) => prev.map((x, idx) => (idx === i ? { ...x, nome: e.target.value } : x)))} />
                           </div>
                           <div className="grid grid-cols-2 gap-2">
                             <div className="space-y-1">
                               <Label className="text-xs">Emissão</Label>
-                              <Input
-                                type="date"
-                                value={t.data_emissao}
-                                onChange={(e) =>
-                                  setOutrosVenc((prev) =>
-                                    prev.map((x, idx) =>
-                                      idx === i ? { ...x, data_emissao: e.target.value } : x,
-                                    ),
-                                  )
-                                }
-                              />
+                              <Input type="date" value={t.data_emissao} onChange={(e) => setOutrosVenc((prev) => prev.map((x, idx) => (idx === i ? { ...x, data_emissao: e.target.value } : x)))} />
                             </div>
                             <div className="space-y-1">
                               <Label className="text-xs">Vencimento</Label>
-                              <Input
-                                type="date"
-                                value={t.data_vencimento}
-                                onChange={(e) =>
-                                  setOutrosVenc((prev) =>
-                                    prev.map((x, idx) =>
-                                      idx === i ? { ...x, data_vencimento: e.target.value } : x,
-                                    ),
-                                  )
-                                }
-                              />
+                              <Input type="date" value={t.data_vencimento} onChange={(e) => setOutrosVenc((prev) => prev.map((x, idx) => (idx === i ? { ...x, data_vencimento: e.target.value } : x)))} />
                               {t.data_vencimento && (
                                 <span className={cn("text-xs", vencColor(t.data_vencimento))}>
-                                  {differenceInDays(safeParseISO(t.data_vencimento), new Date()) < 0
-                                    ? "VENCIDO"
-                                    : differenceInDays(
-                                          safeParseISO(t.data_vencimento),
-                                          new Date(),
-                                        ) <= 30
-                                      ? "vence em breve"
-                                      : "em dia"}
+                                  {differenceInDays(safeParseISO(t.data_vencimento), new Date()) < 0 ? "VENCIDO" : differenceInDays(safeParseISO(t.data_vencimento), new Date()) <= 30 ? "vence em breve" : "em dia"}
                                 </span>
                               )}
                             </div>
@@ -572,17 +477,9 @@ function ObrasPage() {
                     <MapPin className="h-4 w-4 text-primary shrink-0" />
                     <h3 className="font-medium truncate">{o.nome}</h3>
                   </div>
-                  {o.endereco && (
-                    <p className="text-sm text-muted-foreground mt-1 truncate">{o.endereco}</p>
-                  )}
-                  {o.observacoes && (
-                    <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                      {o.observacoes}
-                    </p>
-                  )}
-                  <span className="text-[10px] uppercase tracking-wide px-2 py-0.5 rounded bg-muted mt-2 inline-block">
-                    {o.status}
-                  </span>
+                  {o.endereco && <p className="text-sm text-muted-foreground mt-1 truncate">{o.endereco}</p>}
+                  {o.observacoes && <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{o.observacoes}</p>}
+                  <span className="text-[10px] uppercase tracking-wide px-2 py-0.5 rounded bg-muted mt-2 inline-block">{o.status}</span>
                   {(proximos > 0 || vencidos > 0) && (
                     <div className="flex items-center gap-1.5 mt-2 flex-wrap">
                       {proximos > 0 && (
@@ -605,11 +502,7 @@ function ObrasPage() {
                     </Button>
                   )}
                   {canDelete && (
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => confirm("Excluir?") && remove.mutate(o.id)}
-                    >
+                    <Button size="icon" variant="ghost" onClick={() => confirm("Excluir?") && remove.mutate(o.id)}>
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   )}
@@ -618,45 +511,27 @@ function ObrasPage() {
 
               {/* Lista de vencimentos */}
               <div className="grid grid-cols-2 gap-2 text-xs pt-2 border-t">
-                {VENC_OBRAS.filter(
-                  ([k]) => o[k] || (k === "vencimento_outros" && o.descricao_outros),
-                ).map(([k, label]) => (
+                {VENC_OBRAS.filter(([k]) => o[k] || (k === "vencimento_outros" && o.descricao_outros)).map(([k, label]) => (
                   <div key={k} className="flex flex-col">
-                    <span className="text-muted-foreground text-[11px]">
-                      {label}
-                      {k === "vencimento_outros" && o.descricao_outros
-                        ? ` - ${o.descricao_outros}`
-                        : ""}
-                    </span>
-                    <span className={cn("whitespace-nowrap", vencColor(o[k]))}>
-                      {o[k] ? safeFormatDate(o[k], "dd/MM/yyyy") : "—"}
-                    </span>
+                    <span className="text-muted-foreground text-[11px]">{label}{k === "vencimento_outros" && o.descricao_outros ? ` - ${o.descricao_outros}` : ""}</span>
+                    <span className={cn("whitespace-nowrap", vencColor(o[k]))}>{o[k] ? safeFormatDate(o[k], "dd/MM/yyyy") : "—"}</span>
                   </div>
                 ))}
-                {outros.length > 0 &&
-                  outros.map((t: any, idx: number) => (
-                    <div key={idx} className="flex flex-col">
-                      <span className="text-muted-foreground text-[11px]">
-                        {t.nome || `Outros ${idx + 1}`}
-                      </span>
-                      <span className={cn("whitespace-nowrap", vencColor(t.data_vencimento))}>
-                        {t.data_vencimento ? safeFormatDate(t.data_vencimento, "dd/MM/yyyy") : "—"}
-                      </span>
-                    </div>
-                  ))}
+                {outros.length > 0 && outros.map((t: any, idx: number) => (
+                  <div key={idx} className="flex flex-col">
+                    <span className="text-muted-foreground text-[11px]">{t.nome || `Outros ${idx+1}`}</span>
+                    <span className={cn("whitespace-nowrap", vencColor(t.data_vencimento))}>{t.data_vencimento ? safeFormatDate(t.data_vencimento, "dd/MM/yyyy") : "—"}</span>
+                  </div>
+                ))}
                 {VENC_OBRAS.every(([k]) => !o[k]) && outros.length === 0 && (
-                  <span className="col-span-2 text-muted-foreground text-xs">
-                    Nenhum vencimento cadastrado.
-                  </span>
+                  <span className="col-span-2 text-muted-foreground text-xs">Nenhum vencimento cadastrado.</span>
                 )}
               </div>
             </Card>
           );
         })}
         {obras.length === 0 && (
-          <Card className="p-8 text-center text-muted-foreground md:col-span-2 lg:col-span-3">
-            Nenhuma obra cadastrada.
-          </Card>
+          <Card className="p-8 text-center text-muted-foreground md:col-span-2 lg:col-span-3">Nenhuma obra cadastrada.</Card>
         )}
       </div>
     </div>

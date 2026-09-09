@@ -28,7 +28,7 @@ import {
   FileText,
 } from "lucide-react";
 import { toast } from "sonner";
-import { safeFormatDate, safeRandomUUID } from "@/lib/utils";
+import { safeFormatDate } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/documentos")({ component: DocumentosPage });
 
@@ -78,6 +78,7 @@ function DocumentosPage() {
       </Tabs>
     </div>
   );
+
 }
 
 function Browser({
@@ -175,11 +176,10 @@ function Browser({
 
   const upload = useMutation({
     mutationFn: async (file: File) => {
-      if (!user?.id) throw new Error("Usuário ainda carregando, tente novamente");
       const prefix =
-        escopo === "obra" ? `documentos/obra/${obraId}` : `documentos/pessoal/${user.id}`;
+        escopo === "obra" ? `documentos/obra/${obraId}` : `documentos/pessoal/${user!.id}`;
       const ext = file.name.split(".").pop();
-      const path = `${prefix}/${safeRandomUUID()}.${ext}`;
+      const path = `${prefix}/${crypto.randomUUID()}.${ext}`;
       const { error: upErr } = await supabase.storage
         .from("anexos")
         .upload(path, file, { upsert: false });

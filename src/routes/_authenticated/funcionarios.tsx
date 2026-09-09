@@ -58,7 +58,7 @@ import {
 import { toast } from "sonner";
 import { uploadAnexo, getAnexoUrl } from "@/lib/upload";
 import { differenceInDays, addMonths } from "date-fns";
-import { cn, safeParseISO, safeFormatDate, safeRandomUUID } from "@/lib/utils";
+import { cn, safeParseISO, safeFormatDate } from "@/lib/utils";
 import { lerFichaRegistro, lerFichaRegistroPdf } from "@/lib/ocr.functions";
 
 export const Route = createFileRoute("/_authenticated/funcionarios")({
@@ -75,11 +75,11 @@ const VENC: ReadonlyArray<readonly [string, string, string | null]> = [
 
 type TreinamentoItem = { id: string; nome: string; data_realizacao: string; data_validade: string };
 function novoTreinamento(): TreinamentoItem {
-  return { id: safeRandomUUID(), nome: "", data_realizacao: "", data_validade: "" };
+  return { id: crypto.randomUUID(), nome: "", data_realizacao: "", data_validade: "" };
 }
 
 function novoTreinamentoWithNome(nome: string): TreinamentoItem {
-  return { id: safeRandomUUID(), nome, data_realizacao: "", data_validade: "" };
+  return { id: crypto.randomUUID(), nome, data_realizacao: "", data_validade: "" };
 }
 
 type Funcionario = any;
@@ -183,13 +183,7 @@ function FuncionariosPage() {
   });
 
   const { data: allTreinamentosRaw = [] } = useQuery({
-    queryKey: [
-      "funcionario-treinamentos-all",
-      funcionarios
-        .map((f: any) => f.id)
-        .sort()
-        .join(","),
-    ],
+    queryKey: ["funcionario-treinamentos-all", funcionarios.map((f: any) => f.id).sort().join(",")],
     enabled: funcionarios.length > 0,
     staleTime: 1000 * 60 * 2,
     queryFn: async () => {
@@ -227,8 +221,7 @@ function FuncionariosPage() {
   const [editing, setEditing] = useState<Funcionario | null>(null);
   const [form, setForm] = useState<any>({});
   const [busca, setBusca] = useState(() => {
-    if (typeof window !== "undefined")
-      return new URLSearchParams(window.location.search).get("busca") || "";
+    if (typeof window !== "undefined") return new URLSearchParams(window.location.search).get("busca") || "";
     return "";
   });
   const [fStatus, setFStatus] = useState<"todos" | "ativos" | "inativos">("todos");
@@ -248,8 +241,7 @@ function FuncionariosPage() {
   const [funcionarioToDelete, setFuncionarioToDelete] = useState<Funcionario | null>(null);
 
   const [highlightId, setHighlightId] = useState<string | null>(() => {
-    if (typeof window !== "undefined")
-      return new URLSearchParams(window.location.search).get("highlight");
+    if (typeof window !== "undefined") return new URLSearchParams(window.location.search).get("highlight");
     return null;
   });
 
@@ -295,10 +287,7 @@ function FuncionariosPage() {
     if (el) {
       el.scrollIntoView({ behavior: "smooth", block: "center" });
       el.classList.add("ring-2", "ring-primary", "ring-offset-1");
-      const t = setTimeout(
-        () => el.classList.remove("ring-2", "ring-primary", "ring-offset-1"),
-        3000,
-      );
+      const t = setTimeout(() => el.classList.remove("ring-2", "ring-primary", "ring-offset-1"), 3000);
       return () => clearTimeout(t);
     }
   }, [highlightId, filtered]);
@@ -326,11 +315,11 @@ function FuncionariosPage() {
       setTreinamentos(
         data && data.length > 0
           ? data.map((t: any) => ({
-              id: t.id,
-              nome: t.nome ?? "",
-              data_realizacao: t.data_realizacao ?? "",
-              data_validade: t.data_validade ?? "",
-            }))
+            id: t.id,
+            nome: t.nome ?? "",
+            data_realizacao: t.data_realizacao ?? "",
+            data_validade: t.data_validade ?? "",
+          }))
           : [novoTreinamento()],
       );
     } catch {
@@ -940,7 +929,7 @@ function FuncionariosPage() {
                                   >
                                     {(diasParaVencimento(t.data_validade) <= -1 ? "EXPIRADO" : "") +
                                       (diasParaVencimento(t.data_validade) <= 30 &&
-                                      diasParaVencimento(t.data_validade) > -1
+                                        diasParaVencimento(t.data_validade) > -1
                                         ? " (vence em breve)"
                                         : "")}
                                   </span>
@@ -1095,44 +1084,44 @@ function FuncionariosPage() {
                             abertos.vencidos > 0 ||
                             treinAbertos.proximos > 0 ||
                             treinAbertos.vencidos > 0) && (
-                            <span className="mr-1 inline-flex items-center gap-1.5">
-                              {abertos.proximos > 0 && (
-                                <span
-                                  title={`${abertos.proximos} vencimento(s) próximo(s)`}
-                                  className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-xs font-semibold leading-none text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/15 dark:text-amber-400"
-                                >
-                                  <Bell className="h-3.5 w-3.5 shrink-0" /> {abertos.proximos}
-                                </span>
-                              )}
-                              {abertos.vencidos > 0 && (
-                                <span
-                                  title={`${abertos.vencidos} vencimento(s) vencido(s)`}
-                                  className="inline-flex items-center gap-1 rounded-full border border-red-300 bg-red-100 px-2 py-0.5 text-xs font-semibold leading-none text-red-700 dark:border-red-500/40 dark:bg-red-500/15 dark:text-red-400"
-                                >
-                                  <AlertTriangle className="h-3.5 w-3.5 shrink-0" />{" "}
-                                  {abertos.vencidos}
-                                </span>
-                              )}
-                              {treinAbertos.proximos > 0 && (
-                                <span
-                                  title={`${treinAbertos.proximos} treinamento(s) a vencer em 30 dias`}
-                                  className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-xs font-semibold leading-none text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/15 dark:text-amber-400"
-                                >
-                                  <ClipboardList className="h-3.5 w-3.5 shrink-0" />{" "}
-                                  {treinAbertos.proximos}
-                                </span>
-                              )}
-                              {treinAbertos.vencidos > 0 && (
-                                <span
-                                  title={`${treinAbertos.vencidos} treinamento(s) vencido(s)`}
-                                  className="inline-flex items-center gap-1 rounded-full border border-red-300 bg-red-100 px-2 py-0.5 text-xs font-semibold leading-none text-red-700 dark:border-red-500/40 dark:bg-red-500/15 dark:text-red-400"
-                                >
-                                  <AlertCircle className="h-3.5 w-3.5 shrink-0" />{" "}
-                                  {treinAbertos.vencidos}
-                                </span>
-                              )}
-                            </span>
-                          )}
+                              <span className="mr-1 inline-flex items-center gap-1.5">
+                                {abertos.proximos > 0 && (
+                                  <span
+                                    title={`${abertos.proximos} vencimento(s) próximo(s)`}
+                                    className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-xs font-semibold leading-none text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/15 dark:text-amber-400"
+                                  >
+                                    <Bell className="h-3.5 w-3.5 shrink-0" /> {abertos.proximos}
+                                  </span>
+                                )}
+                                {abertos.vencidos > 0 && (
+                                  <span
+                                    title={`${abertos.vencidos} vencimento(s) vencido(s)`}
+                                    className="inline-flex items-center gap-1 rounded-full border border-red-300 bg-red-100 px-2 py-0.5 text-xs font-semibold leading-none text-red-700 dark:border-red-500/40 dark:bg-red-500/15 dark:text-red-400"
+                                  >
+                                    <AlertTriangle className="h-3.5 w-3.5 shrink-0" />{" "}
+                                    {abertos.vencidos}
+                                  </span>
+                                )}
+                                {treinAbertos.proximos > 0 && (
+                                  <span
+                                    title={`${treinAbertos.proximos} treinamento(s) a vencer em 30 dias`}
+                                    className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-xs font-semibold leading-none text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/15 dark:text-amber-400"
+                                  >
+                                    <ClipboardList className="h-3.5 w-3.5 shrink-0" />{" "}
+                                    {treinAbertos.proximos}
+                                  </span>
+                                )}
+                                {treinAbertos.vencidos > 0 && (
+                                  <span
+                                    title={`${treinAbertos.vencidos} treinamento(s) vencido(s)`}
+                                    className="inline-flex items-center gap-1 rounded-full border border-red-300 bg-red-100 px-2 py-0.5 text-xs font-semibold leading-none text-red-700 dark:border-red-500/40 dark:bg-red-500/15 dark:text-red-400"
+                                  >
+                                    <AlertCircle className="h-3.5 w-3.5 shrink-0" />{" "}
+                                    {treinAbertos.vencidos}
+                                  </span>
+                                )}
+                              </span>
+                            )}
                           <Button
                             size="icon"
                             variant="ghost"
@@ -1211,16 +1200,18 @@ function FuncionariosPage() {
                       <div>{f.funcao ?? "—"}</div>
                       <div className="text-xs text-muted-foreground">{f.setor ?? "—"}</div>
                     </TableCell>
-                    {["vencimento_aso", "vencimento_ferias", "vencimento_folga_campo"].map(
-                      (key) => (
-                        <TableCell
-                          key={key}
-                          className={cn("text-xs whitespace-nowrap", vencColor(f[key]))}
-                        >
-                          {safeFormatDate(f[key], "dd/MM/yyyy")}
-                        </TableCell>
-                      ),
-                    )}
+                    {[
+                      "vencimento_aso",
+                      "vencimento_ferias",
+                      "vencimento_folga_campo",
+                    ].map((key) => (
+                      <TableCell
+                        key={key}
+                        className={cn("text-xs whitespace-nowrap", vencColor(f[key]))}
+                      >
+                        {safeFormatDate(f[key], "dd/MM/yyyy")}
+                      </TableCell>
+                    ))}
                     <TableCell
                       className={cn(
                         "text-xs whitespace-nowrap",
@@ -1316,9 +1307,7 @@ function FuncionariosPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setFuncionarioToDelete(null)}>
-              Cancelar
-            </AlertDialogCancel>
+            <AlertDialogCancel onClick={() => setFuncionarioToDelete(null)}>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={() => {

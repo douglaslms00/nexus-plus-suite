@@ -58,51 +58,7 @@ import { VENC_FIELDS, computeConformidade, type Status } from "@/lib/conformidad
 import { differenceInDays } from "date-fns";
 import { toast } from "sonner";
 
-function DashboardErrorFallback({ error, reset }: { error: Error; reset: () => void }) {
-  return (
-    <div className="flex min-h-[60vh] items-center justify-center px-4">
-      <div className="max-w-lg w-full text-center rounded-lg border bg-card p-6 shadow-sm">
-        <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-amber-100 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400">
-          <AlertTriangle className="h-5 w-5" />
-        </div>
-        <h2 className="text-lg font-semibold">Falha ao carregar o Dashboard</h2>
-        <p className="mt-2 text-sm text-muted-foreground break-words">
-          {error?.message ?? "Erro inesperado ao montar o painel."}
-        </p>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Os demais módulos continuam funcionando. Use o botão abaixo para tentar novamente ou
-          verifique o console do navegador (F12) para mais detalhes.
-        </p>
-        <div className="mt-5 flex flex-wrap justify-center gap-2">
-          <Button onClick={() => reset()} className="gap-1">
-            <RefreshCw className="h-3.5 w-3.5" /> Tentar novamente
-          </Button>
-          <Button variant="outline" onClick={() => window.location.reload()}>
-            Recarregar página
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-export const Route = createFileRoute("/_authenticated/dashboard")({
-  component: DashboardPage,
-  errorComponent: DashboardErrorFallback,
-});
-
-function colunasMissing(msg: string): string[] {
-  const out: string[] = [];
-  const re = /Could not find the '([^']+)' column of '[^']+'\s*in the schema cache/g;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(msg))) out.push(m[1]);
-  return out;
-}
-
-function logDashWarn(scope: string, err: unknown) {
-  const msg = err instanceof Error ? err.message : String(err);
-  console.warn(`[dashboard:${scope}]`, msg);
-}
+export const Route = createFileRoute("/_authenticated/dashboard")({ component: DashboardPage });
 
 function StatusDot({ status }: { status: Status }) {
   return (
@@ -121,8 +77,7 @@ const PAGE_SIZE = 10;
 type SortKey = "nome" | "status";
 const PIOR_RANK: Record<Status, number> = { vermelho: 0, amarelo: 1, verde: 2 };
 
-type DashboardTab =
-  "alertas" | "vencimentos" | "estoques" | "tarefas" | "financeiro" | "equipamentos";
+type DashboardTab = "alertas" | "vencimentos" | "estoques" | "tarefas" | "financeiro" | "equipamentos";
 
 function DashboardPage() {
   const qc = useQueryClient();
@@ -142,9 +97,7 @@ function DashboardPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [confTab, setConfTab] = useState<"pendentes" | "em_dia" | "todos">("pendentes");
   const [confFieldFilter, setConfFieldFilter] = useState<string>("todos");
-  const [stockFilter, setStockFilter] = useState<"todos" | "epis" | "materiais" | "zerados">(
-    "todos",
-  );
+  const [stockFilter, setStockFilter] = useState<"todos" | "epis" | "materiais" | "zerados">("todos");
   const [page, setPage] = useState(1);
   const [sortKey, setSortKey] = useState<SortKey>("status");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
@@ -169,95 +122,49 @@ function DashboardPage() {
   const [stockEntryObs, setStockEntryObs] = useState("");
   const [stockEntryObra, setStockEntryObra] = useState<string>(obraId || "");
 
-  // 1. Obras — somente no cliente para evitar SSR abortIncoming (fetch Supabase no servidor)
-  const isClient = typeof window !== "undefined";
-  const { data: obras = [], error: obrasError } = useQuery({
+  // 1. Obras
+  const { data: obras = [] } = useQuery({
     queryKey: ["dash-obras"],
     staleTime: 1000 * 60 * 5,
-    retry: 1,
-    enabled: isClient,
     queryFn: async () => {
-      if (typeof window === "undefined") return [];
       const { data, error } = await supabase.from("obras").select("id, nome").order("nome");
-      if (error) {
-        logDashWarn("obras", error);
-        // Fallback silencioso: retorna vazio em vez de quebrar todo o dashboard
-        return [];
-      }
+      if (error) throw error;
       return data ?? [];
     },
   });
   const obraAtualNome = obraId ? obras.find((o: any) => o.id === obraId)?.nome : null;
 
-  // 2. Funcionários — tolerante a colunas que não existem mais no schema (ex.: vencimento_treinamento)
-  const {
-    data: funcionarios = [],
-    isLoading: loadingFunc,
-    error: funcionariosError,
-  } = useQuery({
+  // 2. Funcionários
+  const { data: funcionarios = [], isLoading: loadingFunc } = useQuery({
     queryKey: ["dash-funcionarios", obraId],
-    retry: 1,
-    enabled: isClient,
     queryFn: async () => {
-      if (typeof window === "undefined") return [];
-      const baseSelect =
-        "id, nome, ativo, obra_id, funcao, setor, telefone, email, cpf, data_admissao, vencimento_aso, vencimento_treinamento, vencimento_folga_campo, vencimento_ferias, vencimento_ficha_epi, vencimento_experiencia, experiencia_concluida";
-      const trySelect = async (sel: string) => {
-        let q: any = supabase.from("funcionarios").select(sel).eq("ativo", true).order("nome");
-        if (obraId) q = q.eq("obra_id", obraId);
-        return await q;
-      };
-      const { data, error } = await trySelect(baseSelect);
-      if (error) {
-        const miss = colunasMissing(error.message ?? "");
-        if (miss.length > 0) {
-          logDashWarn(
-            "funcionarios-missing-cols",
-            `${miss.join(", ")} — tentando fallback com select("*")`,
-          );
-          // Fallback 1: select("*") — funciona mesmo se o cache do PostgREST estiver desatualizado
-          const fb = await (async () => {
-            let q: any = supabase.from("funcionarios").select("*").eq("ativo", true).order("nome");
-            if (obraId) q = q.eq("obra_id", obraId);
-            return await q;
-          })();
-          if (!fb.error) return fb.data ?? [];
-          // Fallback 2: remove colunas faltantes e tenta de novo
-          const filtered = baseSelect
-            .split(",")
-            .map((s) => s.trim())
-            .filter((c) => !miss.includes(c))
-            .join(", ");
-          const retry = await trySelect(filtered);
-          if (!retry.error) return retry.data ?? [];
-          logDashWarn("funcionarios", retry.error);
-          return [];
-        }
-        logDashWarn("funcionarios", error);
-        return [];
-      }
+      let q = supabase
+        .from("funcionarios")
+        .select(
+          "id, nome, ativo, obra_id, funcao, setor, telefone, email, cpf, data_admissao, vencimento_aso, vencimento_treinamento, vencimento_folga_campo, vencimento_ferias, vencimento_ficha_epi, vencimento_experiencia, experiencia_concluida",
+        )
+        .eq("ativo", true)
+        .order("nome");
+      if (obraId) q = q.eq("obra_id", obraId);
+      const { data, error } = await q;
+      if (error) throw error;
       return data ?? [];
     },
   });
 
   // Treinamentos de NR detalhados dos funcionários
-  const { data: allTreinamentos = [], error: treinamentosError } = useQuery({
+  const { data: allTreinamentos = [] } = useQuery({
     queryKey: ["dash-treinamentos", obraId],
-    enabled: isClient && funcionarios.length > 0,
+    enabled: funcionarios.length > 0,
     staleTime: 1000 * 60 * 2,
-    retry: 1,
     queryFn: async () => {
-      if (typeof window === "undefined") return [];
       const ids = funcionarios.map((f: any) => f.id);
       if (ids.length === 0) return [];
       const { data, error } = await supabase
         .from("funcionario_treinamentos")
         .select("id, funcionario_id, nome, data_validade, data_realizacao")
         .in("funcionario_id", ids);
-      if (error) {
-        logDashWarn("treinamentos", error);
-        return [];
-      }
+      if (error) throw error;
       return data ?? [];
     },
   });
@@ -273,91 +180,56 @@ function DashboardPage() {
   }, [allTreinamentos]);
 
   // 3. Tarefas
-  const { data: tarefas = [], error: tarefasError } = useQuery({
+  const { data: tarefas = [] } = useQuery({
     queryKey: ["dash-tarefas", obraId],
-    retry: 1,
-    enabled: isClient,
     queryFn: async () => {
-      if (typeof window === "undefined") return [];
       const { data, error } = await supabase
         .from("tarefas")
         .select("id, status, titulo, descricao, prioridade, data_vencimento")
         .neq("status", "concluida")
         .order("data_vencimento", { ascending: true })
         .limit(100);
-      if (error) {
-        logDashWarn("tarefas", error);
-        // Fallback: tenta select(*) se coluna não existir mais
-        const miss = colunasMissing(error.message ?? "");
-        if (miss.length > 0) {
-          const fb = await supabase
-            .from("tarefas")
-            .select("*")
-            .neq("status", "concluida")
-            .limit(100);
-          if (!fb.error) return fb.data ?? [];
-        }
-        return [];
-      }
+      if (error) throw error;
       return data ?? [];
     },
   });
 
   // 4. EPIs
-  const { data: epis = [], error: episError } = useQuery({
+  const { data: epis = [] } = useQuery({
     queryKey: ["dash-epis"],
     staleTime: 1000 * 60 * 2,
-    retry: 1,
-    enabled: isClient,
     queryFn: async () => {
-      if (typeof window === "undefined") return [];
       const { data, error } = await supabase
         .from("epis")
         .select("id, nome, tipo, ca, estoque_atual, estoque_minimo, validade_meses")
         .eq("ativo", true)
         .order("nome")
         .limit(300);
-      if (error) {
-        logDashWarn("epis", error);
-        const fb = await supabase.from("epis").select("*").eq("ativo", true).limit(300);
-        if (!fb.error) return fb.data ?? [];
-        return [];
-      }
+      if (error) throw error;
       return data ?? [];
     },
   });
 
   // 5. Materiais
-  const { data: materiais = [], error: materiaisError } = useQuery({
+  const { data: materiais = [] } = useQuery({
     queryKey: ["dash-mat"],
     staleTime: 1000 * 60 * 2,
-    retry: 1,
-    enabled: isClient,
     queryFn: async () => {
-      if (typeof window === "undefined") return [];
       const { data, error } = await supabase
         .from("materiais")
         .select("id, nome, codigo, unidade, preco_medio, estoque_atual, estoque_minimo")
         .eq("ativo", true)
         .order("nome")
         .limit(300);
-      if (error) {
-        logDashWarn("materiais", error);
-        const fb = await supabase.from("materiais").select("*").eq("ativo", true).limit(300);
-        if (!fb.error) return fb.data ?? [];
-        return [];
-      }
+      if (error) throw error;
       return data ?? [];
     },
   });
 
   // 6. Contas Financeiras a Pagar
-  const { data: contas = [], error: contasError } = useQuery({
+  const { data: contas = [] } = useQuery({
     queryKey: ["dash-contas", obraId],
-    retry: 1,
-    enabled: isClient,
     queryFn: async () => {
-      if (typeof window === "undefined") return [];
       let q = supabase
         .from("contas_financeiras")
         .select("id, tipo, status, descricao, valor, data_vencimento, obra_id")
@@ -366,125 +238,52 @@ function DashboardPage() {
         .limit(200);
       if (obraId) q = q.eq("obra_id", obraId);
       const { data, error } = await q;
-      if (error) {
-        logDashWarn("contas", error);
-        const miss = colunasMissing(error.message ?? "");
-        if (miss.length > 0) {
-          let q2: any = supabase
-            .from("contas_financeiras")
-            .select("*")
-            .neq("status", "pago")
-            .limit(200);
-          if (obraId) q2 = q2.eq("obra_id", obraId);
-          const fb = await q2;
-          if (!fb.error) return fb.data ?? [];
-        }
-        return [];
-      }
+      if (error) throw error;
       return data ?? [];
     },
   });
 
   // 7. Ferramentas (manutenções e empréstimos em aberto)
-  const { data: ferramentasAlertas = [], error: ferramentasError } = useQuery({
+  const { data: ferramentasAlertas = [] } = useQuery({
     queryKey: ["dash-ferramentas", obraId],
-    retry: 1,
-    enabled: isClient,
     queryFn: async () => {
-      if (typeof window === "undefined") return [];
       let q = supabase
         .from("ferramentas")
         .select("id, nome, codigo, estado, proxima_manutencao, obra_id")
         .not("proxima_manutencao", "is", null);
       if (obraId) q = q.eq("obra_id", obraId);
       const { data, error } = await q;
-      if (error) {
-        logDashWarn("ferramentas", error);
-        return [];
-      }
+      if (error) return [];
       const hoje = new Date();
       return (data ?? []).filter((f: any) => {
         if (!f.proxima_manutencao) return false;
-        try {
-          const dias = differenceInDays(safeParseISO(f.proxima_manutencao), hoje);
-          return dias <= 30; // Vencida ou nos próximos 30 dias
-        } catch {
-          return false;
-        }
+        const dias = differenceInDays(safeParseISO(f.proxima_manutencao), hoje);
+        return dias <= 30; // Vencida ou nos próximos 30 dias
       });
     },
   });
 
-  const { data: emprestimosAtrasados = [], error: emprestimosError } = useQuery({
+  const { data: emprestimosAtrasados = [] } = useQuery({
     queryKey: ["dash-emprestimos", obraId],
-    retry: 1,
-    enabled: isClient,
     queryFn: async () => {
-      if (typeof window === "undefined") return [];
       const { data, error } = await supabase
         .from("ferramenta_emprestimos")
-        .select(
-          "id, data_emprestimo, prevista_devolucao, data_devolucao, ferramentas(nome), funcionarios(nome)",
-        )
+        .select("id, data_emprestimo, prevista_devolucao, data_devolucao, ferramentas(nome), funcionarios(nome)")
         .is("data_devolucao", null)
         .not("prevista_devolucao", "is", null);
-      if (error) {
-        logDashWarn("emprestimos", error);
-        return [];
-      }
+      if (error) return [];
       const hoje = new Date();
       return (data ?? []).filter((e: any) => {
         if (!e.prevista_devolucao) return false;
-        try {
-          return differenceInDays(safeParseISO(e.prevista_devolucao), hoje) < 0;
-        } catch {
-          return false;
-        }
+        return differenceInDays(safeParseISO(e.prevista_devolucao), hoje) < 0;
       });
     },
   });
 
   // ---------------------------------------------
-  // Processamento e Conformidade — com guarda contra dados corruptos
+  // Processamento e Conformidade
   // ---------------------------------------------
-  const conformidade = useMemo(() => {
-    try {
-      return computeConformidade(funcionarios);
-    } catch (e) {
-      logDashWarn("conformidade", e);
-      return [];
-    }
-  }, [funcionarios]);
-
-  const dashErrors = useMemo(() => {
-    const list: Array<{ key: string; msg: string }> = [];
-    const push = (k: string, err: unknown) => {
-      if (!err) return;
-      const m = err instanceof Error ? err.message : String((err as any)?.message ?? err);
-      list.push({ key: k, msg: m });
-    };
-    push("obras", obrasError);
-    push("funcionarios", funcionariosError);
-    push("treinamentos", treinamentosError);
-    push("tarefas", tarefasError);
-    push("epis", episError);
-    push("materiais", materiaisError);
-    push("contas", contasError);
-    push("ferramentas", ferramentasError);
-    push("emprestimos", emprestimosError);
-    // Filtra erros que já foram tratados com fallback silencioso (mensagem vazia)
-    return list.filter((e) => e.msg && e.msg.trim().length > 0);
-  }, [
-    obrasError,
-    funcionariosError,
-    treinamentosError,
-    tarefasError,
-    episError,
-    materiaisError,
-    contasError,
-    ferramentasError,
-    emprestimosError,
-  ]);
+  const conformidade = useMemo(() => computeConformidade(funcionarios), [funcionarios]);
 
   const alertasVencimento = useMemo(
     () =>
@@ -577,7 +376,7 @@ function DashboardPage() {
       }
       const { error } = await supabase
         .from("funcionarios")
-        .update({ [renewField]: renewDate } as never)
+        .update({ [renewField]: renewDate })
         .eq("id", selectedFuncionario.id);
       if (error) throw error;
     },
@@ -733,11 +532,10 @@ function DashboardPage() {
     // Busca textual
     if (searchTerm.trim()) {
       const q = searchTerm.toLowerCase();
-      list = list.filter(
-        (c) =>
-          (c.funcionario.nome ?? "").toLowerCase().includes(q) ||
-          ((c.funcionario as any).funcao ?? "").toLowerCase().includes(q) ||
-          ((c.funcionario as any).setor ?? "").toLowerCase().includes(q),
+      list = list.filter((c) =>
+        (c.funcionario.nome ?? "").toLowerCase().includes(q) ||
+        ((c.funcionario as any).funcao ?? "").toLowerCase().includes(q) ||
+        ((c.funcionario as any).setor ?? "").toLowerCase().includes(q),
       );
     }
 
@@ -944,46 +742,6 @@ function DashboardPage() {
         </Card>
       )}
 
-      {/* Aviso de degradação parcial — mostra qual consulta falhou sem quebrar a tela inteira */}
-      {dashErrors.length > 0 && (
-        <Card className="p-3 border-amber-300 bg-amber-50/60 dark:bg-amber-950/20 dark:border-amber-800">
-          <div className="flex items-start gap-2.5">
-            <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold text-amber-800 dark:text-amber-300">
-                Alguns dados do Dashboard não puderam ser carregados. O painel continua funcionando
-                com dados parciais.
-              </p>
-              <ul className="mt-1.5 space-y-1">
-                {dashErrors.map((e) => (
-                  <li
-                    key={e.key}
-                    className="text-[11px] text-amber-700 dark:text-amber-400 break-words"
-                  >
-                    <span className="font-mono font-semibold">{e.key}:</span> {e.msg.slice(0, 220)}
-                  </li>
-                ))}
-              </ul>
-              <div className="mt-2 flex gap-2">
-                <Button size="sm" variant="outline" className="h-7 text-xs" onClick={handleRefresh}>
-                  <RefreshCw className="h-3 w-3 mr-1" /> Tentar novamente
-                </Button>
-                <span className="text-[11px] text-muted-foreground self-center">
-                  Veja também o console do navegador (F12) para detalhes completos.
-                </span>
-              </div>
-            </div>
-          </div>
-        </Card>
-      )}
-
-      {loadingFunc && funcionarios.length === 0 && !funcionariosError ? (
-        <Card className="p-6 text-center text-sm text-muted-foreground">
-          <RefreshCw className="h-5 w-5 animate-spin mx-auto mb-2 text-primary" />
-          Carregando dados do dashboard...
-        </Card>
-      ) : null}
-
       {/* Cards de Indicadores Interativos (KPIs) */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         {indicadores.map((ind) => {
@@ -1030,9 +788,7 @@ function DashboardPage() {
                   <ind.icon
                     className={cn(
                       "h-4 w-4 transition-colors",
-                      isActive
-                        ? "text-primary"
-                        : "text-muted-foreground group-hover:text-foreground",
+                      isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground",
                     )}
                   />
                 </div>
@@ -1041,7 +797,7 @@ function DashboardPage() {
               <div className="mt-3 flex items-baseline justify-between">
                 <div className="flex items-center gap-2">
                   <span className="text-2xl font-bold tracking-tight">{ind.valor}</span>
-                  <StatusDot status={ind.status as Status} />
+                  <StatusDot status={ind.status} />
                 </div>
                 <span className="text-[11px] text-muted-foreground truncate max-w-[90px]">
                   {ind.sublabel}
@@ -1189,9 +945,7 @@ function DashboardPage() {
                                   : "bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400",
                               )}
                             >
-                              {a.dias < 0
-                                ? `Vencido há ${Math.abs(a.dias)}d`
-                                : `Vence em ${a.dias}d`}
+                              {a.dias < 0 ? `Vencido há ${Math.abs(a.dias)}d` : `Vence em ${a.dias}d`}
                             </span>
                             <Button size="sm" variant="ghost" className="h-7 text-xs px-2">
                               Renovar
@@ -1235,7 +989,8 @@ function DashboardPage() {
                     {estoqueCriticoTotal
                       .filter(
                         (i) =>
-                          !searchTerm || i.nome.toLowerCase().includes(searchTerm.toLowerCase()),
+                          !searchTerm ||
+                          i.nome.toLowerCase().includes(searchTerm.toLowerCase()),
                       )
                       .slice(0, 7)
                       .map((item) => (
@@ -1530,12 +1285,9 @@ function DashboardPage() {
                                 <span
                                   className={cn(
                                     "inline-flex items-center gap-1.5 text-xs px-2 py-0.5 rounded font-medium",
-                                    c.pior === "verde" &&
-                                      "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
-                                    c.pior === "amarelo" &&
-                                      "bg-amber-500/10 text-amber-600 dark:text-amber-400",
-                                    c.pior === "vermelho" &&
-                                      "bg-rose-500/10 text-rose-600 dark:text-rose-400",
+                                    c.pior === "verde" && "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+                                    c.pior === "amarelo" && "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+                                    c.pior === "vermelho" && "bg-rose-500/10 text-rose-600 dark:text-rose-400",
                                   )}
                                 >
                                   <StatusDot status={c.pior} />
@@ -1552,12 +1304,9 @@ function DashboardPage() {
                                     <span
                                       className={cn(
                                         "inline-flex items-center gap-1.5",
-                                        i.status === "verde" &&
-                                          "text-emerald-600 dark:text-emerald-400",
-                                        i.status === "amarelo" &&
-                                          "text-amber-600 dark:text-amber-400 font-medium",
-                                        i.status === "vermelho" &&
-                                          "text-rose-600 dark:text-rose-400 font-semibold",
+                                        i.status === "verde" && "text-emerald-600 dark:text-emerald-400",
+                                        i.status === "amarelo" && "text-amber-600 dark:text-amber-400 font-medium",
+                                        i.status === "vermelho" && "text-rose-600 dark:text-rose-400 font-semibold",
                                       )}
                                     >
                                       <StatusDot status={i.status} />
@@ -1591,8 +1340,7 @@ function DashboardPage() {
                   {/* Paginação */}
                   <div className="flex flex-wrap items-center justify-between gap-2 mt-4 text-xs text-muted-foreground">
                     <span>
-                      Exibindo {pagedConformidade.length} de {sortedConformidade.length}{" "}
-                      funcionários
+                      Exibindo {pagedConformidade.length} de {sortedConformidade.length} funcionários
                     </span>
                     <div className="flex items-center gap-1">
                       <Button
@@ -1641,7 +1389,10 @@ function DashboardPage() {
               </div>
 
               <div className="flex items-center gap-2">
-                <Tabs value={stockFilter} onValueChange={(v) => setStockFilter(v as any)}>
+                <Tabs
+                  value={stockFilter}
+                  onValueChange={(v) => setStockFilter(v as any)}
+                >
                   <TabsList className="h-8">
                     <TabsTrigger value="todos" className="text-xs">
                       Todos ({estoqueCriticoTotal.length})
@@ -1667,7 +1418,8 @@ function DashboardPage() {
 
                 const filtered = list.filter(
                   (item) =>
-                    !searchTerm || item.nome.toLowerCase().includes(searchTerm.toLowerCase()),
+                    !searchTerm ||
+                    item.nome.toLowerCase().includes(searchTerm.toLowerCase()),
                 );
 
                 if (filtered.length === 0) {
@@ -1807,7 +1559,8 @@ function DashboardPage() {
                   {tarefas
                     .filter(
                       (t: any) =>
-                        !searchTerm || t.titulo.toLowerCase().includes(searchTerm.toLowerCase()),
+                        !searchTerm ||
+                        t.titulo.toLowerCase().includes(searchTerm.toLowerCase()),
                     )
                     .map((t: any) => {
                       const dias = t.data_vencimento
@@ -1844,9 +1597,7 @@ function DashboardPage() {
                                 <span
                                   className={cn(
                                     "flex items-center gap-1 font-medium",
-                                    atrasada
-                                      ? "text-rose-600 dark:text-rose-400"
-                                      : "text-foreground",
+                                    atrasada ? "text-rose-600 dark:text-rose-400" : "text-foreground",
                                   )}
                                 >
                                   <Clock className="h-3 w-3" />
@@ -1998,7 +1749,10 @@ function DashboardPage() {
                 ) : (
                   <ul className="divide-y text-sm">
                     {ferramentasAlertas.map((f: any) => {
-                      const dias = differenceInDays(safeParseISO(f.proxima_manutencao), new Date());
+                      const dias = differenceInDays(
+                        safeParseISO(f.proxima_manutencao),
+                        new Date(),
+                      );
                       const vencida = dias < 0;
                       return (
                         <li key={f.id} className="py-2.5 px-2 flex items-center justify-between">
@@ -2134,25 +1888,16 @@ function DashboardPage() {
                         ? differenceInDays(safeParseISO(dataStr), new Date())
                         : null;
                       const status: Status | null =
-                        dias === null
-                          ? null
-                          : dias < 0
-                            ? "vermelho"
-                            : dias <= 30
-                              ? "amarelo"
-                              : "verde";
+                        dias === null ? null : dias < 0 ? "vermelho" : dias <= 30 ? "amarelo" : "verde";
 
                       return (
                         <div
                           key={f.key}
                           className={cn(
                             "p-2.5 rounded-lg border text-xs flex flex-col justify-between",
-                            status === "vermelho" &&
-                              "border-rose-300 bg-rose-50/50 dark:bg-rose-950/20",
-                            status === "amarelo" &&
-                              "border-amber-300 bg-amber-50/50 dark:bg-amber-950/20",
-                            status === "verde" &&
-                              "border-emerald-200 bg-emerald-50/40 dark:bg-emerald-950/20",
+                            status === "vermelho" && "border-rose-300 bg-rose-50/50 dark:bg-rose-950/20",
+                            status === "amarelo" && "border-amber-300 bg-amber-50/50 dark:bg-amber-950/20",
+                            status === "verde" && "border-emerald-200 bg-emerald-50/40 dark:bg-emerald-950/20",
                             status === null && "border-muted bg-muted/20",
                           )}
                         >
@@ -2197,14 +1942,7 @@ function DashboardPage() {
                           const dias = c.data_validade
                             ? differenceInDays(safeParseISO(c.data_validade), new Date())
                             : null;
-                          const status =
-                            dias === null
-                              ? null
-                              : dias < 0
-                                ? "vermelho"
-                                : dias <= 30
-                                  ? "amarelo"
-                                  : "verde";
+                          const status = dias === null ? null : dias < 0 ? "vermelho" : dias <= 30 ? "amarelo" : "verde";
 
                           return (
                             <div

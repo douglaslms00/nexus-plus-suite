@@ -19,7 +19,6 @@ import { Route as AuthenticatedDocumentosRouteImport } from './routes/_authentic
 import { Route as AuthenticatedEpisRouteImport } from './routes/_authenticated/epis'
 import { Route as AuthenticatedFerramentasRouteImport } from './routes/_authenticated/ferramentas'
 import { Route as AuthenticatedFinanceiroRouteImport } from './routes/_authenticated/financeiro'
-import { Route as AuthenticatedFrotaRouteImport } from './routes/_authenticated/frota'
 import { Route as AuthenticatedFuncionariosRouteImport } from './routes/_authenticated/funcionarios'
 import { Route as AuthenticatedMateriaisRouteImport } from './routes/_authenticated/materiais'
 import { Route as AuthenticatedObrasRouteImport } from './routes/_authenticated/obras'
@@ -77,11 +76,6 @@ const AuthenticatedFinanceiroRoute = AuthenticatedFinanceiroRouteImport.update({
   path: '/financeiro',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedFrotaRoute = AuthenticatedFrotaRouteImport.update({
-  id: '/frota',
-  path: '/frota',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
 const AuthenticatedFuncionariosRoute =
   AuthenticatedFuncionariosRouteImport.update({
     id: '/funcionarios',
@@ -124,7 +118,6 @@ export interface FileRoutesByFullPath {
   '/epis': typeof AuthenticatedEpisRoute
   '/ferramentas': typeof AuthenticatedFerramentasRoute
   '/financeiro': typeof AuthenticatedFinanceiroRoute
-  '/frota': typeof AuthenticatedFrotaRoute
   '/funcionarios': typeof AuthenticatedFuncionariosRoute
   '/materiais': typeof AuthenticatedMateriaisRoute
   '/obras': typeof AuthenticatedObrasRoute
@@ -141,7 +134,6 @@ export interface FileRoutesByTo {
   '/epis': typeof AuthenticatedEpisRoute
   '/ferramentas': typeof AuthenticatedFerramentasRoute
   '/financeiro': typeof AuthenticatedFinanceiroRoute
-  '/frota': typeof AuthenticatedFrotaRoute
   '/funcionarios': typeof AuthenticatedFuncionariosRoute
   '/materiais': typeof AuthenticatedMateriaisRoute
   '/obras': typeof AuthenticatedObrasRoute
@@ -161,7 +153,6 @@ export interface FileRoutesById {
   '/_authenticated/epis': typeof AuthenticatedEpisRoute
   '/_authenticated/ferramentas': typeof AuthenticatedFerramentasRoute
   '/_authenticated/financeiro': typeof AuthenticatedFinanceiroRoute
-  '/_authenticated/frota': typeof AuthenticatedFrotaRoute
   '/_authenticated/funcionarios': typeof AuthenticatedFuncionariosRoute
   '/_authenticated/materiais': typeof AuthenticatedMateriaisRoute
   '/_authenticated/obras': typeof AuthenticatedObrasRoute
@@ -182,7 +173,6 @@ export interface FileRouteTypes {
     | '/epis'
     | '/ferramentas'
     | '/financeiro'
-    | '/frota'
     | '/funcionarios'
     | '/materiais'
     | '/obras'
@@ -199,7 +189,6 @@ export interface FileRouteTypes {
     | '/epis'
     | '/ferramentas'
     | '/financeiro'
-    | '/frota'
     | '/funcionarios'
     | '/materiais'
     | '/obras'
@@ -218,7 +207,6 @@ export interface FileRouteTypes {
     | '/_authenticated/epis'
     | '/_authenticated/ferramentas'
     | '/_authenticated/financeiro'
-    | '/_authenticated/frota'
     | '/_authenticated/funcionarios'
     | '/_authenticated/materiais'
     | '/_authenticated/obras'
@@ -305,13 +293,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedFinanceiroRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/frota': {
-      id: '/_authenticated/frota'
-      path: '/frota'
-      fullPath: '/frota'
-      preLoaderRoute: typeof AuthenticatedFrotaRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
     '/_authenticated/funcionarios': {
       id: '/_authenticated/funcionarios'
       path: '/funcionarios'
@@ -365,7 +346,6 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedEpisRoute: typeof AuthenticatedEpisRoute
   AuthenticatedFerramentasRoute: typeof AuthenticatedFerramentasRoute
   AuthenticatedFinanceiroRoute: typeof AuthenticatedFinanceiroRoute
-  AuthenticatedFrotaRoute: typeof AuthenticatedFrotaRoute
   AuthenticatedFuncionariosRoute: typeof AuthenticatedFuncionariosRoute
   AuthenticatedMateriaisRoute: typeof AuthenticatedMateriaisRoute
   AuthenticatedObrasRoute: typeof AuthenticatedObrasRoute
@@ -383,7 +363,6 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedEpisRoute: AuthenticatedEpisRoute,
   AuthenticatedFerramentasRoute: AuthenticatedFerramentasRoute,
   AuthenticatedFinanceiroRoute: AuthenticatedFinanceiroRoute,
-  AuthenticatedFrotaRoute: AuthenticatedFrotaRoute,
   AuthenticatedFuncionariosRoute: AuthenticatedFuncionariosRoute,
   AuthenticatedMateriaisRoute: AuthenticatedMateriaisRoute,
   AuthenticatedObrasRoute: AuthenticatedObrasRoute,

@@ -1,9 +1,8 @@
 import { supabase } from "@/integrations/supabase/client";
-import { safeRandomUUID } from "@/lib/utils";
 
 export async function uploadAnexo(file: File, folder = "geral"): Promise<string> {
   const ext = file.name.split(".").pop();
-  const path = `${folder}/${safeRandomUUID()}.${ext}`;
+  const path = `${folder}/${crypto.randomUUID()}.${ext}`;
   const { error } = await supabase.storage.from("anexos").upload(path, file, { upsert: false });
   if (error) throw error;
   return path;

@@ -6,9 +6,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useCurrentUser } from "@/lib/permissions";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { cn, safeParseISO } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 
 type Notif = {
   id: string;
@@ -46,20 +46,10 @@ export function NotificationsBell() {
   // Gera avisos de vencimentos (ASO, treinamentos, contas, manutenções) no máximo a cada 6h
   useEffect(() => {
     if (!user?.id) return;
-    if (typeof window === "undefined") return;
     const key = `venc_check_${user.id}`;
-    let last = 0;
-    try {
-      last = Number(localStorage.getItem(key) ?? 0);
-    } catch {
-      last = 0;
-    }
+    const last = Number(localStorage.getItem(key) ?? 0);
     if (Date.now() - last < 6 * 60 * 60 * 1000) return;
-    try {
-      localStorage.setItem(key, String(Date.now()));
-    } catch {
-      // storage indisponível (modo privado) — segue sem cache
-    }
+    localStorage.setItem(key, String(Date.now()));
     (supabase as any).rpc("gerar_notificacoes_vencimentos").then(({ data, error }: any) => {
       if (!error && data > 0) qc.invalidateQueries({ queryKey: ["notifications", user.id] });
     });
@@ -139,22 +129,14 @@ export function NotificationsBell() {
       if (!n.link) return;
       if (!n.lida) markRead.mutate(n.id);
       setOpen(false);
-      // TanStack Router não aceita `to` com query string — separa path e search.
-      try {
-        const [path, query] = n.link.split("?");
-        const search: Record<string, string> = {};
-        if (query) {
-          for (const part of query.split("&")) {
-            const [k, v] = part.split("=");
-            if (k) search[decodeURIComponent(k)] = decodeURIComponent(v ?? "");
-          }
-        }
-        if (n.ref_id) search["highlight"] = n.ref_id;
-        navigate({ to: path as any, search: Object.keys(search).length ? (search as any) : undefined });
-      } catch {
-        // Fallback: navegação tradicional se a rota for inválida
-        window.location.href = n.link;
+      // Constrói URL com highlight do item para o destino poder destacar/scrollar
+      let target = n.link;
+      if (n.ref_id) {
+        const sep = target.includes("?") ? "&" : "?";
+        target = `${target}${sep}highlight=${n.ref_id}`;
       }
+      // @ts-ignore - TanStack Router aceita string com query
+      navigate({ to: target as any });
     },
     [markRead, navigate],
   );
@@ -215,19 +197,13 @@ export function NotificationsBell() {
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate flex items-center gap-1">
                     {n.titulo}
-                    {clickable && (
-                      <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
-                    )}
+                    {clickable && <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />}
                   </p>
                   {n.mensagem && (
                     <p className="text-xs text-muted-foreground line-clamp-2">{n.mensagem}</p>
                   )}
                   <p className="text-[10px] text-muted-foreground mt-1">
-                    {(() => {
-                      const d = safeParseISO(n.created_at);
-                      if (isNaN(d.getTime())) return "—";
-                      return formatDistanceToNow(d, { addSuffix: true, locale: ptBR });
-                    })()}
+                    {formatDistanceToNow(parseISO(n.created_at), { addSuffix: true, locale: ptBR })}
                   </p>
                 </div>
                 <Button
