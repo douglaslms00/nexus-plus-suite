@@ -184,20 +184,6 @@ function AuthPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="signup-cpf">CPF (opcional, para login com CPF)</Label>
-                  <Input
-                    id="signup-cpf"
-                    type="text"
-                    placeholder="000.000.000-00"
-                    value={signupCpf}
-                    onChange={(e) => setSignupCpf(formatCpf(e.target.value))}
-                    maxLength={14}
-                  />
-                  {signupCpf && !validarCPF(signupCpf) && (
-                    <p className="text-xs text-destructive">CPF inválido</p>
-                  )}
-                </div>
-                <div className="space-y-2">
                   <Label htmlFor="signup-password">Senha</Label>
                   <div className="relative">
                     <Input
