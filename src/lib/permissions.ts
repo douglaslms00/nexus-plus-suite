@@ -55,12 +55,16 @@ export function useUserRoles() {
     queryKey: ["userRoles", user?.id],
     enabled: !!user?.id,
     staleTime: 1000 * 60 * 5,
+    retry: false,
     queryFn: async (): Promise<AppRole[]> => {
       const { data, error } = await supabase
         .from("user_roles")
         .select("role")
         .eq("user_id", user!.id);
-      if (error) throw error;
+      if (error) {
+        console.warn("[permissions] user_roles falhou, usando fallback:", error.message);
+        return [];
+      }
       return (data ?? []).map((r) => r.role as AppRole);
     },
   });
@@ -72,13 +76,17 @@ export function useProfile() {
     queryKey: ["profile", user?.id],
     enabled: !!user?.id,
     staleTime: 1000 * 60 * 5,
+    retry: false,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
         .select("id, nome, setor, avatar_url, created_at, updated_at")
         .eq("id", user!.id)
         .maybeSingle();
-      if (error) throw error;
+      if (error) {
+        console.warn("[permissions] profiles falhou:", error.message);
+        return null;
+      }
       return data;
     },
   });
@@ -92,12 +100,16 @@ export function useMyModulePermissions() {
     queryKey: ["my-module-perms", user?.id],
     enabled: !!user?.id,
     staleTime: 1000 * 60 * 5,
+    retry: false,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("user_module_permissions")
         .select("module, can_view, can_edit, can_delete")
         .eq("user_id", user!.id);
-      if (error) throw error;
+      if (error) {
+        console.warn("[permissions] user_module_permissions falhou:", error.message);
+        return [];
+      }
       return (data ?? []) as ({ module: AppModule } & ModulePerm)[];
     },
   });
@@ -127,17 +139,24 @@ export function useAuthorizedObras() {
     queryKey: ["authorized-obras", user?.id, rolesKey],
     enabled: !!user?.id && !!roles,
     staleTime: 1000 * 60 * 5,
+    retry: false,
     queryFn: async (): Promise<{ id: string; nome: string }[]> => {
       if (canManage(roles)) {
         const { data, error } = await supabase.from("obras").select("id, nome").order("nome");
-        if (error) throw error;
+        if (error) {
+          console.warn("[permissions] obras falhou:", error.message);
+          return [];
+        }
         return data ?? [];
       }
       const { data, error } = await supabase
         .from("user_obras")
         .select("obra:obras(id, nome)")
         .eq("user_id", user!.id);
-      if (error) throw error;
+      if (error) {
+        console.warn("[permissions] user_obras falhou:", error.message);
+        return [];
+      }
       return (data ?? [])
         .map((r: { obra: { id: string; nome: string } | null }) => r.obra)
         .filter((o): o is { id: string; nome: string } => !!o)
@@ -149,14 +168,20 @@ export function useAuthorizedObras() {
 export type SystemRolePerm = { role: AppRole; module: AppModule } & ModulePerm;
 
 export function useAllSystemRolePerms() {
+  const { data: user } = useCurrentUser();
   return useQuery({
-    queryKey: ["all-system-role-perms"],
+    queryKey: ["all-system-role-perms", user?.id],
+    enabled: !!user?.id,
     staleTime: 1000 * 60 * 5,
+    retry: false,
     queryFn: async (): Promise<SystemRolePerm[]> => {
       const { data, error } = await supabase
         .from("system_role_module_permissions")
         .select("role, module, can_view, can_edit, can_delete");
-      if (error) throw error;
+      if (error) {
+        console.warn("[permissions] system_role_module_permissions falhou:", error.message);
+        return [];
+      }
       return (data ?? []) as SystemRolePerm[];
     },
   });
@@ -221,12 +246,16 @@ export function useMyCustomRoles() {
     queryKey: ["my-custom-roles", user?.id],
     enabled: !!user?.id,
     staleTime: 1000 * 60 * 5,
+    retry: false,
     queryFn: async (): Promise<CustomRole[]> => {
       const { data, error } = await supabase
         .from("user_custom_roles")
         .select("custom_role:custom_roles(id, name, label, description)")
         .eq("user_id", user!.id);
-      if (error) throw error;
+      if (error) {
+        console.warn("[permissions] user_custom_roles falhou:", error.message);
+        return [];
+      }
       return (data ?? [])
         .map((r: { custom_role: CustomRole | null }) => r.custom_role)
         .filter((c): c is CustomRole => !!c);
@@ -235,14 +264,20 @@ export function useMyCustomRoles() {
 }
 
 export function useAllCustomRolePerms() {
+  const { data: user } = useCurrentUser();
   return useQuery({
-    queryKey: ["all-custom-role-perms"],
+    queryKey: ["all-custom-role-perms", user?.id],
+    enabled: !!user?.id,
     staleTime: 1000 * 60 * 5,
+    retry: false,
     queryFn: async (): Promise<CustomRolePerm[]> => {
       const { data, error } = await supabase
         .from("custom_role_module_permissions")
         .select("custom_role_id, module, can_view, can_edit, can_delete");
-      if (error) throw error;
+      if (error) {
+        console.warn("[permissions] custom_role_module_permissions falhou:", error.message);
+        return [];
+      }
       return (data ?? []) as CustomRolePerm[];
     },
   });

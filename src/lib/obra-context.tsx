@@ -1,13 +1,16 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { ObraCtx } from "./obra-context.types";
 
 export function ObraProvider({ children }: { children: ReactNode }) {
-  const [obraId, setObraIdState] = useState<string | null>(null);
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      setObraIdState(localStorage.getItem("obra_atual") || null);
+  // Inicialização lazy evita flash "Todas as obras" -> obra salva.
+  const [obraId, setObraIdState] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    try {
+      return localStorage.getItem("obra_atual") || null;
+    } catch {
+      return null;
     }
-  }, []);
+  });
   const setObraId = (id: string | null) => {
     setObraIdState(id);
     if (typeof window !== "undefined") {

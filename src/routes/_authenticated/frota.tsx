@@ -484,12 +484,16 @@ function FrotaPage() {
       toast.error("Nenhum registro válido encontrado no CSV");
       return;
     }
-    // tenta mapear placa -> veiculo_id
-    const placaMap = new Map((veiculos as any[]).map((v) => [v.placa.toUpperCase(), v.id]));
+    // tenta mapear placa -> veiculo_id (com guardas: placa pode vir nula de import/draft)
+    const placaMap = new Map(
+      (veiculos as any[])
+        .filter((v) => v?.placa && v?.id)
+        .map((v) => [String(v.placa).toUpperCase(), v.id]),
+    );
     let ok = 0;
     for (const r of rows) {
       const veiculo_id = r.veiculo_placa
-        ? placaMap.get(r.veiculo_placa.toUpperCase().replace(/[^A-Z0-9]/g, ""))
+        ? placaMap.get(String(r.veiculo_placa).toUpperCase().replace(/[^A-Z0-9]/g, ""))
         : (veiculos as any[])[0]?.id;
       if (!veiculo_id) continue;
       const { error } = await supabase.from("frota_pedagios").insert({
@@ -530,7 +534,9 @@ function FrotaPage() {
       arr.push(a);
       byVeic.set(a.veiculo_id, arr);
     }
-    const sorted = [...(abastecimentos as any[])].sort((a, b) => a.data.localeCompare(b.data));
+    const sorted = [...(abastecimentos as any[])].sort((a, b) =>
+      String(a?.data ?? "").localeCompare(String(b?.data ?? "")),
+    );
     const rows = sorted.map((a) => {
       const list = byVeic.get(a.veiculo_id) ?? [];
       const idx = list.findIndex((x) => x.id === a.id);
@@ -538,7 +544,7 @@ function FrotaPage() {
       const { mediaKml, custoPorKm } = calcLinhaConsumo(a, prev);
       return [
         a.data,
-        a.veiculo?.placa ?? a.veiculo_id.slice(0, 8),
+        a.veiculo?.placa ?? (a.veiculo_id ? String(a.veiculo_id).slice(0, 8) : "—"),
         a.motorista?.nome ?? "—",
         String(a.odometro),
         Number(a.litros).toFixed(2),

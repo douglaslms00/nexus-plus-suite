@@ -21,11 +21,25 @@ function AuthPage() {
   const [password, setPassword] = useState("");
   const [nome, setNome] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [isResetMode] = useState(
+    () => typeof window !== "undefined" && window.location.search.includes("reset=true"),
+  );
+  const [newPwd, setNewPwd] = useState("");
+  const [newPwd2, setNewPwd2] = useState("");
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user) navigate({ to: "/dashboard", replace: true });
-    });
+    let cancelled = false;
+    supabase.auth
+      .getUser()
+      .then(({ data }) => {
+        if (!cancelled && data.user && !window.location.search.includes("reset=true")) {
+          navigate({ to: "/dashboard", replace: true });
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
   }, [navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -45,9 +59,11 @@ function AuthPage() {
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
+    const emailToUse = email.trim().toLowerCase();
+    if (!emailToUse) return toast.error("Informe seu e-mail.");
     setLoading(true);
     const { error } = await supabase.auth.signUp({
-      email,
+      email: emailToUse,
       password,
       options: {
         emailRedirectTo: `${window.location.origin}/dashboard`,
@@ -91,6 +107,65 @@ function AuthPage() {
     if (error) return toast.error(error.message);
     toast.success("Instruções de recuperação de senha enviadas para seu e-mail!");
   };
+
+  const handleUpdatePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPwd.length < 6) return toast.error("A nova senha precisa ter ao menos 6 caracteres.");
+    if (newPwd !== newPwd2) return toast.error("As senhas não conferem.");
+    setLoading(true);
+    const { error } = await supabase.auth.updateUser({ password: newPwd });
+    setLoading(false);
+    if (error) return toast.error(error.message);
+    toast.success("Senha atualizada! Faça login com a nova senha.");
+    window.location.search = "";
+  };
+
+  if (isResetMode) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary via-primary to-sidebar-accent p-4">
+        <Card className="w-full max-w-md shadow-2xl">
+          <CardHeader className="text-center space-y-3">
+            <div className="mx-auto h-14 w-14 rounded-xl bg-primary flex items-center justify-center">
+              <Building2 className="h-7 w-7 text-primary-foreground" />
+            </div>
+            <CardTitle className="text-2xl">Definir nova senha</CardTitle>
+            <CardDescription>
+              Você chegou aqui pelo link de recuperação. Defina sua nova senha abaixo.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleUpdatePassword} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="new-password">Nova senha</Label>
+                <Input
+                  id="new-password"
+                  type="password"
+                  required
+                  minLength={6}
+                  value={newPwd}
+                  onChange={(e) => setNewPwd(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="new-password2">Confirmar nova senha</Label>
+                <Input
+                  id="new-password2"
+                  type="password"
+                  required
+                  minLength={6}
+                  value={newPwd2}
+                  onChange={(e) => setNewPwd2(e.target.value)}
+                />
+              </div>
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? "Salvando..." : "Salvar nova senha"}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary via-primary to-sidebar-accent p-4">

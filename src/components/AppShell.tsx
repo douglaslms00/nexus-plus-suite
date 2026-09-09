@@ -52,7 +52,7 @@ import { GlobalFloatingActions } from "@/components/GlobalFloatingActions";
 import { InstallAppButton } from "@/components/InstallAppButton";
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const { location } = useRouterState();
+  const location = useRouterState({ select: (s) => s.location });
   const navigate = useNavigate();
   const { data: profile } = useProfile();
   const { data: authUser } = useCurrentUser();
@@ -70,7 +70,10 @@ export function AppShell({ children }: { children: ReactNode }) {
       setCollapsed(window.localStorage.getItem("sidebar-collapsed") === "1");
     }
     // Garante que o perfil do usuário exista (para aparecer nas listas de usuários)
-    void (supabase as any).rpc("ensure_profile");
+    void (supabase as any).rpc("ensure_profile").then(
+      () => undefined,
+      (err: unknown) => console.warn("[AppShell] ensure_profile falhou:", err),
+    );
   }, []);
 
   useEffect(() => {

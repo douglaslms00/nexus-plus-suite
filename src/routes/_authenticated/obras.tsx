@@ -26,7 +26,7 @@ import {
 import { Plus, Trash2, MapPin, Pencil, AlertTriangle, Bell, CalendarClock } from "lucide-react";
 import { toast } from "sonner";
 import { differenceInDays } from "date-fns";
-import { cn, safeParseISO, safeFormatDate } from "@/lib/utils";
+import { cn, safeParseISO, safeFormatDate, safeRandomUUID } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/obras")({ component: ObrasPage });
 
@@ -40,7 +40,7 @@ const VENC_OBRAS: ReadonlyArray<readonly [string, string, string]> = [
 
 type ObraVencItem = { id: string; nome: string; data_emissao: string; data_vencimento: string };
 function novoVenc(): ObraVencItem {
-  return { id: crypto.randomUUID(), nome: "", data_emissao: "", data_vencimento: "" };
+  return { id: safeRandomUUID(), nome: "", data_emissao: "", data_vencimento: "" };
 }
 
 function vencColor(date?: string | null) {

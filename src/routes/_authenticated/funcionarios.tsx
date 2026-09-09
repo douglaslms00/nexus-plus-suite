@@ -58,7 +58,7 @@ import {
 import { toast } from "sonner";
 import { uploadAnexo, getAnexoUrl } from "@/lib/upload";
 import { differenceInDays, addMonths } from "date-fns";
-import { cn, safeParseISO, safeFormatDate } from "@/lib/utils";
+import { cn, safeParseISO, safeFormatDate, safeRandomUUID } from "@/lib/utils";
 import { lerFichaRegistro, lerFichaRegistroPdf } from "@/lib/ocr.functions";
 
 export const Route = createFileRoute("/_authenticated/funcionarios")({
@@ -75,11 +75,11 @@ const VENC: ReadonlyArray<readonly [string, string, string | null]> = [
 
 type TreinamentoItem = { id: string; nome: string; data_realizacao: string; data_validade: string };
 function novoTreinamento(): TreinamentoItem {
-  return { id: crypto.randomUUID(), nome: "", data_realizacao: "", data_validade: "" };
+  return { id: safeRandomUUID(), nome: "", data_realizacao: "", data_validade: "" };
 }
 
 function novoTreinamentoWithNome(nome: string): TreinamentoItem {
-  return { id: crypto.randomUUID(), nome, data_realizacao: "", data_validade: "" };
+  return { id: safeRandomUUID(), nome, data_realizacao: "", data_validade: "" };
 }
 
 type Funcionario = any;

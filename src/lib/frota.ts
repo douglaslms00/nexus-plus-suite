@@ -53,8 +53,8 @@ export function calcConsumo(abastecimentos: Abastecimento[]): {
   if (abastecimentos.length < 2)
     return { mediaKml: null, custoPorKm: null, totalKm: 0, totalLitros: 0, totalGasto: 0 };
   const sorted = [...abastecimentos].sort((a, b) => {
-    if (a.data !== b.data) return a.data.localeCompare(b.data);
-    return a.odometro - b.odometro;
+    if (a.data !== b.data) return String(a?.data ?? "").localeCompare(String(b?.data ?? ""));
+    return Number(a?.odometro ?? 0) - Number(b?.odometro ?? 0);
   });
   let totalKm = 0;
   let totalLitros = 0;

@@ -64,9 +64,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   ssr: false,
   head: () => ({
     meta: [
-      { httpEquiv: "charset", content: "utf-8" },
+      { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { name: "title", content: "GestãoPro — Sistema de Gestão" },
+      { title: "GestãoPro — Sistema de Gestão" },
       {
         name: "description",
         content: "Plataforma de gestão de obra: funcionários, tarefas, EPIs, ativos e financeiro.",

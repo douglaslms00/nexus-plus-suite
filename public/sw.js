@@ -1,8 +1,11 @@
 // Service Worker for GestãoPro PWA
-const CACHE_NAME = "gestaopro-cache-v1";
+// NUNCA colocar "/" (navegação/HTML) em cache-first: HTML velho referencia
+// chunks com hash velho (já deletados no deploy) e gera tela branca que não
+// se auto-cura porque o JS de desregistro nunca carrega.
+const CACHE_NAME = "gestaopro-cache-v2";
 
 const STATIC_ASSETS = [
-  "/",
+  "/manifest.webmanifest",
   "/manifest.json",
   "/favicon.ico",
   "/favicon.svg",
@@ -10,7 +13,7 @@ const STATIC_ASSETS = [
   "/logo512.png",
   "/apple-touch-icon.png",
   "/maskable-icon-192.png",
-  "/maskable-icon-512.png"
+  "/maskable-icon-512.png",
 ];
 
 self.addEventListener("install", (event) => {
@@ -44,6 +47,13 @@ self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
 
   const url = new URL(event.request.url);
+
+  // Navegação (HTML): sempre network-first, nunca servir do cache.
+  // Cache de "/" causa tela branca após deploy (chunk com hash velho).
+  if (event.request.mode === "navigate") {
+    event.respondWith(fetch(event.request).catch(() => caches.match(event.request)));
+    return;
+  }
 
   // For static icons and manifest, try cache first then network
   if (STATIC_ASSETS.includes(url.pathname)) {
