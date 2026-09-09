@@ -29,14 +29,19 @@ function AuthPage() {
 
   useEffect(() => {
     let cancelled = false;
-    supabase.auth
-      .getUser()
-      .then(({ data }) => {
-        if (!cancelled && data.user && !window.location.search.includes("reset=true")) {
-          navigate({ to: "/dashboard", replace: true });
-        }
-      })
-      .catch(() => undefined);
+    try {
+      supabase.auth
+        .getUser()
+        .then(({ data }) => {
+          if (!cancelled && data.user && !window.location.search.includes("reset=true")) {
+            navigate({ to: "/dashboard", replace: true });
+          }
+        })
+        .catch(() => undefined);
+    } catch {
+      // Ex.: env do Supabase ausente no build publicado — a página de login
+      // continua renderizada e o erro aparece via ErrorComponent.
+    }
     return () => {
       cancelled = true;
     };
