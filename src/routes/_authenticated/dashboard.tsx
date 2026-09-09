@@ -166,7 +166,8 @@ function DashboardPage() {
   const [stockEntryObs, setStockEntryObs] = useState("");
   const [stockEntryObra, setStockEntryObra] = useState<string>(obraId || "");
 
-  // 1. Obras
+  // 1. Obras — somente no cliente para evitar SSR abortIncoming (fetch Supabase no servidor)
+  const isClient = typeof window !== "undefined";
   const {
     data: obras = [],
     error: obrasError,
@@ -174,7 +175,9 @@ function DashboardPage() {
     queryKey: ["dash-obras"],
     staleTime: 1000 * 60 * 5,
     retry: 1,
+    enabled: isClient,
     queryFn: async () => {
+      if (typeof window === "undefined") return [];
       const { data, error } = await supabase.from("obras").select("id, nome").order("nome");
       if (error) {
         logDashWarn("obras", error);
@@ -194,7 +197,9 @@ function DashboardPage() {
   } = useQuery({
     queryKey: ["dash-funcionarios", obraId],
     retry: 1,
+    enabled: isClient,
     queryFn: async () => {
+      if (typeof window === "undefined") return [];
       const baseSelect =
         "id, nome, ativo, obra_id, funcao, setor, telefone, email, cpf, data_admissao, vencimento_aso, vencimento_treinamento, vencimento_folga_campo, vencimento_ferias, vencimento_ficha_epi, vencimento_experiencia, experiencia_concluida";
       const trySelect = async (sel: string) => {
@@ -235,10 +240,11 @@ function DashboardPage() {
   // Treinamentos de NR detalhados dos funcionários
   const { data: allTreinamentos = [], error: treinamentosError } = useQuery({
     queryKey: ["dash-treinamentos", obraId],
-    enabled: funcionarios.length > 0,
+    enabled: isClient && funcionarios.length > 0,
     staleTime: 1000 * 60 * 2,
     retry: 1,
     queryFn: async () => {
+      if (typeof window === "undefined") return [];
       const ids = funcionarios.map((f: any) => f.id);
       if (ids.length === 0) return [];
       const { data, error } = await supabase
@@ -267,7 +273,9 @@ function DashboardPage() {
   const { data: tarefas = [], error: tarefasError } = useQuery({
     queryKey: ["dash-tarefas", obraId],
     retry: 1,
+    enabled: isClient,
     queryFn: async () => {
+      if (typeof window === "undefined") return [];
       const { data, error } = await supabase
         .from("tarefas")
         .select("id, status, titulo, descricao, prioridade, data_vencimento")
@@ -293,7 +301,9 @@ function DashboardPage() {
     queryKey: ["dash-epis"],
     staleTime: 1000 * 60 * 2,
     retry: 1,
+    enabled: isClient,
     queryFn: async () => {
+      if (typeof window === "undefined") return [];
       const { data, error } = await supabase
         .from("epis")
         .select("id, nome, tipo, ca, estoque_atual, estoque_minimo, validade_meses")
@@ -315,7 +325,9 @@ function DashboardPage() {
     queryKey: ["dash-mat"],
     staleTime: 1000 * 60 * 2,
     retry: 1,
+    enabled: isClient,
     queryFn: async () => {
+      if (typeof window === "undefined") return [];
       const { data, error } = await supabase
         .from("materiais")
         .select("id, nome, codigo, unidade, preco_medio, estoque_atual, estoque_minimo")
@@ -336,7 +348,9 @@ function DashboardPage() {
   const { data: contas = [], error: contasError } = useQuery({
     queryKey: ["dash-contas", obraId],
     retry: 1,
+    enabled: isClient,
     queryFn: async () => {
+      if (typeof window === "undefined") return [];
       let q = supabase
         .from("contas_financeiras")
         .select("id, tipo, status, descricao, valor, data_vencimento, obra_id")
@@ -364,7 +378,9 @@ function DashboardPage() {
   const { data: ferramentasAlertas = [], error: ferramentasError } = useQuery({
     queryKey: ["dash-ferramentas", obraId],
     retry: 1,
+    enabled: isClient,
     queryFn: async () => {
+      if (typeof window === "undefined") return [];
       let q = supabase
         .from("ferramentas")
         .select("id, nome, codigo, estado, proxima_manutencao, obra_id")
@@ -391,7 +407,9 @@ function DashboardPage() {
   const { data: emprestimosAtrasados = [], error: emprestimosError } = useQuery({
     queryKey: ["dash-emprestimos", obraId],
     retry: 1,
+    enabled: isClient,
     queryFn: async () => {
+      if (typeof window === "undefined") return [];
       const { data, error } = await supabase
         .from("ferramenta_emprestimos")
         .select("id, data_emprestimo, prevista_devolucao, data_devolucao, ferramentas(nome), funcionarios(nome)")
