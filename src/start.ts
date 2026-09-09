@@ -16,7 +16,10 @@ const errorMiddleware = createMiddleware().server(async ({ next }) => {
       throw error;
     }
     if (isAbortError(error)) {
-      console.warn("[ssr] abort in requestMiddleware, ignoring:", (error as Error)?.message ?? error);
+      console.warn(
+        "[ssr] abort in requestMiddleware, ignoring:",
+        (error as Error)?.message ?? error,
+      );
       return new Response(null, { status: 409 });
     }
     console.error(error);

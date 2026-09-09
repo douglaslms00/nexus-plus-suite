@@ -58,7 +58,10 @@ export default {
       if (isClientAbort(error)) {
         // Cliente fechou a conexão antes do SSR terminar (ex: HMR refresh, navegação cancelada).
         // Não logar como erro 500 — apenas encerra silenciosamente.
-        console.warn("[ssr] client aborted request, skipping error page:", (error as Error)?.message ?? error);
+        console.warn(
+          "[ssr] client aborted request, skipping error page:",
+          (error as Error)?.message ?? error,
+        );
         return new Response(null, { status: 409 });
       }
       console.error(error);

@@ -84,11 +84,13 @@ function EpisPage() {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<any>({ tipo: "EPI", estoque_atual: 0, estoque_minimo: 0 });
   const [busca, setBusca] = useState(() => {
-    if (typeof window !== "undefined") return new URLSearchParams(window.location.search).get("busca") || "";
+    if (typeof window !== "undefined")
+      return new URLSearchParams(window.location.search).get("busca") || "";
     return "";
   });
   const [soBaixo, setSoBaixo] = useState(() => {
-    if (typeof window !== "undefined") return new URLSearchParams(window.location.search).get("soBaixo") === "true";
+    if (typeof window !== "undefined")
+      return new URLSearchParams(window.location.search).get("soBaixo") === "true";
     return false;
   });
 

@@ -83,9 +83,18 @@ describe("computeConformidade + countAlertasVencimento", () => {
   });
 
   it("experiência concluída não gera alerta", () => {
-    const expConcluida = { vencimento_experiencia: isoIn(-3, today), experiencia_concluida: false } as any;
-    const expFlag = { vencimento_experiencia: isoIn(60, today), experiencia_concluida: true } as any;
-    const expAtiva = { vencimento_experiencia: isoIn(10, today), experiencia_concluida: false } as any;
+    const expConcluida = {
+      vencimento_experiencia: isoIn(-3, today),
+      experiencia_concluida: false,
+    } as any;
+    const expFlag = {
+      vencimento_experiencia: isoIn(60, today),
+      experiencia_concluida: true,
+    } as any;
+    const expAtiva = {
+      vencimento_experiencia: isoIn(10, today),
+      experiencia_concluida: false,
+    } as any;
     expect(isExperienciaConcluida(expConcluida, today)).toBe(true);
     expect(isExperienciaConcluida(expFlag, today)).toBe(true);
     expect(isExperienciaConcluida(expAtiva, today)).toBe(false);

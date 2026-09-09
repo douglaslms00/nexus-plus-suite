@@ -43,10 +43,15 @@ export type Abastecimento = {
 };
 
 // Calcula km/L e R$/km a partir de lista ordenada de abastecimentos do mesmo veículo
-export function calcConsumo(
-  abastecimentos: Abastecimento[]
-): { mediaKml: number | null; custoPorKm: number | null; totalKm: number; totalLitros: number; totalGasto: number } {
-  if (abastecimentos.length < 2) return { mediaKml: null, custoPorKm: null, totalKm: 0, totalLitros: 0, totalGasto: 0 };
+export function calcConsumo(abastecimentos: Abastecimento[]): {
+  mediaKml: number | null;
+  custoPorKm: number | null;
+  totalKm: number;
+  totalLitros: number;
+  totalGasto: number;
+} {
+  if (abastecimentos.length < 2)
+    return { mediaKml: null, custoPorKm: null, totalKm: 0, totalLitros: 0, totalGasto: 0 };
   const sorted = [...abastecimentos].sort((a, b) => {
     if (a.data !== b.data) return a.data.localeCompare(b.data);
     return a.odometro - b.odometro;
@@ -72,17 +77,24 @@ export function calcConsumo(
 // Para exibição por linha: calcula métricas do abastecimento atual vs anterior
 export function calcLinhaConsumo(
   atual: Abastecimento,
-  anterior: Abastecimento | null
+  anterior: Abastecimento | null,
 ): { kmRodados: number | null; mediaKml: number | null; custoPorKm: number | null } {
   if (!anterior) return { kmRodados: null, mediaKml: null, custoPorKm: null };
   const km = atual.odometro - anterior.odometro;
-  if (km <= 0 || Number(atual.litros) <= 0) return { kmRodados: km, mediaKml: null, custoPorKm: null };
+  if (km <= 0 || Number(atual.litros) <= 0)
+    return { kmRodados: km, mediaKml: null, custoPorKm: null };
   const mediaKml = km / Number(atual.litros);
   const custoPorKm = Number(atual.valor_total) / km;
   return { kmRodados: km, mediaKml, custoPorKm };
 }
 
-export type AlertaRevisao = { tipo: "km" | "tempo" | "ambos"; nivel: "ok" | "atencao" | "vencido"; msg: string; diasAte?: number; kmAte?: number };
+export type AlertaRevisao = {
+  tipo: "km" | "tempo" | "ambos";
+  nivel: "ok" | "atencao" | "vencido";
+  msg: string;
+  diasAte?: number;
+  kmAte?: number;
+};
 
 export function alertaRevisao(v: Veiculo): AlertaRevisao {
   const hoje = new Date();
@@ -111,21 +123,43 @@ export function alertaRevisao(v: Veiculo): AlertaRevisao {
     const parts: string[] = [];
     if (vencidoKm) parts.push(`${Math.abs(kmAte ?? 0).toLocaleString("pt-BR")} km atrasado`);
     if (vencidoTempo) parts.push(`${Math.abs(diasAte ?? 0)} dias atrasado`);
-    return { tipo: vencidoKm && vencidoTempo ? "ambos" : vencidoKm ? "km" : "tempo", nivel: "vencido", msg: `Revisão vencida: ${parts.join(" + ")}`, diasAte, kmAte };
+    return {
+      tipo: vencidoKm && vencidoTempo ? "ambos" : vencidoKm ? "km" : "tempo",
+      nivel: "vencido",
+      msg: `Revisão vencida: ${parts.join(" + ")}`,
+      diasAte,
+      kmAte,
+    };
   }
   if (atencaoKm || atencaoTempo) {
     const parts: string[] = [];
     if (atencaoKm) parts.push(`faltam ${kmAte} km`);
     if (atencaoTempo) parts.push(`faltam ${diasAte} dias`);
-    return { tipo: atencaoKm && atencaoTempo ? "ambos" : atencaoKm ? "km" : "tempo", nivel: "atencao", msg: `Revisão próxima: ${parts.join(" + ")}`, diasAte, kmAte };
+    return {
+      tipo: atencaoKm && atencaoTempo ? "ambos" : atencaoKm ? "km" : "tempo",
+      nivel: "atencao",
+      msg: `Revisão próxima: ${parts.join(" + ")}`,
+      diasAte,
+      kmAte,
+    };
   }
   const parts: string[] = [];
   if (kmAte != null) parts.push(`${kmAte.toLocaleString("pt-BR")} km`);
   if (diasAte != null) parts.push(`${diasAte} dias`);
-  return { tipo: kmAte != null && diasAte != null ? "ambos" : kmAte != null ? "km" : "tempo", nivel: "ok", msg: parts.length ? `Próxima em ${parts.join(" • ")}` : "Sem revisão programada", diasAte, kmAte };
+  return {
+    tipo: kmAte != null && diasAte != null ? "ambos" : kmAte != null ? "km" : "tempo",
+    nivel: "ok",
+    msg: parts.length ? `Próxima em ${parts.join(" • ")}` : "Sem revisão programada",
+    diasAte,
+    kmAte,
+  };
 }
 
-export function statusCNH(cnh_validade?: string | null): { nivel: "ok" | "atencao" | "vencido" | "sem_data"; label: string; dias?: number } {
+export function statusCNH(cnh_validade?: string | null): {
+  nivel: "ok" | "atencao" | "vencido" | "sem_data";
+  label: string;
+  dias?: number;
+} {
   if (!cnh_validade) return { nivel: "sem_data", label: "Sem data" };
   const d = safeParseISO(cnh_validade);
   if (isNaN(d.getTime())) return { nivel: "sem_data", label: "Data inválida" };
@@ -148,8 +182,26 @@ export const CATEGORIAS_GASTO = [
   "outro",
 ] as const;
 
-export const TIPOS_COMBUSTIVEL = ["gasolina", "etanol", "diesel", "diesel S10", "GNV", "flex", "eletrico"] as const;
-export const TIPOS_SERVICO = ["troca de óleo", "pneus", "freios", "suspensão", "motor", "elétrica", "funilaria", "revisão preventiva", "outro"] as const;
+export const TIPOS_COMBUSTIVEL = [
+  "gasolina",
+  "etanol",
+  "diesel",
+  "diesel S10",
+  "GNV",
+  "flex",
+  "eletrico",
+] as const;
+export const TIPOS_SERVICO = [
+  "troca de óleo",
+  "pneus",
+  "freios",
+  "suspensão",
+  "motor",
+  "elétrica",
+  "funilaria",
+  "revisão preventiva",
+  "outro",
+] as const;
 export const OPERADORAS_TAG = ["Sem Parar", "ConectCar", "Veloe", "Outra"] as const;
 
 export function formatPlaca(v: string): string {
@@ -163,8 +215,16 @@ export function rankingMotoristas(
   motoristas: Motorista[],
   abastecimentos: Abastecimento[],
   gastosAvulsos: { motorista_id?: string | null; valor: number }[],
-  pedagios: { motorista_id?: string | null; valor: number }[]
-): Array<{ motorista: Motorista; totalAbast: number; gastoComb: number; gastoAvulso: number; gastoPedagio: number; gastoTotal: number; mediaKml: number | null }> {
+  pedagios: { motorista_id?: string | null; valor: number }[],
+): Array<{
+  motorista: Motorista;
+  totalAbast: number;
+  gastoComb: number;
+  gastoAvulso: number;
+  gastoPedagio: number;
+  gastoTotal: number;
+  mediaKml: number | null;
+}> {
   const byMot = new Map<string, Abastecimento[]>();
   for (const a of abastecimentos) {
     if (!a.motorista_id) continue;
@@ -182,32 +242,40 @@ export function rankingMotoristas(
     if (!p.motorista_id) continue;
     pedagioMap.set(p.motorista_id, (pedagioMap.get(p.motorista_id) ?? 0) + Number(p.valor));
   }
-  return motoristas.map((m) => {
-    const abs = byMot.get(m.id) ?? [];
-    const { mediaKml } = calcConsumo(abs);
-    const gastoComb = abs.reduce((s, a) => s + Number(a.valor_total), 0);
-    const gastoAvulso = gastoAvulsoMap.get(m.id) ?? 0;
-    const gastoPedagio = pedagioMap.get(m.id) ?? 0;
-    return {
-      motorista: m,
-      totalAbast: abs.length,
-      gastoComb,
-      gastoAvulso,
-      gastoPedagio,
-      gastoTotal: gastoComb + gastoAvulso + gastoPedagio,
-      mediaKml,
-    };
-  }).sort((a, b) => {
-    // ranking por eficiência: maior km/L primeiro; empate menor gastoTotal
-    if (a.mediaKml != null && b.mediaKml != null) {
-      if (b.mediaKml !== a.mediaKml) return b.mediaKml - a.mediaKml;
-    } else if (a.mediaKml != null) return -1;
-    else if (b.mediaKml != null) return 1;
-    return a.gastoTotal - b.gastoTotal;
-  });
+  return motoristas
+    .map((m) => {
+      const abs = byMot.get(m.id) ?? [];
+      const { mediaKml } = calcConsumo(abs);
+      const gastoComb = abs.reduce((s, a) => s + Number(a.valor_total), 0);
+      const gastoAvulso = gastoAvulsoMap.get(m.id) ?? 0;
+      const gastoPedagio = pedagioMap.get(m.id) ?? 0;
+      return {
+        motorista: m,
+        totalAbast: abs.length,
+        gastoComb,
+        gastoAvulso,
+        gastoPedagio,
+        gastoTotal: gastoComb + gastoAvulso + gastoPedagio,
+        mediaKml,
+      };
+    })
+    .sort((a, b) => {
+      // ranking por eficiência: maior km/L primeiro; empate menor gastoTotal
+      if (a.mediaKml != null && b.mediaKml != null) {
+        if (b.mediaKml !== a.mediaKml) return b.mediaKml - a.mediaKml;
+      } else if (a.mediaKml != null) return -1;
+      else if (b.mediaKml != null) return 1;
+      return a.gastoTotal - b.gastoTotal;
+    });
 }
 
-export function parseCSVPedagio(text: string): Array<{ data_hora: string; praca: string; rota?: string; valor: number; veiculo_placa?: string }> {
+export function parseCSVPedagio(text: string): Array<{
+  data_hora: string;
+  praca: string;
+  rota?: string;
+  valor: number;
+  veiculo_placa?: string;
+}> {
   const lines = text.split(/\r?\n/).filter(Boolean);
   if (lines.length < 2) return [];
   const header = lines[0].split(/[,;]/).map((h) => h.trim().toLowerCase());
@@ -216,13 +284,19 @@ export function parseCSVPedagio(text: string): Array<{ data_hora: string; praca:
   const idxValor = header.findIndex((h) => /valor|tarifa/.test(h));
   const idxRota = header.findIndex((h) => /rota|rodovia|via/.test(h));
   const idxPlaca = header.findIndex((h) => /placa/.test(h));
-  const out: Array<{ data_hora: string; praca: string; valor: number; rota?: string; veiculo_placa?: string }> = [];
+  const out: Array<{
+    data_hora: string;
+    praca: string;
+    valor: number;
+    rota?: string;
+    veiculo_placa?: string;
+  }> = [];
   for (let i = 1; i < lines.length; i++) {
     const cols = lines[i].split(/[,;]/).map((c) => c.trim().replace(/^"|"$/g, ""));
     const valorRaw = idxValor >= 0 ? cols[idxValor] : "";
     const valor = Number(valorRaw.replace("R$", "").replace(/\./g, "").replace(",", ".").trim());
     if (isNaN(valor)) continue;
-    const praca = idxPraca >= 0 ? cols[idxPraca] : cols[1] ?? "—";
+    const praca = idxPraca >= 0 ? cols[idxPraca] : (cols[1] ?? "—");
     const dataRaw = idxData >= 0 ? cols[idxData] : cols[0];
     // tenta parsear dd/mm/yyyy hh:mm ou iso
     let iso = dataRaw;

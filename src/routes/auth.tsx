@@ -28,7 +28,6 @@ function AuthPage() {
     });
   }, [navigate]);
 
-
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     const emailToUse = email.trim().toLowerCase();
@@ -60,7 +59,6 @@ function AuthPage() {
     toast.success("Conta criada! Verifique seu e-mail para confirmar.");
   };
 
-
   const validarSenha = (senha: string) => {
     const requisitos = {
       minuscula: /[a-z]/.test(senha),
@@ -70,7 +68,11 @@ function AuthPage() {
     };
     const pontos = Object.values(requisitos).filter(Boolean).length;
     const forca =
-      senha.length >= 8 && pontos >= 3 ? "forte" : senha.length >= 6 && pontos >= 2 ? "media" : "fraca";
+      senha.length >= 8 && pontos >= 3
+        ? "forte"
+        : senha.length >= 6 && pontos >= 2
+          ? "media"
+          : "fraca";
     return { ...requisitos, forca };
   };
   const senhaInfo = validarSenha(password);
@@ -89,7 +91,6 @@ function AuthPage() {
     if (error) return toast.error(error.message);
     toast.success("Instruções de recuperação de senha enviadas para seu e-mail!");
   };
-
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary via-primary to-sidebar-accent p-4">

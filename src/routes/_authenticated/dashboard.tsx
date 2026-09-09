@@ -70,8 +70,8 @@ function DashboardErrorFallback({ error, reset }: { error: Error; reset: () => v
           {error?.message ?? "Erro inesperado ao montar o painel."}
         </p>
         <p className="mt-1 text-xs text-muted-foreground">
-          Os demais módulos continuam funcionando. Use o botão abaixo para tentar novamente ou verifique o console do
-          navegador (F12) para mais detalhes.
+          Os demais módulos continuam funcionando. Use o botão abaixo para tentar novamente ou
+          verifique o console do navegador (F12) para mais detalhes.
         </p>
         <div className="mt-5 flex flex-wrap justify-center gap-2">
           <Button onClick={() => reset()} className="gap-1">
@@ -121,7 +121,8 @@ const PAGE_SIZE = 10;
 type SortKey = "nome" | "status";
 const PIOR_RANK: Record<Status, number> = { vermelho: 0, amarelo: 1, verde: 2 };
 
-type DashboardTab = "alertas" | "vencimentos" | "estoques" | "tarefas" | "financeiro" | "equipamentos";
+type DashboardTab =
+  "alertas" | "vencimentos" | "estoques" | "tarefas" | "financeiro" | "equipamentos";
 
 function DashboardPage() {
   const qc = useQueryClient();
@@ -141,7 +142,9 @@ function DashboardPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [confTab, setConfTab] = useState<"pendentes" | "em_dia" | "todos">("pendentes");
   const [confFieldFilter, setConfFieldFilter] = useState<string>("todos");
-  const [stockFilter, setStockFilter] = useState<"todos" | "epis" | "materiais" | "zerados">("todos");
+  const [stockFilter, setStockFilter] = useState<"todos" | "epis" | "materiais" | "zerados">(
+    "todos",
+  );
   const [page, setPage] = useState(1);
   const [sortKey, setSortKey] = useState<SortKey>("status");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
@@ -168,10 +171,7 @@ function DashboardPage() {
 
   // 1. Obras — somente no cliente para evitar SSR abortIncoming (fetch Supabase no servidor)
   const isClient = typeof window !== "undefined";
-  const {
-    data: obras = [],
-    error: obrasError,
-  } = useQuery({
+  const { data: obras = [], error: obrasError } = useQuery({
     queryKey: ["dash-obras"],
     staleTime: 1000 * 60 * 5,
     retry: 1,
@@ -207,11 +207,14 @@ function DashboardPage() {
         if (obraId) q = q.eq("obra_id", obraId);
         return await q;
       };
-      let { data, error } = await trySelect(baseSelect);
+      const { data, error } = await trySelect(baseSelect);
       if (error) {
         const miss = colunasMissing(error.message ?? "");
         if (miss.length > 0) {
-          logDashWarn("funcionarios-missing-cols", `${miss.join(", ")} — tentando fallback com select("*")`);
+          logDashWarn(
+            "funcionarios-missing-cols",
+            `${miss.join(", ")} — tentando fallback com select("*")`,
+          );
           // Fallback 1: select("*") — funciona mesmo se o cache do PostgREST estiver desatualizado
           const fb = await (async () => {
             let q: any = supabase.from("funcionarios").select("*").eq("ativo", true).order("nome");
@@ -287,7 +290,11 @@ function DashboardPage() {
         // Fallback: tenta select(*) se coluna não existir mais
         const miss = colunasMissing(error.message ?? "");
         if (miss.length > 0) {
-          const fb = await supabase.from("tarefas").select("*").neq("status", "concluida").limit(100);
+          const fb = await supabase
+            .from("tarefas")
+            .select("*")
+            .neq("status", "concluida")
+            .limit(100);
           if (!fb.error) return fb.data ?? [];
         }
         return [];
@@ -363,7 +370,11 @@ function DashboardPage() {
         logDashWarn("contas", error);
         const miss = colunasMissing(error.message ?? "");
         if (miss.length > 0) {
-          let q2: any = supabase.from("contas_financeiras").select("*").neq("status", "pago").limit(200);
+          let q2: any = supabase
+            .from("contas_financeiras")
+            .select("*")
+            .neq("status", "pago")
+            .limit(200);
           if (obraId) q2 = q2.eq("obra_id", obraId);
           const fb = await q2;
           if (!fb.error) return fb.data ?? [];
@@ -412,7 +423,9 @@ function DashboardPage() {
       if (typeof window === "undefined") return [];
       const { data, error } = await supabase
         .from("ferramenta_emprestimos")
-        .select("id, data_emprestimo, prevista_devolucao, data_devolucao, ferramentas(nome), funcionarios(nome)")
+        .select(
+          "id, data_emprestimo, prevista_devolucao, data_devolucao, ferramentas(nome), funcionarios(nome)",
+        )
         .is("data_devolucao", null)
         .not("prevista_devolucao", "is", null);
       if (error) {
@@ -720,10 +733,11 @@ function DashboardPage() {
     // Busca textual
     if (searchTerm.trim()) {
       const q = searchTerm.toLowerCase();
-      list = list.filter((c) =>
-        (c.funcionario.nome ?? "").toLowerCase().includes(q) ||
-        ((c.funcionario as any).funcao ?? "").toLowerCase().includes(q) ||
-        ((c.funcionario as any).setor ?? "").toLowerCase().includes(q),
+      list = list.filter(
+        (c) =>
+          (c.funcionario.nome ?? "").toLowerCase().includes(q) ||
+          ((c.funcionario as any).funcao ?? "").toLowerCase().includes(q) ||
+          ((c.funcionario as any).setor ?? "").toLowerCase().includes(q),
       );
     }
 
@@ -937,11 +951,15 @@ function DashboardPage() {
             <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
             <div className="flex-1 min-w-0">
               <p className="text-xs font-semibold text-amber-800 dark:text-amber-300">
-                Alguns dados do Dashboard não puderam ser carregados. O painel continua funcionando com dados parciais.
+                Alguns dados do Dashboard não puderam ser carregados. O painel continua funcionando
+                com dados parciais.
               </p>
               <ul className="mt-1.5 space-y-1">
                 {dashErrors.map((e) => (
-                  <li key={e.key} className="text-[11px] text-amber-700 dark:text-amber-400 break-words">
+                  <li
+                    key={e.key}
+                    className="text-[11px] text-amber-700 dark:text-amber-400 break-words"
+                  >
                     <span className="font-mono font-semibold">{e.key}:</span> {e.msg.slice(0, 220)}
                   </li>
                 ))}
@@ -959,7 +977,7 @@ function DashboardPage() {
         </Card>
       )}
 
-      {(loadingFunc) && funcionarios.length === 0 && !funcionariosError ? (
+      {loadingFunc && funcionarios.length === 0 && !funcionariosError ? (
         <Card className="p-6 text-center text-sm text-muted-foreground">
           <RefreshCw className="h-5 w-5 animate-spin mx-auto mb-2 text-primary" />
           Carregando dados do dashboard...
@@ -1012,7 +1030,9 @@ function DashboardPage() {
                   <ind.icon
                     className={cn(
                       "h-4 w-4 transition-colors",
-                      isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground",
+                      isActive
+                        ? "text-primary"
+                        : "text-muted-foreground group-hover:text-foreground",
                     )}
                   />
                 </div>
@@ -1169,7 +1189,9 @@ function DashboardPage() {
                                   : "bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400",
                               )}
                             >
-                              {a.dias < 0 ? `Vencido há ${Math.abs(a.dias)}d` : `Vence em ${a.dias}d`}
+                              {a.dias < 0
+                                ? `Vencido há ${Math.abs(a.dias)}d`
+                                : `Vence em ${a.dias}d`}
                             </span>
                             <Button size="sm" variant="ghost" className="h-7 text-xs px-2">
                               Renovar
@@ -1213,8 +1235,7 @@ function DashboardPage() {
                     {estoqueCriticoTotal
                       .filter(
                         (i) =>
-                          !searchTerm ||
-                          i.nome.toLowerCase().includes(searchTerm.toLowerCase()),
+                          !searchTerm || i.nome.toLowerCase().includes(searchTerm.toLowerCase()),
                       )
                       .slice(0, 7)
                       .map((item) => (
@@ -1509,9 +1530,12 @@ function DashboardPage() {
                                 <span
                                   className={cn(
                                     "inline-flex items-center gap-1.5 text-xs px-2 py-0.5 rounded font-medium",
-                                    c.pior === "verde" && "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
-                                    c.pior === "amarelo" && "bg-amber-500/10 text-amber-600 dark:text-amber-400",
-                                    c.pior === "vermelho" && "bg-rose-500/10 text-rose-600 dark:text-rose-400",
+                                    c.pior === "verde" &&
+                                      "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+                                    c.pior === "amarelo" &&
+                                      "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+                                    c.pior === "vermelho" &&
+                                      "bg-rose-500/10 text-rose-600 dark:text-rose-400",
                                   )}
                                 >
                                   <StatusDot status={c.pior} />
@@ -1528,9 +1552,12 @@ function DashboardPage() {
                                     <span
                                       className={cn(
                                         "inline-flex items-center gap-1.5",
-                                        i.status === "verde" && "text-emerald-600 dark:text-emerald-400",
-                                        i.status === "amarelo" && "text-amber-600 dark:text-amber-400 font-medium",
-                                        i.status === "vermelho" && "text-rose-600 dark:text-rose-400 font-semibold",
+                                        i.status === "verde" &&
+                                          "text-emerald-600 dark:text-emerald-400",
+                                        i.status === "amarelo" &&
+                                          "text-amber-600 dark:text-amber-400 font-medium",
+                                        i.status === "vermelho" &&
+                                          "text-rose-600 dark:text-rose-400 font-semibold",
                                       )}
                                     >
                                       <StatusDot status={i.status} />
@@ -1564,7 +1591,8 @@ function DashboardPage() {
                   {/* Paginação */}
                   <div className="flex flex-wrap items-center justify-between gap-2 mt-4 text-xs text-muted-foreground">
                     <span>
-                      Exibindo {pagedConformidade.length} de {sortedConformidade.length} funcionários
+                      Exibindo {pagedConformidade.length} de {sortedConformidade.length}{" "}
+                      funcionários
                     </span>
                     <div className="flex items-center gap-1">
                       <Button
@@ -1613,10 +1641,7 @@ function DashboardPage() {
               </div>
 
               <div className="flex items-center gap-2">
-                <Tabs
-                  value={stockFilter}
-                  onValueChange={(v) => setStockFilter(v as any)}
-                >
+                <Tabs value={stockFilter} onValueChange={(v) => setStockFilter(v as any)}>
                   <TabsList className="h-8">
                     <TabsTrigger value="todos" className="text-xs">
                       Todos ({estoqueCriticoTotal.length})
@@ -1642,8 +1667,7 @@ function DashboardPage() {
 
                 const filtered = list.filter(
                   (item) =>
-                    !searchTerm ||
-                    item.nome.toLowerCase().includes(searchTerm.toLowerCase()),
+                    !searchTerm || item.nome.toLowerCase().includes(searchTerm.toLowerCase()),
                 );
 
                 if (filtered.length === 0) {
@@ -1783,8 +1807,7 @@ function DashboardPage() {
                   {tarefas
                     .filter(
                       (t: any) =>
-                        !searchTerm ||
-                        t.titulo.toLowerCase().includes(searchTerm.toLowerCase()),
+                        !searchTerm || t.titulo.toLowerCase().includes(searchTerm.toLowerCase()),
                     )
                     .map((t: any) => {
                       const dias = t.data_vencimento
@@ -1821,7 +1844,9 @@ function DashboardPage() {
                                 <span
                                   className={cn(
                                     "flex items-center gap-1 font-medium",
-                                    atrasada ? "text-rose-600 dark:text-rose-400" : "text-foreground",
+                                    atrasada
+                                      ? "text-rose-600 dark:text-rose-400"
+                                      : "text-foreground",
                                   )}
                                 >
                                   <Clock className="h-3 w-3" />
@@ -1973,10 +1998,7 @@ function DashboardPage() {
                 ) : (
                   <ul className="divide-y text-sm">
                     {ferramentasAlertas.map((f: any) => {
-                      const dias = differenceInDays(
-                        safeParseISO(f.proxima_manutencao),
-                        new Date(),
-                      );
+                      const dias = differenceInDays(safeParseISO(f.proxima_manutencao), new Date());
                       const vencida = dias < 0;
                       return (
                         <li key={f.id} className="py-2.5 px-2 flex items-center justify-between">
@@ -2112,16 +2134,25 @@ function DashboardPage() {
                         ? differenceInDays(safeParseISO(dataStr), new Date())
                         : null;
                       const status: Status | null =
-                        dias === null ? null : dias < 0 ? "vermelho" : dias <= 30 ? "amarelo" : "verde";
+                        dias === null
+                          ? null
+                          : dias < 0
+                            ? "vermelho"
+                            : dias <= 30
+                              ? "amarelo"
+                              : "verde";
 
                       return (
                         <div
                           key={f.key}
                           className={cn(
                             "p-2.5 rounded-lg border text-xs flex flex-col justify-between",
-                            status === "vermelho" && "border-rose-300 bg-rose-50/50 dark:bg-rose-950/20",
-                            status === "amarelo" && "border-amber-300 bg-amber-50/50 dark:bg-amber-950/20",
-                            status === "verde" && "border-emerald-200 bg-emerald-50/40 dark:bg-emerald-950/20",
+                            status === "vermelho" &&
+                              "border-rose-300 bg-rose-50/50 dark:bg-rose-950/20",
+                            status === "amarelo" &&
+                              "border-amber-300 bg-amber-50/50 dark:bg-amber-950/20",
+                            status === "verde" &&
+                              "border-emerald-200 bg-emerald-50/40 dark:bg-emerald-950/20",
                             status === null && "border-muted bg-muted/20",
                           )}
                         >
@@ -2166,7 +2197,14 @@ function DashboardPage() {
                           const dias = c.data_validade
                             ? differenceInDays(safeParseISO(c.data_validade), new Date())
                             : null;
-                          const status = dias === null ? null : dias < 0 ? "vermelho" : dias <= 30 ? "amarelo" : "verde";
+                          const status =
+                            dias === null
+                              ? null
+                              : dias < 0
+                                ? "vermelho"
+                                : dias <= 30
+                                  ? "amarelo"
+                                  : "verde";
 
                           return (
                             <div

@@ -135,7 +135,6 @@ export function NotificationsBell() {
         const sep = target.includes("?") ? "&" : "?";
         target = `${target}${sep}highlight=${n.ref_id}`;
       }
-      // @ts-ignore - TanStack Router aceita string com query
       navigate({ to: target as any });
     },
     [markRead, navigate],
@@ -197,7 +196,9 @@ export function NotificationsBell() {
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate flex items-center gap-1">
                     {n.titulo}
-                    {clickable && <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />}
+                    {clickable && (
+                      <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
+                    )}
                   </p>
                   {n.mensagem && (
                     <p className="text-xs text-muted-foreground line-clamp-2">{n.mensagem}</p>

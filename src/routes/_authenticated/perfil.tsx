@@ -75,7 +75,9 @@ function PerfilPage() {
         .eq("id", user!.id);
       if (error) throw error;
       if (cpfDigits) {
-        const { error: metaErr } = await supabase.auth.updateUser({ data: { cpf: cpfDigits } } as any);
+        const { error: metaErr } = await supabase.auth.updateUser({
+          data: { cpf: cpfDigits },
+        } as any);
         if (metaErr) console.warn(metaErr.message);
       }
       if (email && email !== user?.email) {
@@ -184,7 +186,9 @@ function PerfilPage() {
                 onChange={(e) => setCpf(formatCpf(e.target.value))}
                 maxLength={14}
               />
-              <p className="text-xs text-muted-foreground mt-1">Seu CPF será usado para permitir login com CPF.</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Seu CPF será usado para permitir login com CPF.
+              </p>
             </div>
             <Button onClick={() => saveProfile.mutate()} disabled={saveProfile.isPending}>
               {saveProfile.isPending ? "Salvando..." : "Salvar"}

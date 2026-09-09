@@ -78,7 +78,6 @@ function DocumentosPage() {
       </Tabs>
     </div>
   );
-
 }
 
 function Browser({
