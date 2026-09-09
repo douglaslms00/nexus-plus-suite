@@ -110,34 +110,17 @@ function AuthPage() {
             <TabsContent value="login">
               <form onSubmit={handleLogin} className="space-y-4 mt-4">
                 <div className="space-y-2">
-                  <Label htmlFor="login-identifier">E-mail ou CPF</Label>
+                  <Label htmlFor="login-email">E-mail</Label>
                   <Input
-                    id="login-identifier"
-                    type="text"
+                    id="login-email"
+                    type="email"
                     required
-                    placeholder="seu@email.com ou 000.000.000-00"
-                    value={loginId}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      // Se parece CPF (apenas numeros/pontos/tracos) formata, senao mantem livre
-                      if (!v.includes("@") && /[0-9]/.test(v)) {
-                        // se digitou numeros, aplica mascara quando tiver ate 11 digitos e nao contem @
-                        const digits = onlyDigits(v);
-                        if (digits.length <= 11 && (v.length === 0 || /[0-9.\- ]/.test(v))) {
-                          // detecta se usuario esta digitando CPF: se nao tem @, formata
-                          if (digits.length > 3 && !v.includes("@")) {
-                            setLoginId(formatCpf(v));
-                          } else {
-                            setLoginId(v);
-                          }
-                          return;
-                        }
-                      }
-                      setLoginId(v);
-                    }}
+                    placeholder="seu@email.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                   />
-                  <p className="text-xs text-muted-foreground">Você pode entrar com e-mail ou CPF cadastrado.</p>
                 </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="login-password">Senha</Label>
                   <div className="relative">
