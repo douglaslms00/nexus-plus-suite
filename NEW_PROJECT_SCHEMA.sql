@@ -274,12 +274,60 @@ CREATE TABLE IF NOT EXISTS public.tarefa_execucoes (
   created_by uuid, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now()
 );
 
+-- Frota
+CREATE TABLE IF NOT EXISTS public.frota_veiculos (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  placa text NOT NULL, modelo text NOT NULL, marca text, ano integer, cor text, chassi text, renavam text,
+  tipo text NOT NULL DEFAULT 'leve', combustivel_padrao text NOT NULL DEFAULT 'diesel',
+  odometro_atual integer NOT NULL DEFAULT 0, odometro_proxima_revisao integer, data_proxima_revisao date,
+  intervalo_revisao_km integer NOT NULL DEFAULT 10000, intervalo_revisao_meses integer NOT NULL DEFAULT 6,
+  status text NOT NULL DEFAULT 'ativo', obra_id uuid REFERENCES public.obras(id) ON DELETE SET NULL,
+  observacoes text, created_by uuid, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS public.frota_motoristas (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  nome text NOT NULL, cpf text, cnh_numero text, cnh_categoria text NOT NULL DEFAULT 'B', cnh_validade date,
+  telefone text, email text, status text NOT NULL DEFAULT 'ativo', observacoes text,
+  created_by uuid, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS public.frota_abastecimentos (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  data date NOT NULL DEFAULT current_date, veiculo_id uuid NOT NULL REFERENCES public.frota_veiculos(id) ON DELETE CASCADE,
+  motorista_id uuid REFERENCES public.frota_motoristas(id) ON DELETE SET NULL, odometro integer NOT NULL,
+  litros numeric NOT NULL, tipo_combustivel text NOT NULL DEFAULT 'diesel', valor_por_litro numeric NOT NULL, valor_total numeric NOT NULL,
+  posto text, tanque_cheio boolean NOT NULL DEFAULT true, observacoes text, obra_id uuid REFERENCES public.obras(id) ON DELETE SET NULL,
+  created_by uuid, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS public.frota_manutencoes (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  data date NOT NULL DEFAULT current_date, veiculo_id uuid NOT NULL REFERENCES public.frota_veiculos(id) ON DELETE CASCADE,
+  tipo text NOT NULL DEFAULT 'preventiva', servico text NOT NULL, oficina text, pecas_trocadas text,
+  valor_mao_obra numeric NOT NULL DEFAULT 0, valor_pecas numeric NOT NULL DEFAULT 0, odometro integer,
+  proxima_revisao_km integer, proxima_revisao_data date, status text NOT NULL DEFAULT 'concluida',
+  observacoes text, obra_id uuid REFERENCES public.obras(id) ON DELETE SET NULL,
+  created_by uuid, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS public.frota_gastos_avulsos (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  data date NOT NULL DEFAULT current_date, veiculo_id uuid REFERENCES public.frota_veiculos(id) ON DELETE SET NULL,
+  motorista_id uuid REFERENCES public.frota_motoristas(id) ON DELETE SET NULL, categoria text NOT NULL, descricao text NOT NULL,
+  valor numeric NOT NULL, forma_pagamento text, comprovante_url text, observacoes text, obra_id uuid REFERENCES public.obras(id) ON DELETE SET NULL,
+  created_by uuid, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS public.frota_pedagios (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  data_hora timestamptz NOT NULL DEFAULT now(), veiculo_id uuid NOT NULL REFERENCES public.frota_veiculos(id) ON DELETE CASCADE,
+  motorista_id uuid REFERENCES public.frota_motoristas(id) ON DELETE SET NULL, rota text, praca text NOT NULL, valor numeric NOT NULL,
+  forma_pagamento text NOT NULL DEFAULT 'tag', tag_operadora text, comprovante_url text, observacoes text, obra_id uuid REFERENCES public.obras(id) ON DELETE SET NULL,
+  created_by uuid, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now()
+);
+
 -- 4) RLS (habilita e libera para service_role + authenticated basico)
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.obras ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.funcionarios ENABLE ROW LEVEL SECURITY;
 -- habilita RLS nas demais (anon nao acessa, authenticated via policies permissivas para nao quebrar app)
-DO $$ DECLARE t text; BEGIN FOR t IN SELECT unnest(ARRAY['epis','materiais','ferramentas','ativos','tarefas','contas_financeiras','adiantamentos','notifications','user_roles','user_obras','custom_roles','custom_role_module_permissions','user_custom_roles','user_module_permissions','system_role_labels','system_role_module_permissions','adiantamento_despesas','ativo_emprestimos','ativo_manutencoes','ativo_transferencias','epi_movimentos','material_movimentos','ferramenta_emprestimos','funcionario_documentos','funcionario_treinamentos','obra_vencimentos','documento_pastas','documentos','tarefa_execucoes','permission_audit_log']) LOOP EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', t); END LOOP; END $$;
+DO $$ DECLARE t text; BEGIN FOR t IN SELECT unnest(ARRAY['epis','materiais','ferramentas','ativos','tarefas','contas_financeiras','adiantamentos','notifications','user_roles','user_obras','custom_roles','custom_role_module_permissions','user_custom_roles','user_module_permissions','system_role_labels','system_role_module_permissions','adiantamento_despesas','ativo_emprestimos','ativo_manutencoes','ativo_transferencias','epi_movimentos','material_movimentos','ferramenta_emprestimos','funcionario_documentos','funcionario_treinamentos','obra_vencimentos','documento_pastas','documentos','tarefa_execucoes','permission_audit_log','frota_veiculos','frota_motoristas','frota_abastecimentos','frota_manutencoes','frota_gastos_avulsos','frota_pedagios']) LOOP EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', t); END LOOP; END $$;
 
 -- Policies permissivas para authenticated (ajuste fino pode ser reaplicado pelas migrations posteriores)
 DROP POLICY IF EXISTS "allow_all_authenticated" ON public.profiles;
@@ -289,11 +337,11 @@ CREATE POLICY "allow_all_authenticated" ON public.obras FOR ALL TO authenticated
 DROP POLICY IF EXISTS "allow_all_authenticated" ON public.funcionarios;
 CREATE POLICY "allow_all_authenticated" ON public.funcionarios FOR ALL TO authenticated USING (true) WITH CHECK (true);
 -- policies genericas para as demais
-DO $$ DECLARE t text; BEGIN FOR t IN SELECT unnest(ARRAY['epis','materiais','ferramentas','ativos','tarefas','contas_financeiras','adiantamentos','notifications','user_roles','user_obras','custom_roles','custom_role_module_permissions','user_custom_roles','user_module_permissions','system_role_labels','system_role_module_permissions','adiantamento_despesas','ativo_emprestimos','ativo_manutencoes','ativo_transferencias','epi_movimentos','material_movimentos','ferramenta_emprestimos','funcionario_documentos','funcionario_treinamentos','obra_vencimentos','documento_pastas','documentos','tarefa_execucoes','permission_audit_log']) LOOP EXECUTE format('DROP POLICY IF EXISTS "allow_all_authenticated" ON public.%I', t); EXECUTE format('CREATE POLICY "allow_all_authenticated" ON public.%I FOR ALL TO authenticated USING (true) WITH CHECK (true)', t); END LOOP; END $$;
+DO $$ DECLARE t text; BEGIN FOR t IN SELECT unnest(ARRAY['epis','materiais','ferramentas','ativos','tarefas','contas_financeiras','adiantamentos','notifications','user_roles','user_obras','custom_roles','custom_role_module_permissions','user_custom_roles','user_module_permissions','system_role_labels','system_role_module_permissions','adiantamento_despesas','ativo_emprestimos','ativo_manutencoes','ativo_transferencias','epi_movimentos','material_movimentos','ferramenta_emprestimos','funcionario_documentos','funcionario_treinamentos','obra_vencimentos','documento_pastas','documentos','tarefa_execucoes','permission_audit_log','frota_veiculos','frota_motoristas','frota_abastecimentos','frota_manutencoes','frota_gastos_avulsos','frota_pedagios']) LOOP EXECUTE format('DROP POLICY IF EXISTS "allow_all_authenticated" ON public.%I', t); EXECUTE format('CREATE POLICY "allow_all_authenticated" ON public.%I FOR ALL TO authenticated USING (true) WITH CHECK (true)', t); END LOOP; END $$;
 
 -- 5) TRIGGERS updated_at
 CREATE OR REPLACE FUNCTION public.touch_updated_at() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN NEW.updated_at = now(); RETURN NEW; END; $$;
-DO $$ DECLARE t text; BEGIN FOR t IN SELECT unnest(ARRAY['profiles','obras','funcionarios','epis','materiais','ferramentas','ativos','tarefas','contas_financeiras','adiantamentos','custom_roles','custom_role_module_permissions','user_module_permissions','adiantamento_despesas','funcionario_treinamentos','obra_vencimentos','tarefa_execucoes']) LOOP EXECUTE format('DROP TRIGGER IF EXISTS trg_touch_%I ON public.%I', t, t); EXECUTE format('CREATE TRIGGER trg_touch_%I BEFORE UPDATE ON public.%I FOR EACH ROW EXECUTE FUNCTION public.touch_updated_at()', t, t); END LOOP; END $$;
+DO $$ DECLARE t text; BEGIN FOR t IN SELECT unnest(ARRAY['profiles','obras','funcionarios','epis','materiais','ferramentas','ativos','tarefas','contas_financeiras','adiantamentos','custom_roles','custom_role_module_permissions','user_module_permissions','adiantamento_despesas','funcionario_treinamentos','obra_vencimentos','tarefa_execucoes','frota_veiculos','frota_motoristas','frota_abastecimentos','frota_manutencoes','frota_gastos_avulsos','frota_pedagios']) LOOP EXECUTE format('DROP TRIGGER IF EXISTS trg_touch_%I ON public.%I', t, t); EXECUTE format('CREATE TRIGGER trg_touch_%I BEFORE UPDATE ON public.%I FOR EACH ROW EXECUTE FUNCTION public.touch_updated_at()', t, t); END LOOP; END $$;
 
 -- 6) STORAGE bucket anexos
 INSERT INTO storage.buckets (id, name, public) VALUES ('anexos','anexos', false) ON CONFLICT (id) DO NOTHING;

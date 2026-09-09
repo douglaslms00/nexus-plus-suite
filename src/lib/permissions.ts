@@ -16,6 +16,7 @@ export type AppModule =
   | "financeiro"
   | "prestacao"
   | "documentos"
+  | "frota"
   | "acessos";
 
 export const ALL_MODULES: { key: AppModule; label: string }[] = [
@@ -30,6 +31,7 @@ export const ALL_MODULES: { key: AppModule; label: string }[] = [
   { key: "financeiro", label: "Financeiro" },
   { key: "prestacao", label: "Prestação de contas" },
   { key: "documentos", label: "Documentos" },
+  { key: "frota", label: "Gestão de Frota" },
   { key: "acessos", label: "Acessos" },
 ];
 
