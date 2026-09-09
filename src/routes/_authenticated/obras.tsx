@@ -104,7 +104,7 @@ function ObrasPage() {
       const ids = obras.map((o: any) => o.id);
       if (ids.length === 0) return [];
       const { data, error } = await supabase
-        .from("obra_vencimentos")
+        .from("obra_vencimentos" as never)
         .select("obra_id, nome, data_vencimento, data_emissao")
         .in("obra_id", ids)
         .limit(2000);
@@ -112,7 +112,7 @@ function ObrasPage() {
         if ((error as any).code === "PGRST205") return [];
         throw error;
       }
-      return data as Array<{ obra_id: string; nome: string; data_vencimento: string | null; data_emissao: string | null }>;
+      return data as unknown as Array<{ obra_id: string; nome: string; data_vencimento: string | null; data_emissao: string | null }>;
     },
   });
 
