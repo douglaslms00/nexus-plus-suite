@@ -43,8 +43,16 @@ function getEnv(key: string): string | undefined {
 }
 
 function createSupabaseClient() {
-  const SUPABASE_URL = getEnv("VITE_SUPABASE_URL");
-  const SUPABASE_PUBLISHABLE_KEY = getEnv("VITE_SUPABASE_PUBLISHABLE_KEY");
+  // URL e chave PUBLISHABLE são públicas por design (vão para o bundle do
+  // navegador em todo build). Os fallbacks abaixo garantem que o app publicado
+  // funcione mesmo quando a hospedagem compila sem VITE_* configurado.
+  // Se as envs existirem, elas têm precedência. NUNCA colocar chaves secret/
+  // service_role aqui — essas ficam só no servidor (client.server.ts).
+  const SUPABASE_URL =
+    getEnv("VITE_SUPABASE_URL") ?? "https://yrkdbrkijpwilhptmqii.supabase.co";
+  const SUPABASE_PUBLISHABLE_KEY =
+    getEnv("VITE_SUPABASE_PUBLISHABLE_KEY") ??
+    "sb_publishable_ZAcaq2p3P4SsJX1fQSrtWA_RO2p97rB";
 
   if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
     const missing = [
