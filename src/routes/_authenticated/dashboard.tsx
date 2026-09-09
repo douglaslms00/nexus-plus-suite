@@ -376,7 +376,7 @@ function DashboardPage() {
       }
       const { error } = await supabase
         .from("funcionarios")
-        .update({ [renewField]: renewDate })
+        .update({ [renewField]: renewDate } as never)
         .eq("id", selectedFuncionario.id);
       if (error) throw error;
     },
@@ -797,7 +797,7 @@ function DashboardPage() {
               <div className="mt-3 flex items-baseline justify-between">
                 <div className="flex items-center gap-2">
                   <span className="text-2xl font-bold tracking-tight">{ind.valor}</span>
-                  <StatusDot status={ind.status} />
+                  <StatusDot status={ind.status as Status} />
                 </div>
                 <span className="text-[11px] text-muted-foreground truncate max-w-[90px]">
                   {ind.sublabel}
