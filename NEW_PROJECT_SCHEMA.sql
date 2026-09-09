@@ -296,6 +296,7 @@ CREATE TABLE IF NOT EXISTS public.frota_abastecimentos (
   motorista_id uuid REFERENCES public.frota_motoristas(id) ON DELETE SET NULL, odometro integer NOT NULL,
   litros numeric NOT NULL, tipo_combustivel text NOT NULL DEFAULT 'diesel', valor_por_litro numeric NOT NULL, valor_total numeric NOT NULL,
   posto text, tanque_cheio boolean NOT NULL DEFAULT true, observacoes text, obra_id uuid REFERENCES public.obras(id) ON DELETE SET NULL,
+  anexo_url text,
   created_by uuid, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE TABLE IF NOT EXISTS public.frota_manutencoes (

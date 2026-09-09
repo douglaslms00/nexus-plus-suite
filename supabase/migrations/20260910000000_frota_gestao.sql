@@ -63,6 +63,7 @@ CREATE TABLE IF NOT EXISTS public.frota_abastecimentos (
   posto text,
   tanque_cheio boolean NOT NULL DEFAULT true,
   observacoes text,
+  anexo_url text,
   obra_id uuid REFERENCES public.obras(id) ON DELETE SET NULL,
   created_by uuid,
   created_at timestamptz NOT NULL DEFAULT now(),

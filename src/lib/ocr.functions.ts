@@ -157,6 +157,117 @@ export const lerFichaRegistroPdf = createServerFn({ method: "POST" })
     return parseFichaJson(raw);
   });
 
+export type CupomAbastecimentoOCR = {
+  data: string | null;
+  posto: string | null;
+  tipo_combustivel: string | null;
+  litros: number | null;
+  valor_por_litro: number | null;
+  valor_total: number | null;
+};
+
+const ABASTECIMENTO_SYSTEM_PROMPT =
+  "Você extrai dados de cupons/notas fiscais de POSTOS DE COMBUSTÍVEL brasileiros. Responda SOMENTE com JSON válido, sem markdown, no formato " +
+  '{"data":"YYYY-MM-DD"|null,"posto":string|null,"tipo_combustivel":string|null,"litros":number|null,"valor_por_litro":number|null,"valor_total":number|null}. ' +
+  "Regras: data = data da venda em YYYY-MM-DD (converta DD/MM/AAAA); posto = nome do posto/estabelecimento; " +
+  'tipo_combustivel = um de: "gasolina", "etanol", "diesel", "diesel S10", "GNV", "flex", "eletrico" (ex.: "GASOLINA COMUM" vira "gasolina", "ÓLEO DIESEL S10" vira "diesel S10"); ' +
+  "litros = quantidade abastecida; valor_por_litro = preço unitário; valor_total = valor TOTAL pago (ponto como separador decimal). " +
+  "Extraia apenas o que estiver legível. Não invente dados.";
+
+function parseNum(v: unknown): number | null {
+  const n =
+    typeof v === "number"
+      ? v
+      : typeof v === "string"
+        ? Number(
+            v
+              .replace(/[^\d,.-]/g, "")
+              .replace(/\.(?=\d{3}\b)/g, "")
+              .replace(",", "."),
+          )
+        : NaN;
+  return Number.isFinite(n) ? n : null;
+}
+
+function parseAbastecimentoJson(raw: string): CupomAbastecimentoOCR {
+  const match = raw.match(/\{[\s\S]*\}/);
+  if (!match) throw new Error("Não foi possível interpretar o cupom de abastecimento");
+  let parsed: Record<string, unknown>;
+  try {
+    parsed = JSON.parse(match[0]);
+  } catch {
+    throw new Error("Não foi possível interpretar o cupom de abastecimento");
+  }
+  const text = (key: string) =>
+    typeof parsed[key] === "string" && (parsed[key] as string).trim()
+      ? (parsed[key] as string).trim()
+      : null;
+  const date = text("data");
+  return {
+    data: date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : null,
+    posto: text("posto"),
+    tipo_combustivel: text("tipo_combustivel"),
+    litros: parseNum(parsed["litros"]),
+    valor_por_litro: parseNum(parsed["valor_por_litro"]),
+    valor_total: parseNum(parsed["valor_total"]),
+  };
+}
+
+async function chamarIaAbastecimento(
+  apiKey: string,
+  instrucao: string,
+  imagem: { type: string; url: string },
+): Promise<CupomAbastecimentoOCR> {
+  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "google/gemini-2.5-flash",
+      messages: [
+        { role: "system", content: ABASTECIMENTO_SYSTEM_PROMPT },
+        {
+          role: "user",
+          content: [
+            { type: "text", text: instrucao },
+            { type: "image_url", image_url: { url: imagem.url } },
+          ],
+        },
+      ],
+    }),
+  });
+
+  if (res.status === 429)
+    throw new Error("Muitas leituras seguidas. Tente novamente em instantes.");
+  if (res.status === 402) throw new Error("Créditos de IA esgotados no workspace.");
+  if (!res.ok) throw new Error("Falha ao ler o cupom de abastecimento");
+
+  const raw: string = ((await res.json()) as AiResponse)?.choices?.[0]?.message?.content ?? "";
+  return parseAbastecimentoJson(raw);
+}
+
+export const lerCupomAbastecimento = createServerFn({ method: "POST" })
+  .inputValidator(z.object({ imageDataUrl: z.string().min(32).max(8_000_000) }))
+  .handler(async ({ data }): Promise<CupomAbastecimentoOCR> => {
+    const apiKey = process.env["LOVABLE_API_KEY"];
+    if (!apiKey) throw new Error("IA indisponível: chave não configurada");
+    return chamarIaAbastecimento(apiKey, "Extraia os dados deste cupom de abastecimento.", {
+      type: "image",
+      url: data.imageDataUrl,
+    });
+  });
+
+export const lerCupomAbastecimentoPdf = createServerFn({ method: "POST" })
+  .inputValidator(z.object({ pdfBase64: z.string().min(32).max(100_000_000) }))
+  .handler(async ({ data }): Promise<CupomAbastecimentoOCR> => {
+    const apiKey = process.env["LOVABLE_API_KEY"];
+    if (!apiKey) throw new Error("IA indisponível: chave não configurada");
+    return chamarIaAbastecimento(
+      apiKey,
+      "Extraia os dados deste cupom/nota de abastecimento em PDF.",
+      { type: "pdf", url: `data:application/pdf;base64,${data.pdfBase64}` },
+    );
+  });
+
 export const lerCupomFiscal = createServerFn({ method: "POST" })
   .inputValidator(
     z.object({

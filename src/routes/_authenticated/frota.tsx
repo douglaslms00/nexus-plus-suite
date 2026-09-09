@@ -45,10 +45,16 @@ import {
   PenLine,
   Search,
   Crown,
+  Loader2,
+  Paperclip,
+  ScanLine,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { exportCSV, exportPDF } from "@/lib/exports";
 import { formatCurrency } from "@/lib/utils";
+import { uploadAnexo, getAnexoUrl } from "@/lib/upload";
+import { lerCupomAbastecimento, lerCupomAbastecimentoPdf } from "@/lib/ocr.functions";
 import {
   calcConsumo,
   calcLinhaConsumo,
@@ -289,6 +295,71 @@ function FrotaPage() {
   const [editMotId, setEditMotId] = useState<string | null>(null);
 
   const fileRef = useRef<HTMLInputElement>(null);
+  const cupomRef = useRef<HTMLInputElement>(null);
+  const [abastAnexo, setAbastAnexo] = useState<File | null>(null);
+  const [lendoCupom, setLendoCupom] = useState(false);
+
+  const openAnexo = async (path: string) => {
+    const url = await getAnexoUrl(path);
+    if (url) window.open(url, "_blank");
+    else toast.error("Não foi possível abrir o anexo");
+  };
+
+  // Normaliza o combustível lido pela IA para um dos valores do cadastro
+  const mapTipoCombustivel = (raw: string | null): string | null => {
+    if (!raw) return null;
+    const t = raw.toLowerCase();
+    if (t.includes("s10")) return "diesel S10";
+    if (t.includes("diesel")) return "diesel";
+    if (t.includes("etanol")) return "etanol";
+    if (t.includes("gasolina")) return "gasolina";
+    if (t.includes("gnv")) return "GNV";
+    if (t.includes("flex")) return "flex";
+    if (t.includes("eletr")) return "eletrico";
+    return (TIPOS_COMBUSTIVEL as readonly string[]).includes(raw) ? raw : null;
+  };
+
+  // Anexa foto/PDF do cupom e usa a IA para preencher os campos
+  const lerCupom = async (file: File) => {
+    const isImagem = file.type.startsWith("image/");
+    const isPdf = file.type === "application/pdf";
+    if (!isImagem && !isPdf) {
+      toast.error("Anexe o cupom em foto (JPG, PNG, WEBP) ou PDF.");
+      return;
+    }
+    if (file.size > (isPdf ? 50 : 5) * 1024 * 1024) {
+      toast.error(isPdf ? "O PDF deve ter no máximo 50 MB." : "A imagem deve ter no máximo 5 MB.");
+      return;
+    }
+    setAbastAnexo(file);
+    setLendoCupom(true);
+    try {
+      const fileDataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = () => reject(new Error("Não foi possível ler o arquivo"));
+        reader.readAsDataURL(file);
+      });
+      const dados = isPdf
+        ? await lerCupomAbastecimentoPdf({ data: { pdfBase64: fileDataUrl.split(",")[1] } })
+        : await lerCupomAbastecimento({ data: { imageDataUrl: fileDataUrl } });
+      const tipo = mapTipoCombustivel(dados.tipo_combustivel);
+      setFA((atual: any) => ({
+        ...atual,
+        ...(dados.data ? { data: dados.data } : {}),
+        ...(dados.posto ? { posto: dados.posto } : {}),
+        ...(tipo ? { tipo_combustivel: tipo } : {}),
+        ...(dados.litros != null ? { litros: dados.litros } : {}),
+        ...(dados.valor_por_litro != null ? { valor_por_litro: dados.valor_por_litro } : {}),
+        ...(dados.valor_total != null ? { valor_total: dados.valor_total } : {}),
+      }));
+      toast.success("Cupom lido com sucesso. Confira os campos antes de salvar.");
+    } catch (e: any) {
+      toast.error(e?.message ?? "Não foi possível ler o cupom");
+    } finally {
+      setLendoCupom(false);
+    }
+  };
 
   // ---- MUTATIONS ----
   const createVeiculo = useMutation({
@@ -338,7 +409,23 @@ function FrotaPage() {
       };
       if (!payload.veiculo_id || !payload.odometro || !payload.litros || !payload.valor_por_litro)
         throw new Error("Preencha veículo, odômetro, litros e valor/litro");
-      const { error } = await supabase.from("frota_abastecimentos").insert(payload);
+      if (abastAnexo) {
+        try {
+          payload.anexo_url = await uploadAnexo(abastAnexo, "frota/abastecimentos");
+        } catch (e: any) {
+          throw new Error(`Falha ao enviar o anexo: ${e?.message ?? "tente novamente"}`);
+        }
+      }
+      let { error } = await supabase.from("frota_abastecimentos").insert(payload);
+      if (error && payload.anexo_url && /anexo_url|schema cache|PGRST204/i.test(error.message)) {
+        // Coluna ainda não criada no banco (migration pendente): salva sem o anexo
+        console.warn("[frota:abastecimento] coluna anexo_url ausente, salvando sem anexo");
+        const { anexo_url: _omit, ...semAnexo } = payload;
+        const retry = await supabase.from("frota_abastecimentos").insert(semAnexo);
+        error = retry.error;
+        if (!error)
+          toast.warning("Salvo sem o anexo: rode a migration da coluna anexo_url no Supabase.");
+      }
       if (error) throw error;
       // atualiza odômetro atual do veículo se maior
       const veic = (veiculos as any[]).find((v) => v.id === payload.veiculo_id);
@@ -354,6 +441,7 @@ function FrotaPage() {
       qc.invalidateQueries({ queryKey: ["frota-abastecimentos"] });
       qc.invalidateQueries({ queryKey: ["frota-veiculos"] });
       setOpenA(false);
+      setAbastAnexo(null);
       setFA({ tipo_combustivel: "diesel", tanque_cheio: true });
     },
     onError: (e: any) => toast.error(e.message),
@@ -1079,7 +1167,13 @@ function FrotaPage() {
         <TabsContent value="combustivel" className="space-y-3 mt-4">
           <div className="flex flex-wrap gap-2">
             {canEdit && (
-              <Dialog open={openA} onOpenChange={setOpenA}>
+              <Dialog
+                open={openA}
+                onOpenChange={(v) => {
+                  setOpenA(v);
+                  if (!v) setAbastAnexo(null);
+                }}
+              >
                 <DialogTrigger asChild>
                   <Button>
                     <Plus className="h-4 w-4" /> Novo abastecimento
@@ -1089,6 +1183,58 @@ function FrotaPage() {
                   <DialogHeader>
                     <DialogTitle>Novo abastecimento</DialogTitle>
                   </DialogHeader>
+                  <input
+                    ref={cupomRef}
+                    type="file"
+                    accept="image/*,.pdf,.jpg,.jpeg,.png,.webp"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) void lerCupom(file);
+                      e.target.value = "";
+                    }}
+                  />
+                  <div className="rounded-md border border-dashed p-3">
+                    {!abastAnexo ? (
+                      <div className="flex flex-col items-center gap-2 text-center">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          disabled={lendoCupom || createAbast.isPending}
+                          onClick={() => cupomRef.current?.click()}
+                        >
+                          <ScanLine className="h-4 w-4" />
+                          Anexar cupom e ler com IA
+                        </Button>
+                        <p className="text-xs text-muted-foreground">
+                          Foto (JPG, PNG, WEBP) ou PDF — a IA preenche data, posto, litros e
+                          valores. Confira antes de salvar.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 text-sm">
+                        <Paperclip className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        <span className="flex-1 truncate">{abastAnexo.name}</span>
+                        {lendoCupom ? (
+                          <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" /> Lendo com IA...
+                          </span>
+                        ) : (
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7"
+                            aria-label="Remover anexo"
+                            disabled={createAbast.isPending}
+                            onClick={() => setAbastAnexo(null)}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                  </div>
                   <form
                     onSubmit={(e) => {
                       e.preventDefault();
@@ -1319,6 +1465,17 @@ function FrotaPage() {
                               {custoPorKm != null ? formatCurrency(custoPorKm) : "—"}
                             </td>
                             <td className="p-2 text-right">
+                              {a.anexo_url && (
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  title="Ver cupom anexado"
+                                  aria-label="Ver cupom anexado"
+                                  onClick={() => void openAnexo(a.anexo_url)}
+                                >
+                                  <Paperclip className="h-3.5 w-3.5" />
+                                </Button>
+                              )}
                               {canDelete && (
                                 <Button
                                   size="icon"
