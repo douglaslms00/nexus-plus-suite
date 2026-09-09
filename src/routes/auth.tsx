@@ -31,20 +31,10 @@ function AuthPage() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    const identifier = loginId.trim();
-    if (!identifier) return toast.error("Informe e-mail ou CPF.");
+    const emailToUse = email.trim().toLowerCase();
+    if (!emailToUse) return toast.error("Informe seu e-mail.");
     setLoading(true);
     try {
-      const emailToUse = await resolveEmail(identifier);
-      if (!emailToUse) {
-        if (!isEmail(identifier)) {
-          toast.error("CPF não encontrado ou não cadastrado. Verifique o CPF ou use seu e-mail.");
-        } else {
-          toast.error("E-mail não encontrado.");
-        }
-        setLoading(false);
-        return;
-      }
       const { error } = await supabase.auth.signInWithPassword({ email: emailToUse, password });
       if (error) return toast.error(error.message);
       toast.success("Bem-vindo!");
@@ -56,34 +46,20 @@ function AuthPage() {
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    const cpfDigits = onlyDigits(signupCpf);
-    if (signupCpf && !validarCPF(signupCpf)) {
-      return toast.error("CPF inválido. Verifique o número digitado.");
-    }
     setLoading(true);
-    const { data, error } = await supabase.auth.signUp({
+    const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         emailRedirectTo: `${window.location.origin}/dashboard`,
-        data: { nome, cpf: cpfDigits || undefined },
+        data: { nome },
       },
     });
-    // Se o usuário já foi criado mas precisa confirmar e-mail, tenta salvar cpf diretamente se houver sessão
-    if (!error && data.user && cpfDigits) {
-      try {
-        // Tenta atualizar perfil imediatamente se já houver sessão (quando confirmação desativada)
-        // Caso não haja sessão, o trigger handle_new_user já salvou via metadados
-        const { data: sess } = await supabase.auth.getSession();
-        if (sess.session) {
-          await (supabase as any).from("profiles").update({ cpf: cpfDigits }).eq("id", data.user.id);
-        }
-      } catch {}
-    }
     setLoading(false);
     if (error) return toast.error(error.message);
     toast.success("Conta criada! Verifique seu e-mail para confirmar.");
   };
+
 
   const validarSenha = (senha: string) => {
     const requisitos = {
