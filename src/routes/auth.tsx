@@ -14,59 +14,10 @@ export const Route = createFileRoute("/auth")({
   component: AuthPage,
 });
 
-function onlyDigits(v: string) {
-  return v.replace(/\D/g, "");
-}
-
-function formatCpf(v: string) {
-  const d = onlyDigits(v).slice(0, 11);
-  if (d.length <= 3) return d;
-  if (d.length <= 6) return `${d.slice(0, 3)}.${d.slice(3)}`;
-  if (d.length <= 9) return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6)}`;
-  return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
-}
-
-function validarCPF(cpf: string): boolean {
-  const c = onlyDigits(cpf);
-  if (c.length !== 11 || /^(\d)\1+$/.test(c)) return false;
-  let sum = 0;
-  for (let i = 0; i < 9; i++) sum += parseInt(c[i]) * (10 - i);
-  let rest = (sum * 10) % 11;
-  if (rest === 10 || rest === 11) rest = 0;
-  if (rest !== parseInt(c[9])) return false;
-  sum = 0;
-  for (let i = 0; i < 10; i++) sum += parseInt(c[i]) * (11 - i);
-  rest = (sum * 10) % 11;
-  if (rest === 10 || rest === 11) rest = 0;
-  if (rest !== parseInt(c[10])) return false;
-  return true;
-}
-
-function isEmail(v: string) {
-  return v.includes("@");
-}
-
-async function resolveEmail(identifier: string): Promise<string | null> {
-  const trimmed = identifier.trim();
-  if (isEmail(trimmed)) return trimmed.toLowerCase();
-  const digits = onlyDigits(trimmed);
-  if (digits.length !== 11) return null;
-  const { data, error } = await (supabase as any).rpc("get_email_by_cpf", { cpf_input: trimmed });
-  if (error) {
-    console.warn("get_email_by_cpf error", error);
-    return null;
-  }
-  if (!data) return null;
-  // data pode ser string direta ou null
-  return typeof data === "string" ? data : null;
-}
-
 function AuthPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
-  const [loginId, setLoginId] = useState("");
   const [email, setEmail] = useState("");
-  const [signupCpf, setSignupCpf] = useState("");
   const [password, setPassword] = useState("");
   const [nome, setNome] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -76,6 +27,7 @@ function AuthPage() {
       if (data.user) navigate({ to: "/dashboard", replace: true });
     });
   }, [navigate]);
+
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
