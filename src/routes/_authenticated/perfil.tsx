@@ -38,15 +38,65 @@ function PerfilPage() {
     return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
   }
 
+  function validarCPF(cpf: string): boolean {
+    const c = onlyDigits(cpf);
+    if (c.length !== 11 || /^(\d)\1+$/.test(c)) return false;
+    let sum = 0;
+    for (let i = 0; i < 9; i++) sum += parseInt(c[i]) * (10 - i);
+    let rest = (sum * 10) % 11;
+    if (rest === 10 || rest === 11) rest = 0;
+    if (rest !== parseInt(c[9])) return false;
+    sum = 0;
+    for (let i = 0; i < 10; i++) sum += parseInt(c[i]) * (11 - i);
+    rest = (sum * 10) % 11;
+    if (rest === 10 || rest === 11) rest = 0;
+    if (rest !== parseInt(c[10])) return false;
+    return true;
+  }
+
+  function mensagemAmigavel(e: any): string {
+    const raw = e?.message ?? String(e ?? "Erro desconhecido");
+    const code = e?.code ?? "";
+    // CPF duplicado (índice único profiles_cpf_unique)
+    if (
+      code === "23505" ||
+      /profiles_cpf_unique/i.test(raw) ||
+      (/duplicate key/i.test(raw) && /cpf/i.test(raw))
+    ) {
+      return "Este CPF já está cadastrado em outra conta. Verifique o número digitado.";
+    }
+    if (code === "42501" || /permission denied|not allowed|policy|RLS|row-level/i.test(raw)) {
+      return "Sem permissão para salvar o perfil. Aplique a migration 20260910120000_fix_profiles_update_perfil no Supabase e tente de novo.";
+    }
+    if (/invalid email|email.*invalid|Unable to validate email/i.test(raw)) {
+      return "E-mail inválido. Verifique o endereço digitado.";
+    }
+    if (/already.*(use|registered|exists)|already in use/i.test(raw)) {
+      return "Dados salvos, mas o e-mail não foi alterado: este e-mail já está em uso por outra conta.";
+    }
+    if (/rate limit|too many|exceeded/i.test(raw)) {
+      return "Dados salvos, mas o e-mail não foi alterado agora: limite de tentativas excedido. Aguarde alguns minutos.";
+    }
+    if (/confirmation|confirm.*email|verify/i.test(raw)) {
+      return "Dados salvos! Verifique seu e-mail (antigo e novo) para confirmar a troca de e-mail.";
+    }
+    return raw;
+  }
+
   useEffect(() => {
     if (profile) {
       setNome(profile.nome ?? "");
       setSetor((profile as any).setor ?? "");
-      setEmail((profile as any).email ?? user?.email ?? "");
       setCpf((profile as any).cpf ? formatCpf((profile as any).cpf) : "");
       setAvatarUrl((profile as any).avatar_url ?? null);
     }
-  }, [profile, user?.email]);
+  }, [profile]);
+
+  // E-mail vem do Auth (profiles.email não tem SELECT para o próprio usuário),
+  // então sincroniza separadamente a partir da sessão.
+  useEffect(() => {
+    if (user?.email) setEmail((prev) => prev || user.email!);
+  }, [user?.email]);
 
   const validarSenha = (senha: string) => {
     let pontos = 0;
@@ -67,28 +117,59 @@ function PerfilPage() {
 
   const saveProfile = useMutation({
     mutationFn: async () => {
+      if (!user?.id) throw new Error("Sessão ainda carregando. Aguarde e tente de novo.");
+      const nomeTrim = nome.trim();
+      if (!nomeTrim) throw new Error("Informe seu nome.");
+      const emailTrim = email.trim().toLowerCase();
+      if (emailTrim && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrim))
+        throw new Error("E-mail inválido. Verifique o endereço digitado.");
       const cpfDigits = onlyDigits(cpf);
-      if (cpf && cpfDigits.length !== 11) throw new Error("CPF deve ter 11 dígitos");
+      if (cpf && cpfDigits.length !== 11) throw new Error("CPF deve ter 11 dígitos.");
+      if (cpfDigits && !validarCPF(cpfDigits))
+        throw new Error("CPF inválido. Verifique o número digitado.");
+      const setorTrim = setor.trim();
+
+      // 1) Salva dados do perfil (colunas com GRANT UPDATE para o próprio usuário).
+      //    Não inclui `email`: profiles.email não tem UPDATE/SELECT para
+      //    authenticated, a troca de e-mail é feita via Auth abaixo.
       const { error } = await supabase
         .from("profiles")
-        .update({ nome, setor, avatar_url: avatarUrl, cpf: cpfDigits || null } as any)
-        .eq("id", user!.id);
+        .update({
+          nome: nomeTrim,
+          setor: setorTrim || null,
+          avatar_url: avatarUrl,
+          cpf: cpfDigits || null,
+        } as any)
+        .eq("id", user.id);
       if (error) throw error;
+
+      // 2) Sincroniza CPF nos metadados do Auth (não bloqueia o save se falhar).
       if (cpfDigits) {
         const { error: metaErr } = await supabase.auth.updateUser({ data: { cpf: cpfDigits } } as any);
         if (metaErr) console.warn(metaErr.message);
       }
-      if (email && email !== user?.email) {
-        const { error: eErr } = await supabase.auth.updateUser({ email });
-        if (eErr) throw eErr;
+
+      // 3) Troca de e-mail via Auth (pode exigir confirmação por e-mail).
+      if (emailTrim && emailTrim !== (user.email ?? "").toLowerCase()) {
+        const { error: eErr } = await supabase.auth.updateUser({ email: emailTrim });
+        if (eErr) {
+          // Perfil já foi salvo acima; informa que só o e-mail ficou pendente.
+          throw new Error(`Perfil salvo, mas o e-mail ficou pendente: ${mensagemAmigavel(eErr)}`);
+        }
+        return { emailChanged: true };
       }
+      return { emailChanged: false };
     },
-    onSuccess: () => {
-      toast.success("Perfil atualizado");
+    onSuccess: (res) => {
+      if (res?.emailChanged) {
+        toast.success("Perfil atualizado! Verifique seu e-mail para confirmar a troca.");
+      } else {
+        toast.success("Perfil atualizado");
+      }
       qc.invalidateQueries({ queryKey: ["profile"] });
       qc.invalidateQueries({ queryKey: ["currentUser"] });
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: any) => toast.error(mensagemAmigavel(e)),
   });
 
   const changePwd = useMutation({
@@ -184,9 +265,18 @@ function PerfilPage() {
                 onChange={(e) => setCpf(formatCpf(e.target.value))}
                 maxLength={14}
               />
+              {cpf && onlyDigits(cpf).length > 0 && onlyDigits(cpf).length !== 11 && (
+                <p className="text-xs text-destructive mt-1">CPF deve ter 11 dígitos.</p>
+              )}
+              {cpf && onlyDigits(cpf).length === 11 && !validarCPF(cpf) && (
+                <p className="text-xs text-destructive mt-1">CPF inválido. Verifique o número digitado.</p>
+              )}
               <p className="text-xs text-muted-foreground mt-1">Seu CPF será usado para permitir login com CPF.</p>
             </div>
-            <Button onClick={() => saveProfile.mutate()} disabled={saveProfile.isPending}>
+            <Button
+              onClick={() => saveProfile.mutate()}
+              disabled={saveProfile.isPending || !user?.id}
+            >
               {saveProfile.isPending ? "Salvando..." : "Salvar"}
             </Button>
           </Card>
