@@ -39,6 +39,7 @@ export type Abastecimento = {
   tipo_combustivel: string;
   valor_por_litro: number;
   valor_total: number;
+  forma_pagamento?: string | null;
   created_at?: string;
 };
 
@@ -151,6 +152,13 @@ export const CATEGORIAS_GASTO = [
 export const TIPOS_COMBUSTIVEL = ["gasolina", "etanol", "diesel", "diesel S10", "GNV", "flex", "eletrico"] as const;
 export const TIPOS_SERVICO = ["troca de óleo", "pneus", "freios", "suspensão", "motor", "elétrica", "funilaria", "revisão preventiva", "outro"] as const;
 export const OPERADORAS_TAG = ["Sem Parar", "ConectCar", "Veloe", "Outra"] as const;
+export const MEIOS_PAGAMENTO_ABAST = [
+  "Cartão Crédito/Débito",
+  "Dinheiro/PIX",
+  "Cartão Frota",
+  "Shell Box",
+  "Faturamento Direto",
+] as const;
 
 export function formatPlaca(v: string): string {
   const s = v.replace(/[^A-Za-z0-9]/g, "").toUpperCase();

@@ -58,6 +58,7 @@ import {
   TIPOS_COMBUSTIVEL,
   TIPOS_SERVICO,
   OPERADORAS_TAG,
+  MEIOS_PAGAMENTO_ABAST,
   parseCSVPedagio,
   rankingMotoristas,
 } from "@/lib/frota";
@@ -216,7 +217,7 @@ function FrotaPage() {
     setOpenV(true);
   };
   const [openA, setOpenA] = useState(false);
-  const [fA, setFA] = useState<any>({ tipo_combustivel: "diesel", tanque_cheio: true });
+  const [fA, setFA] = useState<any>({ tipo_combustivel: "diesel", tanque_cheio: true, forma_pagamento: "Dinheiro/PIX" });
   const [editAbastId, setEditAbastId] = useState<string | null>(null);
   const [abastComprovante, setAbastComprovante] = useState<File | null>(null);
   const [abastComprovanteAtual, setAbastComprovanteAtual] = useState<string | null>(null);
@@ -224,7 +225,7 @@ function FrotaPage() {
 
   const abrirNovoAbast = () => {
     setEditAbastId(null);
-    setFA({ tipo_combustivel: "diesel", tanque_cheio: true, data: new Date().toISOString().slice(0, 10) });
+    setFA({ tipo_combustivel: "diesel", tanque_cheio: true, forma_pagamento: "Dinheiro/PIX", data: new Date().toISOString().slice(0, 10) });
     setAbastComprovante(null);
     setAbastComprovanteAtual(null);
     setOpenA(true);
@@ -242,6 +243,7 @@ function FrotaPage() {
       valor_por_litro: a.valor_por_litro ?? "",
       valor_total: a.valor_total ?? "",
       posto: a.posto ?? "",
+      forma_pagamento: (a as any).forma_pagamento ?? "Dinheiro/PIX",
       tanque_cheio: a.tanque_cheio ?? true,
       observacoes: a.observacoes ?? "",
       obra_id: a.obra_id ?? null,
@@ -363,7 +365,10 @@ function FrotaPage() {
       delete payload.created_at;
       delete payload.updated_at;
       if (payload.motorista_id === "none") payload.motorista_id = null;
+      if (!payload.forma_pagamento) payload.forma_pagamento = null;
       if (!payload.veiculo_id || !payload.odometro || !payload.litros || !payload.valor_por_litro) throw new Error("Preencha veículo, odômetro, litros e valor/litro");
+      const isFormaPgMissingCache = (e: any) =>
+        e?.message?.includes("forma_pagamento") && e?.message?.includes("schema cache");
       if (editAbastId) {
         // ---- EDIÇÃO ----
         let comprovante_url_final: string | null | undefined = undefined;
@@ -383,12 +388,27 @@ function FrotaPage() {
         const updatePayload: any = { ...payload };
         delete updatePayload.created_by;
         if (comprovante_url_final !== undefined) updatePayload.comprovante_url = comprovante_url_final;
-        const { error } = await supabase.from("frota_abastecimentos").update(updatePayload).eq("id", editAbastId);
+        let { error } = await supabase.from("frota_abastecimentos").update(updatePayload).eq("id", editAbastId);
+        // fallback: coluna ainda sem migration aplicada / cache desatualizado
+        if (error && isFormaPgMissingCache(error)) {
+          delete updatePayload.forma_pagamento;
+          const retry = await supabase.from("frota_abastecimentos").update(updatePayload).eq("id", editAbastId);
+          error = retry.error;
+          if (!error) toast.warning("Salvo sem meio de pagamento: aplique a migration da coluna forma_pagamento e recarregue o schema.");
+        }
         if (error) throw error;
       } else {
         // ---- CRIAÇÃO ----
         payload.created_by = user?.id;
-        const { data: inserted, error } = await supabase.from("frota_abastecimentos").insert(payload).select("id").single();
+        let { data: inserted, error } = await supabase.from("frota_abastecimentos").insert(payload).select("id").single();
+        // fallback: coluna ainda sem migration aplicada / cache desatualizado
+        if (error && isFormaPgMissingCache(error)) {
+          delete payload.forma_pagamento;
+          const retry = await supabase.from("frota_abastecimentos").insert(payload).select("id").single();
+          inserted = retry.data;
+          error = retry.error;
+          if (!error) toast.warning("Salvo sem meio de pagamento: aplique a migration da coluna forma_pagamento e recarregue o schema.");
+        }
         if (error) throw error;
         // anexa a nota/cupom fiscal (imagem ou PDF) ao abastecimento
         if (abastComprovante && (inserted as any)?.id) {
@@ -412,7 +432,7 @@ function FrotaPage() {
       qc.invalidateQueries({ queryKey: ["frota-abastecimentos"] });
       qc.invalidateQueries({ queryKey: ["frota-veiculos"] });
       setOpenA(false);
-      setFA({ tipo_combustivel: "diesel", tanque_cheio: true });
+      setFA({ tipo_combustivel: "diesel", tanque_cheio: true, forma_pagamento: "Dinheiro/PIX" });
       setEditAbastId(null);
       setAbastComprovante(null);
       setAbastComprovanteAtual(null);
@@ -567,7 +587,7 @@ function FrotaPage() {
   };
 
   const exportAbast = (kind: "csv" | "pdf") => {
-    const headers = ["Data", "Veículo", "Motorista", "Odômetro", "Litros", "Combustível", "R$/L", "Total", "km/L", "R$/km"];
+    const headers = ["Data", "Veículo", "Motorista", "Odômetro", "Litros", "Combustível", "R$/L", "Total", "Pagamento", "km/L", "R$/km"];
     // montar mapa veiculo_id -> lista ordenada para km/L por linha
     const byVeic = new Map<string, any[]>();
     for (const a of [...(abastecimentos as any[])].reverse()) {
@@ -590,6 +610,7 @@ function FrotaPage() {
         a.tipo_combustivel,
         Number(a.valor_por_litro).toFixed(2),
         Number(a.valor_total).toFixed(2),
+        (a as any).forma_pagamento ?? "—",
         mediaKml != null ? mediaKml.toFixed(2) : "—",
         custoPorKm != null ? custoPorKm.toFixed(2) : "—",
       ];
@@ -842,6 +863,9 @@ function FrotaPage() {
                       <div className="space-y-1"><Label>Valor por litro *</Label><Input type="number" step="0.01" required value={fA.valor_por_litro ?? ""} onChange={(e) => setFA({ ...fA, valor_por_litro: e.target.value })} /></div>
                       <div className="space-y-1"><Label>Total (auto)</Label><Input disabled value={fA.litros && fA.valor_por_litro ? (Number(fA.litros) * Number(fA.valor_por_litro)).toFixed(2) : ""} placeholder="litros × R$/L" /></div>
                       <div className="space-y-1 col-span-2"><Label>Posto</Label><Input value={fA.posto ?? ""} onChange={(e) => setFA({ ...fA, posto: e.target.value })} /></div>
+                      <div className="space-y-1 col-span-2"><Label>Meio de pagamento</Label>
+                        <Select value={fA.forma_pagamento ?? "Dinheiro/PIX"} onValueChange={(v) => setFA({ ...fA, forma_pagamento: v })}><SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger><SelectContent>{MEIOS_PAGAMENTO_ABAST.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent></Select>
+                      </div>
                       <div className="space-y-1 col-span-2">
                         <Label>Anexo da nota / cupom fiscal (imagem ou PDF)</Label>
                         {abastComprovante ? (
@@ -880,7 +904,7 @@ function FrotaPage() {
             <div className="overflow-auto">
               <table className="w-full text-sm">
                 <thead className="bg-muted/50 text-xs">
-                  <tr><th className="text-left p-2">Data</th><th className="text-left p-2">Veículo</th><th className="text-left p-2">Motorista</th><th className="text-right p-2">Odômetro</th><th className="text-right p-2">Litros</th><th className="text-right p-2">R$/L</th><th className="text-right p-2">Total</th><th className="text-right p-2">km/L</th><th className="text-right p-2">R$/km</th><th className="p-2"></th></tr>
+                  <tr><th className="text-left p-2">Data</th><th className="text-left p-2">Veículo</th><th className="text-left p-2">Motorista</th><th className="text-right p-2">Odômetro</th><th className="text-right p-2">Litros</th><th className="text-right p-2">R$/L</th><th className="text-right p-2">Total</th><th className="text-left p-2">Pagamento</th><th className="text-right p-2">km/L</th><th className="text-right p-2">R$/km</th><th className="p-2"></th></tr>
                 </thead>
                 <tbody>
                   {(() => {
@@ -891,7 +915,7 @@ function FrotaPage() {
                       byVeic.set(a.veiculo_id, arr);
                     }
                     return (abastecimentos as any[])
-                      .filter((a) => !search || `${a.veiculo?.placa} ${a.motorista?.nome ?? ""} ${a.tipo_combustivel}`.toLowerCase().includes(search.toLowerCase()))
+                      .filter((a) => !search || `${a.veiculo?.placa} ${a.motorista?.nome ?? ""} ${a.tipo_combustivel} ${(a as any).forma_pagamento ?? ""} ${a.posto ?? ""}`.toLowerCase().includes(search.toLowerCase()))
                       .map((a) => {
                         const list = byVeic.get(a.veiculo_id) ?? [];
                         const idx = list.findIndex((x) => x.id === a.id);
@@ -906,6 +930,7 @@ function FrotaPage() {
                             <td className="p-2 text-right">{Number(a.litros).toFixed(2)}</td>
                             <td className="p-2 text-right">{formatCurrency(a.valor_por_litro)}</td>
                             <td className="p-2 text-right font-medium">{formatCurrency(a.valor_total)}</td>
+                            <td className="p-2">{(a as any).forma_pagamento ? <Badge variant="outline" className="whitespace-nowrap">{(a as any).forma_pagamento}</Badge> : <span className="text-muted-foreground">—</span>}</td>
                             <td className="p-2 text-right">{mediaKml != null ? <Badge variant={mediaKml < 6 ? "destructive" : mediaKml < 9 ? "secondary" : "default"}>{mediaKml.toFixed(2)}</Badge> : "—"}</td>
                             <td className="p-2 text-right">{custoPorKm != null ? formatCurrency(custoPorKm) : "—"}</td>
                             <td className="p-2 text-right whitespace-nowrap">
