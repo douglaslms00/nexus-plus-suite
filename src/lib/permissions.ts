@@ -70,10 +70,28 @@ export function useProfile() {
     queryKey: ["profile", user?.id],
     enabled: !!user?.id,
     staleTime: 1000 * 60 * 5,
+    retry: 1,
     queryFn: async () => {
-      const { data, error } = await supabase
+      // Tenta com cpf; se o banco remoto ainda não tem a coluna
+      // (migration 20260909120000 pendente -> 400/42703), cai para sem cpf
+      // em vez de quebrar todas as telas com erro 400.
+      const withCpf = await supabase
         .from("profiles")
         .select("id, nome, setor, avatar_url, cpf, created_at, updated_at")
+        .eq("id", user!.id)
+        .maybeSingle();
+      if (!withCpf.error) return withCpf.data;
+      const code = (withCpf.error as any)?.code ?? "";
+      const msg = (withCpf.error as any)?.message ?? "";
+      const missingCpf =
+        code === "42703" || code === "PGRST204" || (/cpf/i.test(msg) && /column|exist|find/i.test(msg));
+      if (!missingCpf) throw withCpf.error;
+      console.warn(
+        "[useProfile] coluna profiles.cpf ausente no banco. Aplique a migration 20260909120000_login_cpf_email.sql no Supabase.",
+      );
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, nome, setor, avatar_url, created_at, updated_at")
         .eq("id", user!.id)
         .maybeSingle();
       if (error) throw error;

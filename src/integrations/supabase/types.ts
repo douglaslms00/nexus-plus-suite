@@ -1106,6 +1106,50 @@ export type Database = {
         }
         Relationships: []
       }
+      obra_vencimentos: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          data_emissao: string | null
+          data_vencimento: string | null
+          id: string
+          nome: string
+          obra_id: string
+          observacoes: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          data_emissao?: string | null
+          data_vencimento?: string | null
+          id?: string
+          nome: string
+          obra_id: string
+          observacoes?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          data_emissao?: string | null
+          data_vencimento?: string | null
+          id?: string
+          nome?: string
+          obra_id?: string
+          observacoes?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "obra_vencimentos_obra_id_fkey"
+            columns: ["obra_id"]
+            isOneToOne: false
+            referencedRelation: "obras"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       obras: {
         Row: {
           created_at: string

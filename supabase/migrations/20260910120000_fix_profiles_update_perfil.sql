@@ -9,6 +9,15 @@
 --    para não depender de privilégio de coluna do usuário comum.
 -- 3) Reafirma SELECT/UPDATE/INSERT + policies do próprio perfil.
 
+-- 0) Pré-requisito: garante a coluna cpf (caso a migration
+-- 20260909120000_login_cpf_email.sql ainda não tenha sido aplicada no remoto).
+-- Sem isso, os GRANTs abaixo falhariam com "column profiles.cpf does not exist".
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS cpf text;
+
+CREATE UNIQUE INDEX IF NOT EXISTS profiles_cpf_unique
+  ON public.profiles ((regexp_replace(cpf, '[^0-9]', '', 'g')))
+  WHERE cpf IS NOT NULL AND btrim(cpf) <> '';
+
 -- 1) Torna touch_updated_at SECURITY DEFINER (não quebra outros triggers)
 CREATE OR REPLACE FUNCTION public.touch_updated_at()
 RETURNS trigger

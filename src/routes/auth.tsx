@@ -53,7 +53,11 @@ async function resolveEmail(identifier: string): Promise<string | null> {
   if (digits.length !== 11) return null;
   const { data, error } = await (supabase as any).rpc("get_email_by_cpf", { cpf_input: trimmed });
   if (error) {
-    console.warn("get_email_by_cpf error", error);
+    if ((error as any)?.code === "PGRST202")
+      console.warn(
+        "[auth] RPC get_email_by_cpf ausente no banco. Aplique a migration 20260909120000_login_cpf_email.sql no Supabase.",
+      );
+    else console.warn("get_email_by_cpf error", error);
     return null;
   }
   if (!data) return null;

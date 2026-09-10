@@ -57,6 +57,16 @@ function PerfilPage() {
   function mensagemAmigavel(e: any): string {
     const raw = e?.message ?? String(e ?? "Erro desconhecido");
     const code = e?.code ?? "";
+    // Objeto/coluna ainda não existe no banco remoto (migration pendente)
+    if (
+      code === "42703" ||
+      code === "PGRST202" ||
+      code === "PGRST204" ||
+      code === "PGRST205" ||
+      /does not exist|schema cache|Could not find the '.*' column/i.test(raw)
+    ) {
+      return "O banco ainda não tem esse campo. Aplique as migrations pendentes no Supabase SQL Editor (20260909120000_login_cpf_email.sql e depois 20260910120000_fix_profiles_update_perfil.sql) e recarregue.";
+    }
     // CPF duplicado (índice único profiles_cpf_unique)
     if (
       code === "23505" ||
@@ -132,15 +142,32 @@ function PerfilPage() {
       // 1) Salva dados do perfil (colunas com GRANT UPDATE para o próprio usuário).
       //    Não inclui `email`: profiles.email não tem UPDATE/SELECT para
       //    authenticated, a troca de e-mail é feita via Auth abaixo.
-      const { error } = await supabase
-        .from("profiles")
-        .update({
-          nome: nomeTrim,
-          setor: setorTrim || null,
-          avatar_url: avatarUrl,
-          cpf: cpfDigits || null,
-        } as any)
-        .eq("id", user.id);
+      const basePayload: any = {
+        nome: nomeTrim,
+        setor: setorTrim || null,
+        avatar_url: avatarUrl,
+        cpf: cpfDigits || null,
+      };
+      let { error } = await supabase.from("profiles").update(basePayload).eq("id", user.id);
+      let cpfIgnorado = false;
+      // Fallback: banco remoto sem a coluna cpf (migration pendente) -> salva sem cpf
+      if (error) {
+        const code = (error as any)?.code ?? "";
+        const msg = (error as any)?.message ?? "";
+        const missingCpf =
+          code === "42703" ||
+          code === "PGRST204" ||
+          (/cpf/i.test(msg) && /column|exist|find/i.test(msg));
+        if (missingCpf && cpfDigits) {
+          console.warn(
+            "[perfil] coluna profiles.cpf ausente, salvando sem cpf. Aplique a migration 20260909120000_login_cpf_email.sql.",
+          );
+          const { cpf: _ign, ...semCpf } = basePayload;
+          const retry = await supabase.from("profiles").update(semCpf as any).eq("id", user.id);
+          error = retry.error;
+          cpfIgnorado = !retry.error;
+        }
+      }
       if (error) throw error;
 
       // 2) Sincroniza CPF nos metadados do Auth (não bloqueia o save se falhar).
@@ -156,12 +183,16 @@ function PerfilPage() {
           // Perfil já foi salvo acima; informa que só o e-mail ficou pendente.
           throw new Error(`Perfil salvo, mas o e-mail ficou pendente: ${mensagemAmigavel(eErr)}`);
         }
-        return { emailChanged: true };
+        return { emailChanged: true, cpfIgnorado };
       }
-      return { emailChanged: false };
+      return { emailChanged: false, cpfIgnorado };
     },
     onSuccess: (res) => {
-      if (res?.emailChanged) {
+      if (res?.cpfIgnorado) {
+        toast.warning(
+          "Perfil salvo sem o CPF: o banco ainda não tem a coluna cpf. Aplique a migration 20260909120000_login_cpf_email.sql.",
+        );
+      } else if (res?.emailChanged) {
         toast.success("Perfil atualizado! Verifique seu e-mail para confirmar a troca.");
       } else {
         toast.success("Perfil atualizado");
