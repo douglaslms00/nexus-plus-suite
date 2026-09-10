@@ -870,11 +870,13 @@ export type Database = {
           data_experiencia: string | null
           data_ferias: string | null
           data_folga_campo: string | null
+          data_nascimento: string | null
           email: string | null
           endereco: string | null
           experiencia_concluida: boolean
           funcao: string | null
           id: string
+          matricula: string | null
           nome: string
           obra_id: string | null
           observacoes: string | null
@@ -905,11 +907,13 @@ export type Database = {
           data_experiencia?: string | null
           data_ferias?: string | null
           data_folga_campo?: string | null
+          data_nascimento?: string | null
           email?: string | null
           endereco?: string | null
           experiencia_concluida?: boolean
           funcao?: string | null
           id?: string
+          matricula?: string | null
           nome: string
           obra_id?: string | null
           observacoes?: string | null
@@ -940,11 +944,13 @@ export type Database = {
           data_experiencia?: string | null
           data_ferias?: string | null
           data_folga_campo?: string | null
+          data_nascimento?: string | null
           email?: string | null
           endereco?: string | null
           experiencia_concluida?: boolean
           funcao?: string | null
           id?: string
+          matricula?: string | null
           nome?: string
           obra_id?: string | null
           observacoes?: string | null

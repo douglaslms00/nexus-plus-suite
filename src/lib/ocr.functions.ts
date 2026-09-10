@@ -24,6 +24,8 @@ interface ParsedFicha {
   funcao?: string;
   setor?: string;
   data_admissao?: string;
+  matricula?: string;
+  data_nascimento?: string;
 }
 
 interface ParsedCupom {
@@ -60,11 +62,13 @@ export type FichaRegistroOCR = {
   funcao: string | null;
   setor: string | null;
   data_admissao: string | null;
+  matricula: string | null;
+  data_nascimento: string | null;
 };
 
 const FICHA_SYSTEM_PROMPT =
   "Você extrai dados de fichas de registro de funcionários brasileiras. Responda SOMENTE com JSON válido, sem markdown, no formato " +
-  '{"nome":string|null,"cpf":string|null,"telefone":string|null,"email":string|null,"endereco":string|null,"cidade":string|null,"funcao":string|null,"setor":string|null,"data_admissao":"YYYY-MM-DD"|null}. ' +
+  '{"nome":string|null,"cpf":string|null,"telefone":string|null,"email":string|null,"endereco":string|null,"cidade":string|null,"funcao":string|null,"setor":string|null,"data_admissao":"YYYY-MM-DD"|null,"matricula":string|null,"data_nascimento":"YYYY-MM-DD"|null}. ' +
   "Extraia apenas o que estiver legível. Não invente dados. Para datas, converta para YYYY-MM-DD.";
 
 function parseFichaJson(raw: string): FichaRegistroOCR {
@@ -79,6 +83,7 @@ function parseFichaJson(raw: string): FichaRegistroOCR {
   const text = (key: string) =>
     typeof parsed[key] === "string" && parsed[key].trim() ? parsed[key].trim() : null;
   const date = text("data_admissao");
+  const nasc = text("data_nascimento");
   return {
     nome: text("nome"),
     cpf: text("cpf"),
@@ -89,6 +94,8 @@ function parseFichaJson(raw: string): FichaRegistroOCR {
     funcao: text("funcao"),
     setor: text("setor"),
     data_admissao: date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : null,
+    matricula: text("matricula"),
+    data_nascimento: nasc && /^\d{4}-\d{2}-\d{2}$/.test(nasc) ? nasc : null,
   };
 }
 
