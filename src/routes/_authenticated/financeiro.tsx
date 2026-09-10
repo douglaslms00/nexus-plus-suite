@@ -121,6 +121,7 @@ function FinanceiroPage() {
       toast.success("Conta criada");
       qc.invalidateQueries({ queryKey: ["contas-obra"] });
       qc.invalidateQueries({ queryKey: ["contas-pessoal"] });
+      qc.invalidateQueries({ queryKey: ["dash-contas"] });
       setOpen(false);
       setF({ tipo: "pagar", status: "pendente", escopo: escopoAtivo });
     },
@@ -138,6 +139,7 @@ function FinanceiroPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["contas-obra"] });
       qc.invalidateQueries({ queryKey: ["contas-pessoal"] });
+      qc.invalidateQueries({ queryKey: ["dash-contas"] });
     },
   });
   const remove = useMutation({
@@ -148,6 +150,7 @@ function FinanceiroPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["contas-obra"] });
       qc.invalidateQueries({ queryKey: ["contas-pessoal"] });
+      qc.invalidateQueries({ queryKey: ["dash-contas"] });
     },
   });
 

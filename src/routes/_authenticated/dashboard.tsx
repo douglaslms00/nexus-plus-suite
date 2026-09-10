@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -122,10 +122,12 @@ function DashboardPage() {
   const [stockEntryObs, setStockEntryObs] = useState("");
   const [stockEntryObra, setStockEntryObra] = useState<string>(obraId || "");
 
-  // 1. Obras
+  // 1. Obras (sincronizado com os módulos: sempre refetch ao montar/voltar)
   const { data: obras = [] } = useQuery({
     queryKey: ["dash-obras"],
-    staleTime: 1000 * 60 * 5,
+    staleTime: 1000 * 30,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       const { data, error } = await supabase.from("obras").select("id, nome").order("nome");
       if (error) throw error;
@@ -134,9 +136,12 @@ function DashboardPage() {
   });
   const obraAtualNome = obraId ? obras.find((o: any) => o.id === obraId)?.nome : null;
 
-  // 2. Funcionários
+  // 2. Funcionários (mesmo filtro do módulo: ativos + obra atual)
   const { data: funcionarios = [], isLoading: loadingFunc } = useQuery({
     queryKey: ["dash-funcionarios", obraId],
+    staleTime: 1000 * 30,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       let q = supabase
         .from("funcionarios")
@@ -153,10 +158,17 @@ function DashboardPage() {
   });
 
   // Treinamentos de NR detalhados dos funcionários
+  // A key inclui os ids (igual ao módulo funcionarios) para refetch quando a lista muda.
+  const funcionariosIdsKey = useMemo(
+    () => funcionarios.map((f: any) => f.id).sort().join(","),
+    [funcionarios],
+  );
   const { data: allTreinamentos = [] } = useQuery({
-    queryKey: ["dash-treinamentos", obraId],
+    queryKey: ["dash-treinamentos", obraId, funcionariosIdsKey],
     enabled: funcionarios.length > 0,
-    staleTime: 1000 * 60 * 2,
+    staleTime: 1000 * 30,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       const ids = funcionarios.map((f: any) => f.id);
       if (ids.length === 0) return [];
@@ -179,9 +191,12 @@ function DashboardPage() {
     return map;
   }, [allTreinamentos]);
 
-  // 3. Tarefas
+  // 3. Tarefas (tabela tarefas não possui obra_id: key global, igual ao módulo)
   const { data: tarefas = [] } = useQuery({
-    queryKey: ["dash-tarefas", obraId],
+    queryKey: ["dash-tarefas"],
+    staleTime: 1000 * 30,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("tarefas")
@@ -194,10 +209,12 @@ function DashboardPage() {
     },
   });
 
-  // 4. EPIs
+  // 4. EPIs (estoque global, igual ao módulo)
   const { data: epis = [] } = useQuery({
     queryKey: ["dash-epis"],
-    staleTime: 1000 * 60 * 2,
+    staleTime: 1000 * 30,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("epis")
@@ -210,10 +227,12 @@ function DashboardPage() {
     },
   });
 
-  // 5. Materiais
+  // 5. Materiais (estoque global, igual ao módulo)
   const { data: materiais = [] } = useQuery({
     queryKey: ["dash-mat"],
-    staleTime: 1000 * 60 * 2,
+    staleTime: 1000 * 30,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("materiais")
@@ -226,13 +245,16 @@ function DashboardPage() {
     },
   });
 
-  // 6. Contas Financeiras a Pagar
+  // 6. Contas Financeiras a Pagar (mesmo filtro obra do módulo financeiro / aba obra)
   const { data: contas = [] } = useQuery({
     queryKey: ["dash-contas", obraId],
+    staleTime: 1000 * 30,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       let q = supabase
         .from("contas_financeiras")
-        .select("id, tipo, status, descricao, valor, data_vencimento, obra_id")
+        .select("id, tipo, status, descricao, valor, data_vencimento, obra_id, escopo")
         .neq("status", "pago")
         .order("data_vencimento", { ascending: true })
         .limit(200);
@@ -243,9 +265,12 @@ function DashboardPage() {
     },
   });
 
-  // 7. Ferramentas (manutenções e empréstimos em aberto)
+  // 7. Ferramentas (manutenções e empréstimos em aberto, com filtro de obra)
   const { data: ferramentasAlertas = [] } = useQuery({
     queryKey: ["dash-ferramentas", obraId],
+    staleTime: 1000 * 30,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       let q = supabase
         .from("ferramentas")
@@ -265,20 +290,127 @@ function DashboardPage() {
 
   const { data: emprestimosAtrasados = [] } = useQuery({
     queryKey: ["dash-emprestimos", obraId],
+    staleTime: 1000 * 30,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("ferramenta_emprestimos")
-        .select("id, data_emprestimo, prevista_devolucao, data_devolucao, ferramentas(nome), funcionarios(nome)")
+        .select(
+          "id, data_emprestimo, prevista_devolucao, data_devolucao, ferramenta_id, ferramentas(nome, obra_id), funcionarios(nome)",
+        )
         .is("data_devolucao", null)
         .not("prevista_devolucao", "is", null);
       if (error) return [];
       const hoje = new Date();
       return (data ?? []).filter((e: any) => {
         if (!e.prevista_devolucao) return false;
-        return differenceInDays(safeParseISO(e.prevista_devolucao), hoje) < 0;
+        if (differenceInDays(safeParseISO(e.prevista_devolucao), hoje) >= 0) return false;
+        // Empréstimo não tem obra própria: filtra pela obra da ferramenta (igual ao módulo).
+        if (obraId) {
+          const obraFerramenta = (e as any).ferramentas?.obra_id ?? (e as any).obra_id;
+          if (obraFerramenta && obraFerramenta !== obraId) return false;
+        }
+        return true;
       });
     },
   });
+
+  // Mantém a obra de destino do reabastecimento sincronizada com a obra atual.
+  useEffect(() => {
+    setStockEntryObra((prev) => {
+      if (prev && prev !== "todas") return prev;
+      return obraId || prev || "";
+    });
+  }, [obraId]);
+
+  // Sincronismo em tempo real: qualquer mudança no banco invalida o dashboard.
+  useEffect(() => {
+    const channel = supabase
+      .channel("dashboard-sync")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "funcionarios" },
+        () => {
+          qc.invalidateQueries({ queryKey: ["dash-funcionarios"] });
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "funcionario_treinamentos" },
+        () => {
+          qc.invalidateQueries({ queryKey: ["dash-treinamentos"] });
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "tarefas" },
+        () => {
+          qc.invalidateQueries({ queryKey: ["dash-tarefas"] });
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "epis" },
+        () => {
+          qc.invalidateQueries({ queryKey: ["dash-epis"] });
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "epi_movimentos" },
+        () => {
+          qc.invalidateQueries({ queryKey: ["dash-epis"] });
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "materiais" },
+        () => {
+          qc.invalidateQueries({ queryKey: ["dash-mat"] });
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "material_movimentos" },
+        () => {
+          qc.invalidateQueries({ queryKey: ["dash-mat"] });
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "contas_financeiras" },
+        () => {
+          qc.invalidateQueries({ queryKey: ["dash-contas"] });
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "ferramentas" },
+        () => {
+          qc.invalidateQueries({ queryKey: ["dash-ferramentas"] });
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "ferramenta_emprestimos" },
+        () => {
+          qc.invalidateQueries({ queryKey: ["dash-emprestimos"] });
+          qc.invalidateQueries({ queryKey: ["dash-ferramentas"] });
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "obras" },
+        () => {
+          qc.invalidateQueries({ queryKey: ["dash-obras"] });
+        },
+      )
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [qc]);
 
   // ---------------------------------------------
   // Processamento e Conformidade
@@ -303,6 +435,27 @@ function DashboardPage() {
       ),
     [conformidade],
   );
+
+  // Treinamentos/NRs vencidos ou a vencer (tabela funcionario_treinamentos, igual ao módulo).
+  // Antes o dashboard ignorava esses dados, por isso não refletia o sistema.
+  const treinamentoAlertas = useMemo(() => {
+    const hoje = new Date();
+    const nomePorId = new Map(funcionarios.map((f: any) => [f.id, f.nome]));
+    return (allTreinamentos as any[])
+      .filter((t) => t.data_validade)
+      .map((t) => {
+        const dias = differenceInDays(safeParseISO(t.data_validade), hoje);
+        const status = dias < 0 ? ("vermelho" as const) : dias <= 30 ? ("amarelo" as const) : null;
+        return { ...t, dias, status };
+      })
+      .filter((t) => t.status !== null)
+      .map((t) => ({
+        ...t,
+        funcionarioNome: nomePorId.get(t.funcionario_id) ?? "Funcionário",
+      }));
+  }, [allTreinamentos, funcionarios]);
+
+  const totalVencimentosRH = alertasVencimento.length + treinamentoAlertas.length;
 
   // EPIs e Materiais abaixo do estoque mínimo
   const epiAbaixoMin = useMemo(
@@ -356,7 +509,7 @@ function DashboardPage() {
   );
 
   const alertasAtivos =
-    alertasVencimento.length +
+    totalVencimentosRH +
     epiAbaixoMin.length +
     matAbaixoMin.length +
     tarefasAtrasadas.length +
@@ -376,7 +529,7 @@ function DashboardPage() {
       }
       const { error } = await supabase
         .from("funcionarios")
-        .update({ [renewField]: renewDate })
+        .update({ [renewField]: renewDate } as any)
         .eq("id", selectedFuncionario.id);
       if (error) throw error;
     },
@@ -446,7 +599,9 @@ function DashboardPage() {
       qc.invalidateQueries({ queryKey: ["dash-epis"] });
       qc.invalidateQueries({ queryKey: ["dash-mat"] });
       qc.invalidateQueries({ queryKey: ["epis"] });
+      qc.invalidateQueries({ queryKey: ["epi_movs"] });
       qc.invalidateQueries({ queryKey: ["materiais"] });
+      qc.invalidateQueries({ queryKey: ["material-movs"] });
       setSelectedStockItem(null);
       setStockEntryObs("");
     },
@@ -490,21 +645,33 @@ function DashboardPage() {
       toast.success("Conta liquidada com sucesso!");
       qc.invalidateQueries({ queryKey: ["dash-contas"] });
       qc.invalidateQueries({ queryKey: ["contas-obra"] });
+      qc.invalidateQueries({ queryKey: ["contas-pessoal"] });
     },
     onError: (err: any) => toast.error(err.message || "Erro ao liquidar conta"),
   });
 
-  // Atualização manual com feedback visual
+  // Atualização manual com feedback visual (invalida dashboard + bases dos módulos)
   const handleRefresh = async () => {
     setIsRefreshing(true);
     await Promise.all([
+      qc.invalidateQueries({ queryKey: ["dash-obras"] }),
       qc.invalidateQueries({ queryKey: ["dash-funcionarios"] }),
+      qc.invalidateQueries({ queryKey: ["dash-treinamentos"] }),
       qc.invalidateQueries({ queryKey: ["dash-tarefas"] }),
       qc.invalidateQueries({ queryKey: ["dash-epis"] }),
       qc.invalidateQueries({ queryKey: ["dash-mat"] }),
       qc.invalidateQueries({ queryKey: ["dash-contas"] }),
       qc.invalidateQueries({ queryKey: ["dash-ferramentas"] }),
       qc.invalidateQueries({ queryKey: ["dash-emprestimos"] }),
+      qc.invalidateQueries({ queryKey: ["funcionarios"] }),
+      qc.invalidateQueries({ queryKey: ["funcionario-treinamentos-all"] }),
+      qc.invalidateQueries({ queryKey: ["tarefas"] }),
+      qc.invalidateQueries({ queryKey: ["epis"] }),
+      qc.invalidateQueries({ queryKey: ["materiais"] }),
+      qc.invalidateQueries({ queryKey: ["contas-obra"] }),
+      qc.invalidateQueries({ queryKey: ["contas-pessoal"] }),
+      qc.invalidateQueries({ queryKey: ["ferramentas"] }),
+      qc.invalidateQueries({ queryKey: ["emprestimos"] }),
     ]);
     setTimeout(() => {
       setIsRefreshing(false);
@@ -619,10 +786,10 @@ function DashboardPage() {
     {
       id: "vencimentos" as const,
       label: "Vencimentos RH",
-      sublabel: `${alertasVencimento.length} pendência${alertasVencimento.length === 1 ? "" : "s"}`,
-      valor: alertasVencimento.length,
+      sublabel: `${totalVencimentosRH} pendência${totalVencimentosRH === 1 ? "" : "s"}`,
+      valor: totalVencimentosRH,
       icon: Users,
-      status: alertasVencimento.length === 0 ? "verde" : ("vermelho" as const),
+      status: totalVencimentosRH === 0 ? "verde" : ("vermelho" as const),
       route: "/funcionarios?venc=vencidos",
       tab: "vencimentos" as const,
     },
@@ -797,7 +964,7 @@ function DashboardPage() {
               <div className="mt-3 flex items-baseline justify-between">
                 <div className="flex items-center gap-2">
                   <span className="text-2xl font-bold tracking-tight">{ind.valor}</span>
-                  <StatusDot status={ind.status} />
+                  <StatusDot status={ind.status as Status} />
                 </div>
                 <span className="text-[11px] text-muted-foreground truncate max-w-[90px]">
                   {ind.sublabel}
@@ -828,9 +995,9 @@ function DashboardPage() {
             <TabsTrigger value="vencimentos" className="gap-1.5 text-xs font-medium">
               <CalendarClock className="h-3.5 w-3.5" />
               Vencimentos RH
-              {alertasVencimento.length > 0 && (
+              {totalVencimentosRH > 0 && (
                 <Badge variant="secondary" className="h-4 px-1 text-[10px] ml-1">
-                  {alertasVencimento.length}
+                  {totalVencimentosRH}
                 </Badge>
               )}
             </TabsTrigger>
@@ -901,13 +1068,51 @@ function DashboardPage() {
                 </Link>
               </CardHeader>
               <CardContent>
-                {alertasVencimento.length === 0 ? (
+                {totalVencimentosRH === 0 ? (
                   <div className="py-8 text-center text-sm text-muted-foreground">
                     <CheckCircle2 className="h-8 w-8 text-emerald-500 mx-auto mb-2 opacity-80" />
                     Todos os vencimentos de funcionários estão 100% em dia!
                   </div>
                 ) : (
                   <ul className="divide-y text-sm">
+                    {treinamentoAlertas
+                      .filter(
+                        (a: any) =>
+                          !searchTerm ||
+                          (a.funcionarioNome ?? "")
+                            .toLowerCase()
+                            .includes(searchTerm.toLowerCase()) ||
+                          (a.nome ?? "").toLowerCase().includes(searchTerm.toLowerCase()),
+                      )
+                      .slice(0, 3)
+                      .map((a: any) => (
+                        <li
+                          key={`nr-${a.id}`}
+                          className="flex items-center justify-between py-2.5 px-2 rounded-lg bg-muted/30"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <StatusDot status={a.status} />
+                            <div className="truncate">
+                              <span className="font-semibold text-foreground">
+                                {a.funcionarioNome}
+                              </span>
+                              <span className="text-xs text-muted-foreground ml-1.5">
+                                &bull; NR: {a.nome}
+                              </span>
+                            </div>
+                          </div>
+                          <span
+                            className={cn(
+                              "text-xs font-semibold px-2 py-0.5 rounded shrink-0",
+                              a.status === "vermelho"
+                                ? "bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400"
+                                : "bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400",
+                            )}
+                          >
+                            {a.dias < 0 ? `Vencido há ${Math.abs(a.dias)}d` : `Vence em ${a.dias}d`}
+                          </span>
+                        </li>
+                      ))}
                     {alertasVencimento
                       .filter(
                         (a) =>

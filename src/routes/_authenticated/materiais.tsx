@@ -164,6 +164,7 @@ function MateriaisPage() {
     onSuccess: () => {
       toast.success(editingM ? "Material atualizado" : "Material criado");
       qc.invalidateQueries({ queryKey: ["materiais"] });
+      qc.invalidateQueries({ queryKey: ["dash-mat"] });
       setOpenM(false);
       setEditingM(null);
       setFM({ unidade: "un" });
@@ -175,7 +176,10 @@ function MateriaisPage() {
       const { error } = await supabase.from("materiais").delete().eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["materiais"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["materiais"] });
+      qc.invalidateQueries({ queryKey: ["dash-mat"] });
+    },
   });
   const createMv = useMutation({
     mutationFn: async () => {
@@ -188,6 +192,7 @@ function MateriaisPage() {
       toast.success("Movimento registrado");
       qc.invalidateQueries({ queryKey: ["material-movs"] });
       qc.invalidateQueries({ queryKey: ["materiais"] });
+      qc.invalidateQueries({ queryKey: ["dash-mat"] });
       setOpenMv(false);
       setFMv({ tipo: "entrada" });
     },

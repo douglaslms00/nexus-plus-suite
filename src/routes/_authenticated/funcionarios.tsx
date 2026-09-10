@@ -477,6 +477,7 @@ function FuncionariosPage() {
       toast.success(editing ? "Funcionário atualizado" : "Funcionário criado");
       qc.invalidateQueries({ queryKey: ["funcionarios"] });
       qc.invalidateQueries({ queryKey: ["dash-funcionarios"] });
+      qc.invalidateQueries({ queryKey: ["dash-treinamentos"] });
       qc.invalidateQueries({ queryKey: ["funcionario-treinamentos-all"] });
       setOpen(false);
     },
@@ -491,6 +492,9 @@ function FuncionariosPage() {
     onSuccess: () => {
       toast.success("Funcionário excluído");
       qc.invalidateQueries({ queryKey: ["funcionarios"] });
+      qc.invalidateQueries({ queryKey: ["dash-funcionarios"] });
+      qc.invalidateQueries({ queryKey: ["dash-treinamentos"] });
+      qc.invalidateQueries({ queryKey: ["funcionario-treinamentos-all"] });
     },
     onError: (e: any) => toast.error(e.message),
   });

@@ -115,6 +115,7 @@ function FerramentasPage() {
     onSuccess: () => {
       toast.success(editing ? "Atualizada" : "Criada");
       qc.invalidateQueries({ queryKey: ["ferramentas"] });
+      qc.invalidateQueries({ queryKey: ["dash-ferramentas"] });
       setOpenF(false);
       setEditing(null);
       setFF({ estado: "disponivel" });
@@ -127,7 +128,10 @@ function FerramentasPage() {
       const { error } = await supabase.from("ferramentas").delete().eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["ferramentas"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["ferramentas"] });
+      qc.invalidateQueries({ queryKey: ["dash-ferramentas"] });
+    },
   });
 
   const emprestar = useMutation({
@@ -145,6 +149,8 @@ function FerramentasPage() {
       toast.success("Empréstimo registrado");
       qc.invalidateQueries({ queryKey: ["emprestimos"] });
       qc.invalidateQueries({ queryKey: ["ferramentas"] });
+      qc.invalidateQueries({ queryKey: ["dash-emprestimos"] });
+      qc.invalidateQueries({ queryKey: ["dash-ferramentas"] });
       setOpenE(false);
       setFE({});
     },
@@ -164,6 +170,8 @@ function FerramentasPage() {
       toast.success("Devolução registrada");
       qc.invalidateQueries({ queryKey: ["emprestimos"] });
       qc.invalidateQueries({ queryKey: ["ferramentas"] });
+      qc.invalidateQueries({ queryKey: ["dash-emprestimos"] });
+      qc.invalidateQueries({ queryKey: ["dash-ferramentas"] });
     },
     onError: (e: any) => toast.error(e.message),
   });

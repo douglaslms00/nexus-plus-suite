@@ -257,6 +257,7 @@ function TarefasPage() {
     onSuccess: () => {
       toast.success(editingId ? "Tarefa atualizada" : "Tarefa criada");
       qc.invalidateQueries({ queryKey: ["tarefas"] });
+      qc.invalidateQueries({ queryKey: ["dash-tarefas"] });
       setOpen(false);
       setEditingId(null);
       setForm({ prioridade: "media", status: "pendente" });
@@ -288,6 +289,7 @@ function TarefasPage() {
     onSuccess: (_d, v) => {
       toast.success(v.decision === "aceita" ? "Tarefa aceita" : "Tarefa recusada");
       qc.invalidateQueries({ queryKey: ["tarefas"] });
+      qc.invalidateQueries({ queryKey: ["dash-tarefas"] });
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -307,6 +309,7 @@ function TarefasPage() {
     onSuccess: (_d, v) => {
       toast.success(v.concluida ? "Tarefa concluída!" : "Tarefa reaberta para 'Em andamento'");
       qc.invalidateQueries({ queryKey: ["tarefas"] });
+      qc.invalidateQueries({ queryKey: ["dash-tarefas"] });
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -327,6 +330,7 @@ function TarefasPage() {
     onSuccess: (_d, vars) => {
       toast.success(`Tarefa movida para "${STATUS_LABEL[vars.status]}"`);
       qc.invalidateQueries({ queryKey: ["tarefas"] });
+      qc.invalidateQueries({ queryKey: ["dash-tarefas"] });
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -339,6 +343,7 @@ function TarefasPage() {
     onSuccess: () => {
       toast.success("Tarefa excluída");
       qc.invalidateQueries({ queryKey: ["tarefas"] });
+      qc.invalidateQueries({ queryKey: ["dash-tarefas"] });
     },
   });
 
