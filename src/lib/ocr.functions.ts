@@ -40,6 +40,16 @@ export type CupomOCR = {
   categoria: string | null;
 };
 
+export type NotaAbastecimentoOCR = {
+  data: string | null;
+  posto: string | null;
+  litros: number | null;
+  valor_por_litro: number | null;
+  valor_total: number | null;
+  tipo_combustivel: string | null;
+  odometro: number | null;
+};
+
 export type FichaRegistroOCR = {
   nome: string | null;
   cpf: string | null;
@@ -155,6 +165,121 @@ export const lerFichaRegistroPdf = createServerFn({ method: "POST" })
 
     const raw: string = ((await res.json()) as AiResponse)?.choices?.[0]?.message?.content ?? "";
     return parseFichaJson(raw);
+  });
+
+const NOTA_ABAST_SYSTEM_PROMPT =
+  "Você extrai dados de notas e cupons fiscais de abastecimento de combustível brasileiros (postos de gasolina). Responda SOMENTE com JSON válido, sem markdown, no formato " +
+  '{"data":"YYYY-MM-DD"|null,"posto":string|null,"litros":number|null,"valor_por_litro":number|null,"valor_total":number|null,"tipo_combustivel":string|null,"odometro":number|null}. ' +
+  "Regras: data = data da emissão convertida para YYYY-MM-DD; posto = nome do posto/estabelecimento; litros = quantidade abastecida; valor_por_litro = preço unitário; valor_total = valor TOTAL pago; " +
+  'tipo_combustivel = um destes valores exatos: "gasolina", "etanol", "diesel", "diesel S10", "GNV", "flex" ou "eletrico" (mapeie ex.: S10/diesel S-10→"diesel S10", comum/aditivada→"gasolina", álcool→"etanol"); ' +
+  "odometro = hodômetro impresso no cupom, se houver (quase nunca há — use null sem inventar). " +
+  "Use ponto como separador decimal. Extraia apenas o que estiver legível. Não invente dados.";
+
+interface ParsedNotaAbastecimento {
+  data?: string;
+  posto?: string;
+  litros?: string | number;
+  valor_por_litro?: string | number;
+  valor_total?: string | number;
+  tipo_combustivel?: string;
+  odometro?: string | number;
+}
+
+function parseNumeroBR(value: string | number | undefined): number | null {
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value !== "string" || !value.trim()) return null;
+  const num = Number(
+    value
+      .replace(/[^\d,.-]/g, "")
+      .replace(/\.(?=\d{3}\b)/g, "")
+      .replace(",", "."),
+  );
+  return Number.isFinite(num) ? num : null;
+}
+
+function parseNotaAbastecimentoJson(raw: string): NotaAbastecimentoOCR {
+  const match = raw.match(/\{[\s\S]*\}/);
+  if (!match) throw new Error("Não foi possível interpretar a nota de abastecimento");
+  let parsed: ParsedNotaAbastecimento;
+  try {
+    parsed = JSON.parse(match[0]);
+  } catch {
+    throw new Error("Não foi possível interpretar a nota de abastecimento");
+  }
+  const text = (key: "posto" | "tipo_combustivel") =>
+    typeof parsed[key] === "string" && (parsed[key] as string).trim()
+      ? (parsed[key] as string).trim()
+      : null;
+  const date =
+    typeof parsed.data === "string" && /^\d{4}-\d{2}-\d{2}$/.test(parsed.data) ? parsed.data : null;
+  return {
+    data: date,
+    posto: text("posto"),
+    litros: parseNumeroBR(parsed.litros),
+    valor_por_litro: parseNumeroBR(parsed.valor_por_litro),
+    valor_total: parseNumeroBR(parsed.valor_total),
+    tipo_combustivel: text("tipo_combustivel"),
+    odometro: parseNumeroBR(parsed.odometro),
+  };
+}
+
+async function chamarIaVisao(
+  systemPrompt: string,
+  userText: string,
+  imageUrl: string,
+  erroGenerico: string,
+): Promise<string> {
+  const apiKey = process.env["LOVABLE_API_KEY"];
+  if (!apiKey) throw new Error("IA indisponível: chave não configurada");
+
+  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "google/gemini-2.5-flash",
+      messages: [
+        { role: "system", content: systemPrompt },
+        {
+          role: "user",
+          content: [
+            { type: "text", text: userText },
+            { type: "image_url", image_url: { url: imageUrl } },
+          ],
+        },
+      ],
+    }),
+  });
+
+  if (res.status === 429)
+    throw new Error("Muitas leituras seguidas. Tente novamente em instantes.");
+  if (res.status === 402) throw new Error("Créditos de IA esgotados no workspace.");
+  if (!res.ok) throw new Error(erroGenerico);
+
+  return ((await res.json()) as AiResponse)?.choices?.[0]?.message?.content ?? "";
+}
+
+export const lerNotaAbastecimento = createServerFn({ method: "POST" })
+  .inputValidator(z.object({ imageDataUrl: z.string().min(32).max(8_000_000) }))
+  .handler(async ({ data }): Promise<NotaAbastecimentoOCR> => {
+    const raw = await chamarIaVisao(
+      NOTA_ABAST_SYSTEM_PROMPT,
+      "Extraia os dados deste cupom/nota de abastecimento.",
+      data.imageDataUrl,
+      "Falha ao ler a nota de abastecimento",
+    );
+    return parseNotaAbastecimentoJson(raw);
+  });
+
+export const lerNotaAbastecimentoPdf = createServerFn({ method: "POST" })
+  .inputValidator(z.object({ pdfBase64: z.string().min(32).max(100_000_000) }))
+  .handler(async ({ data }): Promise<NotaAbastecimentoOCR> => {
+    const raw = await chamarIaVisao(
+      NOTA_ABAST_SYSTEM_PROMPT,
+      "Extraia os dados desta nota de abastecimento em PDF.",
+      `data:application/pdf;base64,${data.pdfBase64}`,
+      "Falha ao analisar o PDF da nota de abastecimento",
+    );
+    return parseNotaAbastecimentoJson(raw);
   });
 
 export const lerCupomFiscal = createServerFn({ method: "POST" })

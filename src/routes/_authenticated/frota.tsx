@@ -39,10 +39,16 @@ import {
   PenLine,
   Search,
   Crown,
+  Sparkles,
+  Loader2,
+  Paperclip,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { exportCSV, exportPDF } from "@/lib/exports";
 import { formatCurrency } from "@/lib/utils";
+import { uploadAnexo, getAnexoUrl } from "@/lib/upload";
+import { lerNotaAbastecimento, lerNotaAbastecimentoPdf } from "@/lib/ocr.functions";
 import {
   calcConsumo,
   calcLinhaConsumo,
@@ -182,6 +188,61 @@ function FrotaPage() {
   const [fV, setFV] = useState<any>({ status: "ativo", tipo: "leve", combustivel_padrao: "diesel", intervalo_revisao_km: 10000, intervalo_revisao_meses: 6 });
   const [openA, setOpenA] = useState(false);
   const [fA, setFA] = useState<any>({ tipo_combustivel: "diesel", tanque_cheio: true });
+  const [abastComprovante, setAbastComprovante] = useState<File | null>(null);
+  const [lendoNotaAbast, setLendoNotaAbast] = useState(false);
+
+  // Lê nota/cupom fiscal (imagem ou PDF) com IA e preenche o formulário de abastecimento
+  const lerNotaAbast = async (file: File) => {
+    const isImagem = file.type.startsWith("image/");
+    const isPdf = file.type === "application/pdf";
+    if (!isImagem && !isPdf) {
+      toast.error("Envie a nota em JPG, PNG, WEBP ou PDF.");
+      return;
+    }
+    if (file.size > (isPdf ? 50 : 5) * 1024 * 1024) {
+      toast.error(isPdf ? "O PDF deve ter no máximo 50 MB." : "A imagem deve ter no máximo 5 MB.");
+      return;
+    }
+    setLendoNotaAbast(true);
+    try {
+      const fileDataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = () => reject(new Error("Não foi possível ler o arquivo"));
+        reader.readAsDataURL(file);
+      });
+      const dados = isPdf
+        ? await lerNotaAbastecimentoPdf({ data: { pdfBase64: fileDataUrl.split(",")[1] } })
+        : await lerNotaAbastecimento({ data: { imageDataUrl: fileDataUrl } });
+      setFA((atual: any) => {
+        const next: any = { ...atual };
+        if (dados.data) next.data = dados.data;
+        if (dados.posto) next.posto = dados.posto;
+        if (dados.litros != null) next.litros = dados.litros;
+        if (dados.valor_por_litro != null) next.valor_por_litro = dados.valor_por_litro;
+        if (dados.odometro != null) next.odometro = dados.odometro;
+        if (dados.tipo_combustivel) {
+          const alvo = dados.tipo_combustivel.toLowerCase();
+          const match = (TIPOS_COMBUSTIVEL as readonly string[]).find((t) => t.toLowerCase() === alvo);
+          if (match) next.tipo_combustivel = match;
+        }
+        return next;
+      });
+      // Guarda o arquivo como anexo do abastecimento
+      setAbastComprovante(file);
+      toast.success("Nota lida com sucesso. Confira os dados antes de salvar.");
+    } catch (e: any) {
+      toast.error(e.message ?? "Não foi possível ler a nota");
+    } finally {
+      setLendoNotaAbast(false);
+    }
+  };
+
+  const abrirComprovanteAbast = async (path: string) => {
+    const url = await getAnexoUrl(path);
+    if (url) window.open(url, "_blank");
+    else toast.error("Não foi possível abrir o anexo");
+  };
   const [openM, setOpenM] = useState(false);
   const [fM, setFM] = useState<any>({ tipo: "preventiva", servico: "troca de óleo" });
   const [openG, setOpenG] = useState(false);
@@ -225,9 +286,20 @@ function FrotaPage() {
     mutationFn: async () => {
       const valor_total = Number(fA.litros) * Number(fA.valor_por_litro);
       const payload: any = { ...fA, valor_total: isNaN(valor_total) ? fA.valor_total : valor_total, created_by: user?.id, obra_id: fA.obra_id ?? obraId ?? null };
+      delete payload.comprovante_url;
       if (!payload.veiculo_id || !payload.odometro || !payload.litros || !payload.valor_por_litro) throw new Error("Preencha veículo, odômetro, litros e valor/litro");
-      const { error } = await supabase.from("frota_abastecimentos").insert(payload);
+      const { data: inserted, error } = await supabase.from("frota_abastecimentos").insert(payload).select("id").single();
       if (error) throw error;
+      // anexa a nota/cupom fiscal (imagem ou PDF) ao abastecimento
+      if (abastComprovante && (inserted as any)?.id) {
+        try {
+          const path = await uploadAnexo(abastComprovante, `frota/abastecimentos/${(inserted as any).id}`);
+          const { error: updErr } = await supabase.from("frota_abastecimentos").update({ comprovante_url: path } as any).eq("id", (inserted as any).id);
+          if (updErr) throw updErr;
+        } catch (e: any) {
+          throw new Error(`Abastecimento salvo, mas o anexo falhou: ${e.message}`);
+        }
+      }
       // atualiza odômetro atual do veículo se maior
       const veic = (veiculos as any[]).find((v) => v.id === payload.veiculo_id);
       if (veic && Number(payload.odometro) > Number(veic.odometro_atual)) {
@@ -240,6 +312,7 @@ function FrotaPage() {
       qc.invalidateQueries({ queryKey: ["frota-veiculos"] });
       setOpenA(false);
       setFA({ tipo_combustivel: "diesel", tanque_cheio: true });
+      setAbastComprovante(null);
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -619,11 +692,29 @@ function FrotaPage() {
         <TabsContent value="combustivel" className="space-y-3 mt-4">
           <div className="flex flex-wrap gap-2">
             {canEdit && (
-              <Dialog open={openA} onOpenChange={setOpenA}>
+              <Dialog open={openA} onOpenChange={(o) => { setOpenA(o); if (!o) setAbastComprovante(null); }}>
                 <DialogTrigger asChild><Button><Plus className="h-4 w-4" /> Novo abastecimento</Button></DialogTrigger>
-                <DialogContent>
+                <DialogContent className="max-h-[90vh] overflow-y-auto">
                   <DialogHeader><DialogTitle>Novo abastecimento</DialogTitle></DialogHeader>
                   <form onSubmit={(e) => { e.preventDefault(); createAbast.mutate(); }} className="space-y-3">
+                    <div className="rounded-lg border border-primary/30 bg-primary/[0.03] p-3 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="h-4 w-4 text-primary" />
+                        <span className="text-xs font-bold">Preenchimento automático por IA</span>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground">Fotografe a nota ou cupom fiscal do posto (imagem ou PDF) e a IA preenche data, posto, litros e valores.</p>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="file"
+                          accept="image/*,.pdf,application/pdf"
+                          disabled={lendoNotaAbast || createAbast.isPending}
+                          onChange={(e) => { const f = e.target.files?.[0]; if (f) lerNotaAbast(f); e.target.value = ""; }}
+                          className="h-9 text-xs"
+                        />
+                        {lendoNotaAbast && <Loader2 className="h-4 w-4 animate-spin text-primary shrink-0" />}
+                      </div>
+                      {lendoNotaAbast && <p className="text-[11px] text-muted-foreground">Lendo nota com IA, aguarde...</p>}
+                    </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-1 col-span-2"><Label>Veículo *</Label>
                         <Select value={fA.veiculo_id ?? ""} onValueChange={(v) => {
@@ -643,6 +734,22 @@ function FrotaPage() {
                       <div className="space-y-1"><Label>Valor por litro *</Label><Input type="number" step="0.01" required value={fA.valor_por_litro ?? ""} onChange={(e) => setFA({ ...fA, valor_por_litro: e.target.value })} /></div>
                       <div className="space-y-1"><Label>Total (auto)</Label><Input disabled value={fA.litros && fA.valor_por_litro ? (Number(fA.litros) * Number(fA.valor_por_litro)).toFixed(2) : ""} placeholder="litros × R$/L" /></div>
                       <div className="space-y-1 col-span-2"><Label>Posto</Label><Input value={fA.posto ?? ""} onChange={(e) => setFA({ ...fA, posto: e.target.value })} /></div>
+                      <div className="space-y-1 col-span-2">
+                        <Label>Anexo da nota / cupom fiscal (imagem ou PDF)</Label>
+                        {abastComprovante ? (
+                          <div className="flex items-center justify-between gap-2 rounded-md border p-2 text-xs">
+                            <span className="flex items-center gap-1.5 truncate"><Paperclip className="h-3.5 w-3.5 shrink-0 text-muted-foreground" /><span className="truncate">{abastComprovante.name}</span><span className="text-muted-foreground shrink-0">({(abastComprovante.size / 1024).toFixed(0)} KB)</span></span>
+                            <Button type="button" size="icon" variant="ghost" className="h-6 w-6 shrink-0" onClick={() => setAbastComprovante(null)}><X className="h-3.5 w-3.5" /></Button>
+                          </div>
+                        ) : (
+                          <Input
+                            type="file"
+                            accept="image/*,.pdf,application/pdf"
+                            onChange={(e) => { const f = e.target.files?.[0]; if (f) setAbastComprovante(f); e.target.value = ""; }}
+                            className="h-9 text-xs"
+                          />
+                        )}
+                      </div>
                     </div>
                     <DialogFooter><Button type="submit">Salvar</Button></DialogFooter>
                   </form>
@@ -684,7 +791,10 @@ function FrotaPage() {
                             <td className="p-2 text-right font-medium">{formatCurrency(a.valor_total)}</td>
                             <td className="p-2 text-right">{mediaKml != null ? <Badge variant={mediaKml < 6 ? "destructive" : mediaKml < 9 ? "secondary" : "default"}>{mediaKml.toFixed(2)}</Badge> : "—"}</td>
                             <td className="p-2 text-right">{custoPorKm != null ? formatCurrency(custoPorKm) : "—"}</td>
-                            <td className="p-2 text-right">{canDelete && <Button size="icon" variant="ghost" onClick={() => confirm("Excluir?") && removeAbast.mutate(a.id)}><Trash2 className="h-3.5 w-3.5" /></Button>}</td>
+                            <td className="p-2 text-right whitespace-nowrap">
+                              {a.comprovante_url && <Button size="icon" variant="ghost" title="Abrir nota/cupom anexado" onClick={() => abrirComprovanteAbast(a.comprovante_url)}><Paperclip className="h-3.5 w-3.5" /></Button>}
+                              {canDelete && <Button size="icon" variant="ghost" onClick={() => confirm("Excluir?") && removeAbast.mutate(a.id)}><Trash2 className="h-3.5 w-3.5" /></Button>}
+                            </td>
                           </tr>
                         );
                       });
