@@ -184,8 +184,37 @@ function FrotaPage() {
   }, [veiculos, abastecimentos]);
 
   // ---- FORMS STATE ----
+  const defaultVeiculoForm = { status: "ativo", tipo: "leve", combustivel_padrao: "diesel", intervalo_revisao_km: 10000, intervalo_revisao_meses: 6 };
   const [openV, setOpenV] = useState(false);
-  const [fV, setFV] = useState<any>({ status: "ativo", tipo: "leve", combustivel_padrao: "diesel", intervalo_revisao_km: 10000, intervalo_revisao_meses: 6 });
+  const [fV, setFV] = useState<any>(defaultVeiculoForm);
+  const [editVeiculoId, setEditVeiculoId] = useState<string | null>(null);
+
+  const abrirNovoVeiculo = () => {
+    setEditVeiculoId(null);
+    setFV(defaultVeiculoForm);
+    setOpenV(true);
+  };
+
+  const abrirEditarVeiculo = (v: any) => {
+    setEditVeiculoId(v.id);
+    setFV({
+      placa: v.placa ?? "",
+      modelo: v.modelo ?? "",
+      marca: v.marca ?? "",
+      ano: v.ano ?? "",
+      tipo: v.tipo ?? "leve",
+      combustivel_padrao: v.combustivel_padrao ?? "diesel",
+      odometro_atual: v.odometro_atual ?? "",
+      status: v.status ?? "ativo",
+      odometro_proxima_revisao: v.odometro_proxima_revisao ?? "",
+      data_proxima_revisao: v.data_proxima_revisao ?? "",
+      obra_id: v.obra_id ?? null,
+      intervalo_revisao_km: v.intervalo_revisao_km ?? 10000,
+      intervalo_revisao_meses: v.intervalo_revisao_meses ?? 6,
+      observacoes: v.observacoes ?? "",
+    });
+    setOpenV(true);
+  };
   const [openA, setOpenA] = useState(false);
   const [fA, setFA] = useState<any>({ tipo_combustivel: "diesel", tanque_cheio: true });
   const [abastComprovante, setAbastComprovante] = useState<File | null>(null);
@@ -256,18 +285,28 @@ function FrotaPage() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   // ---- MUTATIONS ----
-  const createVeiculo = useMutation({
+  const saveVeiculo = useMutation({
     mutationFn: async () => {
-      const payload = { ...fV, created_by: user?.id, placa: fV.placa?.toUpperCase().replace(/[^A-Z0-9]/g, "") };
+      const payload = { ...fV, placa: fV.placa?.toUpperCase().replace(/[^A-Z0-9]/g, "") };
+      if (payload.ano === "" || payload.ano == null) delete payload.ano;
+      if (payload.odometro_proxima_revisao === "" || payload.odometro_proxima_revisao == null) delete payload.odometro_proxima_revisao;
+      if (!payload.data_proxima_revisao) delete payload.data_proxima_revisao;
+      if (!payload.obra_id) payload.obra_id = null;
       if (!payload.placa || !payload.modelo) throw new Error("Placa e modelo são obrigatórios");
-      const { error } = await supabase.from("frota_veiculos").insert(payload);
-      if (error) throw error;
+      if (editVeiculoId) {
+        const { error } = await supabase.from("frota_veiculos").update(payload).eq("id", editVeiculoId);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("frota_veiculos").insert({ ...payload, created_by: user?.id });
+        if (error) throw error;
+      }
     },
     onSuccess: () => {
-      toast.success("Veículo cadastrado");
+      toast.success(editVeiculoId ? "Veículo atualizado" : "Veículo cadastrado");
       qc.invalidateQueries({ queryKey: ["frota-veiculos"] });
       setOpenV(false);
-      setFV({ status: "ativo", tipo: "leve", combustivel_padrao: "diesel", intervalo_revisao_km: 10000, intervalo_revisao_meses: 6 });
+      setFV(defaultVeiculoForm);
+      setEditVeiculoId(null);
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -582,7 +621,7 @@ function FrotaPage() {
                       <div key={v.id} className="flex items-center justify-between rounded-lg border p-2.5">
                         <div>
                           <p className="text-sm font-medium">{v.placa} — {v.modelo}</p>
-                          <p className="text-xs text-muted-foreground">{v.odometro_atual.toLocaleString("pt-BR")} km · {a.nivel === "vencido" ? <span className="text-rose-600 font-semibold">{a.msg}</span> : a.nivel === "atencao" ? <span className="text-amber-600">{a.msg}</span> : <span>{a.msg}</span>}</p>
+                          <p className="text-xs text-muted-foreground">{Number(v.odometro_atual ?? 0).toLocaleString("pt-BR")} km · {a.nivel === "vencido" ? <span className="text-rose-600 font-semibold">{a.msg}</span> : a.nivel === "atencao" ? <span className="text-amber-600">{a.msg}</span> : <span>{a.msg}</span>}</p>
                         </div>
                         <div className="text-right">
                           <p className="text-sm font-bold">{c?.mediaKml != null ? `${c.mediaKml.toFixed(2)} km/L` : "—"}</p>
@@ -629,11 +668,11 @@ function FrotaPage() {
         {/* VEÍCULOS */}
         <TabsContent value="veiculos" className="space-y-3 mt-4">
           {canEdit && (
-            <Dialog open={openV} onOpenChange={setOpenV}>
-              <DialogTrigger asChild><Button><Plus className="h-4 w-4" /> Novo veículo</Button></DialogTrigger>
+            <Dialog open={openV} onOpenChange={(o) => { setOpenV(o); if (!o) { setEditVeiculoId(null); setFV(defaultVeiculoForm); } }}>
+              <DialogTrigger asChild><Button onClick={abrirNovoVeiculo}><Plus className="h-4 w-4" /> Novo veículo</Button></DialogTrigger>
               <DialogContent className="max-w-2xl">
-                <DialogHeader><DialogTitle>Novo veículo</DialogTitle></DialogHeader>
-                <form onSubmit={(e) => { e.preventDefault(); createVeiculo.mutate(); }} className="grid gap-3">
+                <DialogHeader><DialogTitle>{editVeiculoId ? "Editar veículo" : "Novo veículo"}</DialogTitle></DialogHeader>
+                <form onSubmit={(e) => { e.preventDefault(); saveVeiculo.mutate(); }} className="grid gap-3">
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1"><Label>Placa *</Label><Input required value={fV.placa ?? ""} onChange={(e) => setFV({ ...fV, placa: e.target.value.toUpperCase() })} placeholder="ABC1234" maxLength={7} /></div>
                     <div className="space-y-1"><Label>Modelo *</Label><Input required value={fV.modelo ?? ""} onChange={(e) => setFV({ ...fV, modelo: e.target.value })} placeholder="Ex: Hilux, Strada" /></div>
@@ -657,7 +696,7 @@ function FrotaPage() {
                     <div className="space-y-1"><Label>Intervalo revisão (km)</Label><Input type="number" value={fV.intervalo_revisao_km ?? 10000} onChange={(e) => setFV({ ...fV, intervalo_revisao_km: Number(e.target.value) })} /></div>
                   </div>
                   <div className="space-y-1"><Label>Observações</Label><Textarea value={fV.observacoes ?? ""} onChange={(e) => setFV({ ...fV, observacoes: e.target.value })} /></div>
-                  <DialogFooter><Button type="submit">Salvar</Button></DialogFooter>
+                  <DialogFooter><Button type="submit" disabled={saveVeiculo.isPending}>{saveVeiculo.isPending ? "Salvando..." : editVeiculoId ? "Atualizar" : "Cadastrar"}</Button></DialogFooter>
                 </form>
               </DialogContent>
             </Dialog>
@@ -672,14 +711,17 @@ function FrotaPage() {
                     <div>
                       <p className="font-semibold flex items-center gap-2">{v.placa} <Badge variant="outline">{v.tipo}</Badge> <Badge variant={v.status === "ativo" ? "default" : v.status === "manutencao" ? "secondary" : "outline"}>{v.status}</Badge></p>
                       <p className="text-sm text-muted-foreground">{v.marca ?? ""} {v.modelo} {v.ano ? `· ${v.ano}` : ""}</p>
-                      <p className="text-xs text-muted-foreground mt-1">{v.odometro_atual.toLocaleString("pt-BR")} km rodados {v.obra?.nome ? `· ${v.obra.nome}` : ""}</p>
+                      <p className="text-xs text-muted-foreground mt-1">{Number(v.odometro_atual ?? 0).toLocaleString("pt-BR")} km rodados {v.obra?.nome ? `· ${v.obra.nome}` : ""}</p>
                       <p className={`text-xs mt-1 ${alerta.nivel === "vencido" ? "text-rose-600 font-semibold" : alerta.nivel === "atencao" ? "text-amber-600" : "text-muted-foreground"}`}>{alerta.nivel !== "ok" && <AlertTriangle className="h-3 w-3 inline mr-1" />}{alerta.msg}</p>
                       <div className="mt-2 flex gap-3 text-xs">
                         <span className="flex items-center gap-1"><TrendingUp className="h-3 w-3" />{consumo?.mediaKml != null ? `${consumo.mediaKml.toFixed(2)} km/L` : "—"}</span>
                         <span className="flex items-center gap-1"><Gauge className="h-3 w-3" />{consumo?.custoPorKm != null ? `${formatCurrency(consumo.custoPorKm)}/km` : "—"}</span>
                       </div>
                     </div>
-                    {canDelete && <Button size="icon" variant="ghost" onClick={() => confirm("Excluir veículo? Isso apagará abastecimentos e registros vinculados.") && removeVeiculo.mutate(v.id)}><Trash2 className="h-4 w-4" /></Button>}
+                    <div className="flex gap-1 shrink-0">
+                      {canEdit && <Button size="icon" variant="ghost" title="Editar veículo" onClick={() => abrirEditarVeiculo(v)}><PenLine className="h-4 w-4" /></Button>}
+                      {canDelete && <Button size="icon" variant="ghost" onClick={() => confirm("Excluir veículo? Isso apagará abastecimentos e registros vinculados.") && removeVeiculo.mutate(v.id)}><Trash2 className="h-4 w-4" /></Button>}
+                    </div>
                   </div>
                 </Card>
               );
