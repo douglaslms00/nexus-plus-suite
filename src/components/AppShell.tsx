@@ -33,6 +33,7 @@ import {
   FolderOpen,
   UserCog,
   Receipt,
+  Truck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -115,6 +116,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     { to: "/materiais", label: "Materiais", icon: Package, module: "materiais" },
     { to: "/epis", label: "EPI / EPC", icon: HardHat, module: "epis" },
     { to: "/financeiro", label: "Financeiro", icon: Wallet, module: "financeiro" },
+    { to: "/frota", label: "Gestão de Frota", icon: Truck, module: "frota" },
     {
       to: "/prestacao",
       label: "Prestação de contas",
