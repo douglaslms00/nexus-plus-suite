@@ -217,8 +217,39 @@ function FrotaPage() {
   };
   const [openA, setOpenA] = useState(false);
   const [fA, setFA] = useState<any>({ tipo_combustivel: "diesel", tanque_cheio: true });
+  const [editAbastId, setEditAbastId] = useState<string | null>(null);
   const [abastComprovante, setAbastComprovante] = useState<File | null>(null);
+  const [abastComprovanteAtual, setAbastComprovanteAtual] = useState<string | null>(null);
   const [lendoNotaAbast, setLendoNotaAbast] = useState(false);
+
+  const abrirNovoAbast = () => {
+    setEditAbastId(null);
+    setFA({ tipo_combustivel: "diesel", tanque_cheio: true, data: new Date().toISOString().slice(0, 10) });
+    setAbastComprovante(null);
+    setAbastComprovanteAtual(null);
+    setOpenA(true);
+  };
+
+  const abrirEditarAbast = (a: any) => {
+    setEditAbastId(a.id);
+    setFA({
+      veiculo_id: a.veiculo_id ?? "",
+      motorista_id: a.motorista_id ?? null,
+      data: a.data ?? new Date().toISOString().slice(0, 10),
+      odometro: a.odometro ?? "",
+      litros: a.litros ?? "",
+      tipo_combustivel: a.tipo_combustivel ?? "diesel",
+      valor_por_litro: a.valor_por_litro ?? "",
+      valor_total: a.valor_total ?? "",
+      posto: a.posto ?? "",
+      tanque_cheio: a.tanque_cheio ?? true,
+      observacoes: a.observacoes ?? "",
+      obra_id: a.obra_id ?? null,
+    });
+    setAbastComprovante(null);
+    setAbastComprovanteAtual(a.comprovante_url ?? null);
+    setOpenA(true);
+  };
 
   // Lê nota/cupom fiscal (imagem ou PDF) com IA e preenche o formulário de abastecimento
   const lerNotaAbast = async (file: File) => {
@@ -321,22 +352,53 @@ function FrotaPage() {
     },
     onError: (e: any) => toast.error(e.message),
   });
-  const createAbast = useMutation({
+  const saveAbast = useMutation({
     mutationFn: async () => {
       const valor_total = Number(fA.litros) * Number(fA.valor_por_litro);
-      const payload: any = { ...fA, valor_total: isNaN(valor_total) ? fA.valor_total : valor_total, created_by: user?.id, obra_id: fA.obra_id ?? obraId ?? null };
+      const payload: any = { ...fA, valor_total: isNaN(valor_total) ? fA.valor_total : valor_total, obra_id: fA.obra_id ?? obraId ?? null };
       delete payload.comprovante_url;
+      delete payload.id;
+      delete payload.veiculo;
+      delete payload.motorista;
+      delete payload.created_at;
+      delete payload.updated_at;
+      if (payload.motorista_id === "none") payload.motorista_id = null;
       if (!payload.veiculo_id || !payload.odometro || !payload.litros || !payload.valor_por_litro) throw new Error("Preencha veículo, odômetro, litros e valor/litro");
-      const { data: inserted, error } = await supabase.from("frota_abastecimentos").insert(payload).select("id").single();
-      if (error) throw error;
-      // anexa a nota/cupom fiscal (imagem ou PDF) ao abastecimento
-      if (abastComprovante && (inserted as any)?.id) {
-        try {
-          const path = await uploadAnexo(abastComprovante, `frota/abastecimentos/${(inserted as any).id}`);
-          const { error: updErr } = await supabase.from("frota_abastecimentos").update({ comprovante_url: path } as any).eq("id", (inserted as any).id);
-          if (updErr) throw updErr;
-        } catch (e: any) {
-          throw new Error(`Abastecimento salvo, mas o anexo falhou: ${e.message}`);
+      if (editAbastId) {
+        // ---- EDIÇÃO ----
+        let comprovante_url_final: string | null | undefined = undefined;
+        if (abastComprovante) {
+          try {
+            comprovante_url_final = await uploadAnexo(abastComprovante, `frota/abastecimentos/${editAbastId}`);
+          } catch (e: any) {
+            throw new Error(`Abastecimento atualizado, mas o anexo falhou: ${e.message}`);
+          }
+        } else {
+          // mantém o atual ou limpa se o usuário removeu
+          comprovante_url_final = abastComprovanteAtual ?? null;
+          // se igual ao que já estava, não precisa reenviar a coluna
+          const atual = (abastecimentos as any[]).find((x) => x.id === editAbastId)?.comprovante_url ?? null;
+          if (comprovante_url_final === atual) comprovante_url_final = undefined;
+        }
+        const updatePayload: any = { ...payload };
+        delete updatePayload.created_by;
+        if (comprovante_url_final !== undefined) updatePayload.comprovante_url = comprovante_url_final;
+        const { error } = await supabase.from("frota_abastecimentos").update(updatePayload).eq("id", editAbastId);
+        if (error) throw error;
+      } else {
+        // ---- CRIAÇÃO ----
+        payload.created_by = user?.id;
+        const { data: inserted, error } = await supabase.from("frota_abastecimentos").insert(payload).select("id").single();
+        if (error) throw error;
+        // anexa a nota/cupom fiscal (imagem ou PDF) ao abastecimento
+        if (abastComprovante && (inserted as any)?.id) {
+          try {
+            const path = await uploadAnexo(abastComprovante, `frota/abastecimentos/${(inserted as any).id}`);
+            const { error: updErr } = await supabase.from("frota_abastecimentos").update({ comprovante_url: path } as any).eq("id", (inserted as any).id);
+            if (updErr) throw updErr;
+          } catch (e: any) {
+            throw new Error(`Abastecimento salvo, mas o anexo falhou: ${e.message}`);
+          }
         }
       }
       // atualiza odômetro atual do veículo se maior
@@ -346,15 +408,19 @@ function FrotaPage() {
       }
     },
     onSuccess: () => {
-      toast.success("Abastecimento registrado");
+      toast.success(editAbastId ? "Abastecimento atualizado" : "Abastecimento registrado");
       qc.invalidateQueries({ queryKey: ["frota-abastecimentos"] });
       qc.invalidateQueries({ queryKey: ["frota-veiculos"] });
       setOpenA(false);
       setFA({ tipo_combustivel: "diesel", tanque_cheio: true });
+      setEditAbastId(null);
       setAbastComprovante(null);
+      setAbastComprovanteAtual(null);
     },
     onError: (e: any) => toast.error(e.message),
   });
+  // alias para compatibilidade com o formulário existente
+  const createAbast = saveAbast;
   const removeAbast = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("frota_abastecimentos").delete().eq("id", id);
@@ -734,10 +800,10 @@ function FrotaPage() {
         <TabsContent value="combustivel" className="space-y-3 mt-4">
           <div className="flex flex-wrap gap-2">
             {canEdit && (
-              <Dialog open={openA} onOpenChange={(o) => { setOpenA(o); if (!o) setAbastComprovante(null); }}>
-                <DialogTrigger asChild><Button><Plus className="h-4 w-4" /> Novo abastecimento</Button></DialogTrigger>
+              <Dialog open={openA} onOpenChange={(o) => { setOpenA(o); if (!o) { setAbastComprovante(null); setAbastComprovanteAtual(null); setEditAbastId(null); } }}>
+                <DialogTrigger asChild><Button onClick={abrirNovoAbast}><Plus className="h-4 w-4" /> Novo abastecimento</Button></DialogTrigger>
                 <DialogContent className="max-h-[90vh] overflow-y-auto">
-                  <DialogHeader><DialogTitle>Novo abastecimento</DialogTitle></DialogHeader>
+                  <DialogHeader><DialogTitle>{editAbastId ? "Editar abastecimento" : "Novo abastecimento"}</DialogTitle></DialogHeader>
                   <form onSubmit={(e) => { e.preventDefault(); createAbast.mutate(); }} className="space-y-3">
                     <div className="rounded-lg border border-primary/30 bg-primary/[0.03] p-3 space-y-2">
                       <div className="flex items-center gap-2">
@@ -784,16 +850,25 @@ function FrotaPage() {
                             <Button type="button" size="icon" variant="ghost" className="h-6 w-6 shrink-0" onClick={() => setAbastComprovante(null)}><X className="h-3.5 w-3.5" /></Button>
                           </div>
                         ) : (
-                          <Input
-                            type="file"
-                            accept="image/*,.pdf,application/pdf"
-                            onChange={(e) => { const f = e.target.files?.[0]; if (f) setAbastComprovante(f); e.target.value = ""; }}
-                            className="h-9 text-xs"
-                          />
+                          <>
+                            {abastComprovanteAtual && (
+                              <div className="flex items-center justify-between gap-2 rounded-md border p-2 text-xs mb-2">
+                                <span className="flex items-center gap-1.5 truncate"><Paperclip className="h-3.5 w-3.5 shrink-0 text-muted-foreground" /><span className="truncate">Anexo atual salvo</span><Button type="button" variant="link" className="h-auto p-0 text-xs shrink-0" onClick={() => abrirComprovanteAbast(abastComprovanteAtual)}>Abrir</Button></span>
+                                <Button type="button" size="icon" variant="ghost" className="h-6 w-6 shrink-0" title="Remover anexo" onClick={() => setAbastComprovanteAtual(null)}><X className="h-3.5 w-3.5" /></Button>
+                              </div>
+                            )}
+                            <Input
+                              type="file"
+                              accept="image/*,.pdf,application/pdf"
+                              onChange={(e) => { const f = e.target.files?.[0]; if (f) setAbastComprovante(f); e.target.value = ""; }}
+                              className="h-9 text-xs"
+                            />
+                          </>
                         )}
                       </div>
+                      <div className="space-y-1 col-span-2"><Label>Observações</Label><Textarea value={fA.observacoes ?? ""} onChange={(e) => setFA({ ...fA, observacoes: e.target.value })} placeholder="Ex: tanque cheio, desconto..." /></div>
                     </div>
-                    <DialogFooter><Button type="submit">Salvar</Button></DialogFooter>
+                    <DialogFooter><Button type="submit" disabled={createAbast.isPending}>{createAbast.isPending ? "Salvando..." : editAbastId ? "Atualizar" : "Salvar"}</Button></DialogFooter>
                   </form>
                 </DialogContent>
               </Dialog>
@@ -835,7 +910,8 @@ function FrotaPage() {
                             <td className="p-2 text-right">{custoPorKm != null ? formatCurrency(custoPorKm) : "—"}</td>
                             <td className="p-2 text-right whitespace-nowrap">
                               {a.comprovante_url && <Button size="icon" variant="ghost" title="Abrir nota/cupom anexado" onClick={() => abrirComprovanteAbast(a.comprovante_url)}><Paperclip className="h-3.5 w-3.5" /></Button>}
-                              {canDelete && <Button size="icon" variant="ghost" onClick={() => confirm("Excluir?") && removeAbast.mutate(a.id)}><Trash2 className="h-3.5 w-3.5" /></Button>}
+                              {canEdit && <Button size="icon" variant="ghost" title="Editar abastecimento" onClick={() => abrirEditarAbast(a)}><PenLine className="h-3.5 w-3.5" /></Button>}
+                              {canDelete && <Button size="icon" variant="ghost" title="Excluir abastecimento" onClick={() => confirm("Excluir?") && removeAbast.mutate(a.id)}><Trash2 className="h-3.5 w-3.5" /></Button>}
                             </td>
                           </tr>
                         );
