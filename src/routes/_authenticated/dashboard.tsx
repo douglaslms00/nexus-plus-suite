@@ -175,7 +175,8 @@ function DashboardPage() {
       const { data, error } = await supabase
         .from("funcionario_treinamentos")
         .select("id, funcionario_id, nome, data_validade, data_realizacao")
-        .in("funcionario_id", ids);
+        .in("funcionario_id", ids)
+        .order("nome");
       if (error) throw error;
       return data ?? [];
     },
@@ -187,6 +188,11 @@ function DashboardPage() {
       const list = map.get(t.funcionario_id) ?? [];
       list.push(t);
       map.set(t.funcionario_id, list);
+    }
+    for (const [, arr] of map) {
+      arr.sort((a, b) =>
+        (a.nome ?? "").localeCompare(b.nome ?? "", "pt-BR", { sensitivity: "base" }),
+      );
     }
     return map;
   }, [allTreinamentos]);
@@ -438,6 +444,7 @@ function DashboardPage() {
 
   // Treinamentos/NRs vencidos ou a vencer (tabela funcionario_treinamentos, igual ao módulo).
   // Antes o dashboard ignorava esses dados, por isso não refletia o sistema.
+  // Exibição em ordem alfabética: primeiro por funcionário, depois por treinamento.
   const treinamentoAlertas = useMemo(() => {
     const hoje = new Date();
     const nomePorId = new Map(funcionarios.map((f: any) => [f.id, f.nome]));
@@ -452,7 +459,14 @@ function DashboardPage() {
       .map((t) => ({
         ...t,
         funcionarioNome: nomePorId.get(t.funcionario_id) ?? "Funcionário",
-      }));
+      }))
+      .sort((a, b) => {
+        const cmpFunc = (a.funcionarioNome ?? "").localeCompare(b.funcionarioNome ?? "", "pt-BR", {
+          sensitivity: "base",
+        });
+        if (cmpFunc !== 0) return cmpFunc;
+        return (a.nome ?? "").localeCompare(b.nome ?? "", "pt-BR", { sensitivity: "base" });
+      });
   }, [allTreinamentos, funcionarios]);
 
   const totalVencimentosRH = alertasVencimento.length + treinamentoAlertas.length;
@@ -2133,9 +2147,14 @@ function DashboardPage() {
                   </div>
                 </div>
 
-                {/* Treinamentos de NR adicionais */}
+                {/* Treinamentos de NR adicionais em ordem alfabética */}
                 {(() => {
-                  const certs = treinamentosPorFuncionario.get(selectedFuncionario.id) ?? [];
+                  const certs = [...(treinamentosPorFuncionario.get(selectedFuncionario.id) ?? [])].sort(
+                    (a: any, b: any) =>
+                      (a.nome ?? "").localeCompare(b.nome ?? "", "pt-BR", {
+                        sensitivity: "base",
+                      }),
+                  );
                   if (certs.length === 0) return null;
                   return (
                     <div>

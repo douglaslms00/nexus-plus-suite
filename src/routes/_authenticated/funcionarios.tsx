@@ -193,6 +193,7 @@ function FuncionariosPage() {
         .from("funcionario_treinamentos")
         .select("funcionario_id, nome, data_validade, data_realizacao")
         .in("funcionario_id", ids)
+        .order("nome")
         .limit(2000);
       if (error) throw error;
       return data as Array<{
@@ -212,7 +213,9 @@ function FuncionariosPage() {
       m.set(t.funcionario_id, list);
     }
     for (const [, arr] of m) {
-      arr.sort((a, b) => (a.data_validade ?? "").localeCompare(b.data_validade ?? ""));
+      arr.sort((a, b) =>
+        (a.nome ?? "").localeCompare(b.nome ?? "", "pt-BR", { sensitivity: "base" }),
+      );
     }
     return m;
   }, [allTreinamentosRaw]);
@@ -237,6 +240,14 @@ function FuncionariosPage() {
   const [fichaRegistro, setFichaRegistro] = useState<File | null>(null);
   const [lendoFicha, setLendoFicha] = useState(false);
   const [treinamentos, setTreinamentos] = useState<TreinamentoItem[]>([novoTreinamento()]);
+  // Visualização dos treinamentos do formulário em ordem alfabética (por nome)
+  const treinamentosOrdenados = useMemo(
+    () =>
+      [...treinamentos].sort((a, b) =>
+        (a.nome ?? "").localeCompare(b.nome ?? "", "pt-BR", { sensitivity: "base" }),
+      ),
+    [treinamentos],
+  );
   const [abaForm, setAbaForm] = useState<"dados" | "treinamentos">("dados");
   const [funcionarioToDelete, setFuncionarioToDelete] = useState<Funcionario | null>(null);
 
@@ -305,21 +316,25 @@ function FuncionariosPage() {
     setAbaForm("dados");
     setFichaRegistro(null);
     setForm({ ...f });
-    // Carrega treinamentos existentes do funcionário
+    // Carrega treinamentos existentes do funcionário em ordem alfabética
     try {
       const { data } = await (supabase as any)
         .from("funcionario_treinamentos")
         .select("*")
         .eq("funcionario_id", f.id)
-        .order("created_at");
+        .order("nome");
       setTreinamentos(
         data && data.length > 0
-          ? data.map((t: any) => ({
-            id: t.id,
-            nome: t.nome ?? "",
-            data_realizacao: t.data_realizacao ?? "",
-            data_validade: t.data_validade ?? "",
-          }))
+          ? data
+              .map((t: any) => ({
+                id: t.id,
+                nome: t.nome ?? "",
+                data_realizacao: t.data_realizacao ?? "",
+                data_validade: t.data_validade ?? "",
+              }))
+              .sort((a: TreinamentoItem, b: TreinamentoItem) =>
+                (a.nome ?? "").localeCompare(b.nome ?? "", "pt-BR", { sensitivity: "base" }),
+              )
           : [novoTreinamento()],
       );
     } catch {
@@ -856,7 +871,7 @@ function FuncionariosPage() {
                         </Button>
                       </div>
                       <div className="space-y-2">
-                        {treinamentos.map((t, i) => (
+                        {treinamentosOrdenados.map((t, i) => (
                           <div
                             key={t.id}
                             className="rounded-lg border p-3 space-y-2 bg-muted/10 relative"
@@ -872,7 +887,7 @@ function FuncionariosPage() {
                                   variant="ghost"
                                   className="h-6 w-6"
                                   onClick={() =>
-                                    setTreinamentos((prev) => prev.filter((_, idx) => idx !== i))
+                                    setTreinamentos((prev) => prev.filter((x) => x.id !== t.id))
                                   }
                                 >
                                   <Trash2 className="h-3 w-3" />
@@ -886,8 +901,8 @@ function FuncionariosPage() {
                                 value={t.nome}
                                 onChange={(e) =>
                                   setTreinamentos((prev) =>
-                                    prev.map((x, idx) =>
-                                      idx === i ? { ...x, nome: e.target.value } : x,
+                                    prev.map((x) =>
+                                      x.id === t.id ? { ...x, nome: e.target.value } : x,
                                     ),
                                   )
                                 }
@@ -901,8 +916,10 @@ function FuncionariosPage() {
                                   value={t.data_realizacao}
                                   onChange={(e) =>
                                     setTreinamentos((prev) =>
-                                      prev.map((x, idx) =>
-                                        idx === i ? { ...x, data_realizacao: e.target.value } : x,
+                                      prev.map((x) =>
+                                        x.id === t.id
+                                          ? { ...x, data_realizacao: e.target.value }
+                                          : x,
                                       ),
                                     )
                                   }
@@ -915,8 +932,8 @@ function FuncionariosPage() {
                                   value={t.data_validade}
                                   onChange={(e) =>
                                     setTreinamentos((prev) =>
-                                      prev.map((x, idx) =>
-                                        idx === i ? { ...x, data_validade: e.target.value } : x,
+                                      prev.map((x) =>
+                                        x.id === t.id ? { ...x, data_validade: e.target.value } : x,
                                       ),
                                     )
                                   }
@@ -1234,7 +1251,11 @@ function FuncionariosPage() {
                         const fallback =
                           lista.length === 0 && f.vencimento_treinamento
                             ? [{ nome: "", data_validade: f.vencimento_treinamento }]
-                            : lista;
+                            : [...lista].sort((a: any, b: any) =>
+                                (a.nome ?? "").localeCompare(b.nome ?? "", "pt-BR", {
+                                  sensitivity: "base",
+                                }),
+                              );
                         if (fallback.length === 0)
                           return <span className="text-muted-foreground text-xs">—</span>;
                         return (
