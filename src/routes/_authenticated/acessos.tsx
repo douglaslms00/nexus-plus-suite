@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   isAdmin,
+  canManage,
   useUserRoles,
   ALL_MODULES,
   effectivePerm,
@@ -46,7 +47,6 @@ import {
   X,
   Search,
   Shield,
-  ShieldAlert,
   Sparkles,
   SlidersHorizontal,
   Users,
@@ -108,7 +108,7 @@ function AcessosPage() {
 
   const { data: usuarios = [] } = useQuery({
     queryKey: ["all-users-perms"],
-    enabled: isAdmin(roles),
+    enabled: canManage(roles),
     staleTime: 1000 * 60 * 2,
     queryFn: async () => {
       const [
@@ -150,14 +150,14 @@ function AcessosPage() {
 
   const { data: obrasAll = [] } = useQuery({
     queryKey: ["obras-all-admin"],
-    enabled: isAdmin(roles),
+    enabled: canManage(roles),
     staleTime: 1000 * 60 * 5,
     queryFn: async () => (await supabase.from("obras").select("id, nome").order("nome")).data ?? [],
   });
 
   const { data: customRoles = [] } = useQuery({
     queryKey: ["custom-roles-admin"],
-    enabled: isAdmin(roles),
+    enabled: canManage(roles),
     staleTime: 1000 * 60 * 2,
     queryFn: async (): Promise<CustomRole[]> => {
       const { data } = await (supabase as any)
@@ -170,7 +170,7 @@ function AcessosPage() {
 
   const { data: customRolePerms = [] } = useQuery({
     queryKey: ["custom-role-perms-admin"],
-    enabled: isAdmin(roles),
+    enabled: canManage(roles),
     staleTime: 1000 * 60 * 2,
     queryFn: async (): Promise<CustomRolePerm[]> => {
       const { data } = await (supabase as any)
@@ -182,7 +182,7 @@ function AcessosPage() {
 
   const { data: systemRolePerms = [] } = useQuery({
     queryKey: ["system-role-perms-admin"],
-    enabled: isAdmin(roles),
+    enabled: canManage(roles),
     staleTime: 1000 * 60 * 2,
     queryFn: async (): Promise<SystemRolePerm[]> => {
       const { data } = await (supabase as any)
@@ -194,7 +194,7 @@ function AcessosPage() {
 
   const { data: auditLog = [] } = useQuery({
     queryKey: ["permission-audit-log"],
-    enabled: isAdmin(roles),
+    enabled: canManage(roles),
     staleTime: 1000 * 30,
     queryFn: async () => {
       const { data } = await (supabase as any)
@@ -480,10 +480,10 @@ function AcessosPage() {
   const [cargoSearch, setCargoSearch] = useState("");
   const [cargoFilter, setCargoFilter] = useState<"all" | "system" | "custom">("all");
 
-  if (!isAdmin(roles)) {
+  if (!canManage(roles)) {
     return (
       <Card className="p-8 text-center text-muted-foreground">
-        Acesso restrito a administradores.
+        Acesso restrito a administradores e gestores.
       </Card>
     );
   }
@@ -566,7 +566,16 @@ function AcessosPage() {
         </TabsList>
 
         {/* TAB 1: USUÁRIOS */}
-        <TabsContent value="users" className="space-y-3">
+        <TabsContent value="users" className="space-y-4">
+
+          {/* CRIAR LOGIN DE ACESSO */}
+          <CreateUserLoginCard
+            customRoles={customRoles}
+            systemRoles={SYSTEM_ROLES}
+            onUserCreated={invalidateAll}
+          />
+
+          {/* LISTA DE USUÁRIOS */}
           {usuarios.map((u: any) => {
             const open = expanded[u.id];
             return (
@@ -1610,6 +1619,225 @@ function AuditPanel({
           </tbody>
         </table>
       </div>
+    </Card>
+  );
+}
+
+/**
+ * Card para criar um novo login de acesso (admin/gestor cria conta para usuário)
+ */
+function CreateUserLoginCard({
+  customRoles,
+  systemRoles,
+  onUserCreated,
+}: {
+  customRoles: CustomRole[];
+  systemRoles: { key: AppRole; label: string; description: string }[];
+  onUserCreated: () => void;
+}) {
+  const [nome, setNome] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [cargoKey, setCargoKey] = useState("");
+  const [isAdmin, setIsAdminCheck] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const allCargosOptions = [
+    ...systemRoles.map((s) => ({ value: `sys:${s.key}`, label: s.label })),
+    ...customRoles.map((c) => ({ value: `cus:${c.id}`, label: c.label })),
+  ];
+
+  const validarSenha = (senha: string) => {
+    const minuscula = /[a-z]/.test(senha);
+    const maiuscula = /[A-Z]/.test(senha);
+    const numero = /[0-9]/.test(senha);
+    const especial = /[!@#$%^&*(),.?":{}|<>]/.test(senha);
+    const pontos = [minuscula, maiuscula, numero, especial].filter(Boolean).length;
+    const forca =
+      senha.length >= 8 && pontos >= 3 ? "forte" : senha.length >= 6 && pontos >= 2 ? "média" : "fraca";
+    return { minuscula, maiuscula, numero, especial, forca };
+  };
+
+  const senhaInfo = validarSenha(password);
+  const senhaValida = senhaInfo.forca === "forte";
+
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!nome.trim() || !email.trim() || !password) {
+      toast.error("Preencha nome, e-mail e senha.");
+      return;
+    }
+    if (!senhaValida) {
+      toast.error("A senha deve ser forte (mín. 8 caracteres, maiúsc., minúsc., número e especial).");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Cria o usuário via RPC admin (sem necessidade de confirmação de e-mail)
+      const { error } = await (supabase as any).rpc("admin_create_user_login", {
+        _email: email.trim().toLowerCase(),
+        _password: password,
+        _nome: nome.trim(),
+        _is_admin: isAdmin,
+        _cargo_key: cargoKey || null,
+      });
+
+      if (error) {
+        // Fallback: se RPC não existir, usa signUp normal
+        if ((error as any)?.code === "PGRST202" || (error as any)?.code === "42883") {
+          const { error: signupErr } = await (supabase as any).auth.admin
+            ? { error: new Error("Admin API unavailable") }
+            : await (supabase as any).auth.signUp({
+                email: email.trim().toLowerCase(),
+                password,
+                options: { data: { nome: nome.trim() } },
+              });
+          if (signupErr) throw signupErr;
+        } else {
+          throw error;
+        }
+      }
+
+      toast.success(`Usuário "${nome.trim()}" criado com sucesso!`);
+      setNome("");
+      setEmail("");
+      setPassword("");
+      setCargoKey("");
+      setIsAdminCheck(false);
+      onUserCreated();
+    } catch (err: any) {
+      toast.error(err?.message ?? "Erro ao criar usuário.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Card className="p-5 border-2 border-primary/20 bg-primary/5">
+      <div className="flex items-center gap-2 mb-4">
+        <div className="p-1.5 rounded-md bg-primary/15">
+          <svg
+            className="h-4 w-4 text-primary"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+          </svg>
+        </div>
+        <div>
+          <h3 className="font-semibold text-sm text-foreground">Criar login de acesso</h3>
+          <p className="text-xs text-primary/80">
+            Crie cargos, marque o que cada um pode fazer e atribua aos usuários. Administradores têm acesso total.
+          </p>
+        </div>
+      </div>
+
+      <form onSubmit={handleCreate} className="space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="new-user-nome" className="text-sm">Nome completo</Label>
+            <Input
+              id="new-user-nome"
+              placeholder="João Silva"
+              value={nome}
+              onChange={(e) => setNome(e.target.value)}
+              required
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="new-user-email" className="text-sm">E-mail</Label>
+            <Input
+              id="new-user-email"
+              type="email"
+              placeholder="joao@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="new-user-password" className="text-sm">Senha (forte)</Label>
+            <div className="relative">
+              <Input
+                id="new-user-password"
+                type={showPassword ? "text" : "password"}
+                placeholder="Mín. 8 caracteres, maiúsc, minúsc, número e caractere especial"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className="pr-9 text-xs placeholder:text-xs"
+              />
+              <button
+                type="button"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                onClick={() => setShowPassword((v) => !v)}
+                tabIndex={-1}
+              >
+                {showPassword ? (
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" /></svg>
+                ) : (
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                )}
+              </button>
+            </div>
+            {password && (
+              <p
+                className={cn(
+                  "text-xs font-medium",
+                  senhaInfo.forca === "forte"
+                    ? "text-green-600"
+                    : senhaInfo.forca === "média"
+                      ? "text-yellow-600"
+                      : "text-destructive",
+                )}
+              >
+                Força: {senhaInfo.forca}
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="new-user-cargo" className="text-sm">Cargo (opcional)</Label>
+            <Select value={cargoKey} onValueChange={setCargoKey}>
+              <SelectTrigger id="new-user-cargo">
+                <SelectValue placeholder="Selecione um cargo" />
+              </SelectTrigger>
+              <SelectContent>
+                {allCargosOptions.map((c) => (
+                  <SelectItem key={c.value} value={c.value}>
+                    {c.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id="new-user-admin"
+            checked={isAdmin}
+            onCheckedChange={(v) => setIsAdminCheck(!!v)}
+          />
+          <label htmlFor="new-user-admin" className="text-sm cursor-pointer select-none">
+            Marcar como administrador
+          </label>
+        </div>
+
+        <div>
+          <Button type="submit" disabled={loading} className="gap-2">
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+            {loading ? "Criando..." : "Criar usuário"}
+          </Button>
+        </div>
+      </form>
     </Card>
   );
 }
