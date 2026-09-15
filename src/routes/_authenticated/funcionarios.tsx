@@ -54,9 +54,15 @@ import {
   AlertTriangle,
   AlertCircle,
   ClipboardList,
+  CheckCircle2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { uploadAnexo, getAnexoUrl } from "@/lib/upload";
+import {
+  useDocumentRequirements,
+  requirementsForFuncao,
+  docEntregue,
+} from "@/lib/document-requirements";
 import { differenceInDays, addMonths } from "date-fns";
 import { cn, safeParseISO, safeFormatDate } from "@/lib/utils";
 import { lerFichaRegistro, lerFichaRegistroPdf } from "@/lib/ocr.functions";
@@ -186,22 +192,28 @@ function FuncionariosPage() {
     queryKey: ["funcionario-treinamentos-all", funcionarios.map((f: any) => f.id).sort().join(",")],
     enabled: funcionarios.length > 0,
     staleTime: 1000 * 60 * 2,
+    retry: 1,
     queryFn: async () => {
       const ids = funcionarios.map((f: any) => f.id);
       if (ids.length === 0) return [];
-      const { data, error } = await supabase
-        .from("funcionario_treinamentos")
-        .select("funcionario_id, nome, data_validade, data_realizacao")
-        .in("funcionario_id", ids)
-        .order("nome")
-        .limit(2000);
-      if (error) throw error;
-      return data as Array<{
-        funcionario_id: string;
-        nome: string;
-        data_validade: string | null;
-        data_realizacao: string | null;
-      }>;
+      try {
+        const { data, error } = await supabase
+          .from("funcionario_treinamentos")
+          .select("funcionario_id, nome, data_validade, data_realizacao")
+          .in("funcionario_id", ids)
+          .order("nome")
+          .limit(2000);
+        if (error) throw error;
+        return data as Array<{
+          funcionario_id: string;
+          nome: string;
+          data_validade: string | null;
+          data_realizacao: string | null;
+        }>;
+      } catch (e: any) {
+        console.warn("[funcionarios] treinamentos indisponíveis, retornando vazio:", e?.message ?? e);
+        return [];
+      }
     },
   });
 
@@ -1377,6 +1389,10 @@ function DocumentosDialog({
     },
   });
 
+  // Exigências da função: o funcionário vê apenas o que lhe é exigido.
+  const { data: reqs = [] } = useDocumentRequirements();
+  const exigidos = requirementsForFuncao(reqs, funcionario?.funcao);
+
   const addDoc = useMutation({
     mutationFn: async (file: File) => {
       const path = await uploadAnexo(file, `funcionarios/${funcionario.id}`);
@@ -1426,6 +1442,37 @@ function DocumentosDialog({
         <DialogHeader>
           <DialogTitle>Documentos — {funcionario?.nome}</DialogTitle>
         </DialogHeader>
+        {exigidos.length > 0 && (
+          <div className="rounded-lg border border-primary/25 bg-primary/[0.04] p-3 space-y-2">
+            <p className="text-xs font-semibold text-foreground">
+              Exigidos para a função{funcionario?.funcao ? ` “${funcionario.funcao}”` : ""} —{" "}
+              {exigidos.filter((r) => docEntregue(docs, r.documento_nome)).length}/{exigidos.length}{" "}
+              entregues
+            </p>
+            {exigidos.map((r) => {
+              const ok = docEntregue(docs, r.documento_nome);
+              return (
+                <div key={r.id} className="flex items-center justify-between gap-2 text-sm">
+                  <span className={cn(ok ? "text-muted-foreground" : "font-medium")}>
+                    {r.documento_nome}
+                    {!r.obrigatorio && (
+                      <span className="ml-1.5 text-[10px] uppercase text-muted-foreground">opcional</span>
+                    )}
+                  </span>
+                  {ok ? (
+                    <span className="inline-flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+                      <CheckCircle2 className="h-3.5 w-3.5" /> Entregue
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400 font-medium">
+                      <AlertCircle className="h-3.5 w-3.5" /> Pendente
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
         {canEdit && (
           <div>
             <Label className="text-sm">Adicionar ficha / documento</Label>

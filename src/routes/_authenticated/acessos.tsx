@@ -50,6 +50,10 @@ import {
   Sparkles,
   SlidersHorizontal,
   Users,
+  History,
+  Clock,
+  ArrowUpCircle,
+  ArrowDownCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -196,20 +200,67 @@ function AcessosPage() {
     queryKey: ["permission-audit-log"],
     enabled: canManage(roles),
     staleTime: 1000 * 30,
+    retry: 1,
     queryFn: async () => {
-      const { data } = await (supabase as any)
-        .from("permission_audit_log")
-        .select(
-          "id, created_at, actor_email, action, target_user_id, custom_role_id, module, details",
-        )
-        .order("created_at", { ascending: false })
-        .limit(200);
-      return data ?? [];
+      try {
+        const { data } = await (supabase as any)
+          .from("permission_audit_log")
+          .select(
+            "id, created_at, actor_email, action, target_user_id, custom_role_id, module, details",
+          )
+          .order("created_at", { ascending: false })
+          .limit(200);
+        return data ?? [];
+      } catch (e: any) {
+        console.warn("[acessos] audit log indisponível:", e?.message ?? e);
+        return [];
+      }
     },
   });
 
+  // Histórico de logins por perfil (tabela login_history; vazia até a migration
+  // 20260915000000_login_history.sql ser aplicada — nunca trava a tela).
+  const { data: loginHistory = [], error: loginHistoryError } = useQuery({
+    queryKey: ["login-history"],
+    enabled: canManage(roles),
+    staleTime: 1000 * 60,
+    retry: 1,
+    queryFn: async () => {
+      try {
+        const { data, error } = await (supabase as any)
+          .from("login_history")
+          .select("user_id, email, login_at, user_agent")
+          .order("login_at", { ascending: false })
+          .limit(500);
+        if (error) throw error;
+        return data ?? [];
+      } catch (e: any) {
+        console.warn("[acessos] login_history indisponível:", e?.message ?? e);
+        throw e;
+      }
+    },
+  });
+  const loginTableMissing =
+    (loginHistoryError as any)?.code === "PGRST205" ||
+    /schema cache|does not exist|relation/i.test(
+      String((loginHistoryError as any)?.message ?? ""),
+    );
+
+  // Agrupa logins por usuário para o histórico individual de cada perfil.
+  const loginsPorUsuario = useMemo(() => {
+    const m = new Map<string, { login_at: string; email: string | null; user_agent: string | null }[]>();
+    for (const l of loginHistory as any[]) {
+      if (!l?.user_id) continue;
+      const list = m.get(l.user_id) ?? [];
+      list.push(l);
+      m.set(l.user_id, list);
+    }
+    return m;
+  }, [loginHistory]);
+
   const invalidateAll = () => {
     qc.invalidateQueries({ queryKey: ["all-users-perms"] });
+    qc.invalidateQueries({ queryKey: ["login-history"] });
     qc.invalidateQueries({ queryKey: ["custom-roles-admin"] });
     qc.invalidateQueries({ queryKey: ["custom-role-perms-admin"] });
     qc.invalidateQueries({ queryKey: ["system-role-perms-admin"] });
@@ -479,6 +530,8 @@ function AcessosPage() {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [cargoSearch, setCargoSearch] = useState("");
   const [cargoFilter, setCargoFilter] = useState<"all" | "system" | "custom">("all");
+  const [userSearch, setUserSearch] = useState("");
+  const [userCargoFilter, setUserCargoFilter] = useState<string>("all");
 
   if (!canManage(roles)) {
     return (
@@ -558,14 +611,15 @@ function AcessosPage() {
       </div>
 
       <Tabs defaultValue="users">
-        <TabsList className="grid w-full grid-cols-4 max-w-xl">
-          <TabsTrigger value="users">Usuários</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-5 max-w-2xl">
+          <TabsTrigger value="users">Usuários ({usuarios.length})</TabsTrigger>
           <TabsTrigger value="cargos">Cargos ({unifiedCargos.length})</TabsTrigger>
-          <TabsTrigger value="bulk">Atribuição em massa</TabsTrigger>
+          <TabsTrigger value="bulk">Em massa</TabsTrigger>
           <TabsTrigger value="audit">Histórico</TabsTrigger>
+          <TabsTrigger value="logins">Logins</TabsTrigger>
         </TabsList>
 
-        {/* TAB 1: USUÁRIOS */}
+        {/* TAB 1: USUÁRIOS — cadastro, promoção a gestor e histórico de login */}
         <TabsContent value="users" className="space-y-4">
 
           {/* CRIAR LOGIN DE ACESSO */}
@@ -575,9 +629,60 @@ function AcessosPage() {
             onUserCreated={invalidateAll}
           />
 
+          {/* BUSCA + FILTRO DE USUÁRIOS */}
+          <Card className="p-3 flex flex-col sm:flex-row gap-2 sm:items-center">
+            <div className="relative flex-1">
+              <Search className="h-4 w-4 absolute left-2.5 top-2.5 text-muted-foreground" />
+              <Input
+                placeholder="Buscar usuário por nome ou e-mail..."
+                value={userSearch}
+                onChange={(e) => setUserSearch(e.target.value)}
+                className="pl-9 h-9 text-xs"
+              />
+            </div>
+            <Select value={userCargoFilter} onValueChange={setUserCargoFilter}>
+              <SelectTrigger className="h-9 text-xs sm:w-56">
+                <SelectValue placeholder="Filtrar por cargo" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os cargos</SelectItem>
+                <SelectItem value="none">Sem cargo atribuído</SelectItem>
+                {allCargos.map((c) => (
+                  <SelectItem key={cargoId(c.ref)} value={cargoId(c.ref)}>
+                    {c.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Card>
+
           {/* LISTA DE USUÁRIOS */}
-          {usuarios.map((u: any) => {
+          {usuarios
+            .filter((u: any) => {
+              if (userSearch) {
+                const q = userSearch.toLowerCase();
+                const hit =
+                  (u.nome ?? "").toLowerCase().includes(q) ||
+                  (u.email ?? "").toLowerCase().includes(q);
+                if (!hit) return false;
+              }
+              if (userCargoFilter !== "all") {
+                if (userCargoFilter === "none") {
+                  const temCargo =
+                    (u.roles ?? []).length > 0 || (u.customRoleIds ?? []).length > 0;
+                  if (temCargo) return false;
+                } else if (!userHasCargo(u, parseCargoId(userCargoFilter))) {
+                  return false;
+                }
+              }
+              return true;
+            })
+            .map((u: any) => {
             const open = expanded[u.id];
+            const isGestor = (u.roles ?? []).includes("gestor");
+            const isUserAdmin = (u.roles ?? []).includes("admin");
+            const logins = loginsPorUsuario.get(u.id) ?? [];
+            const lastLogin = logins[0]?.login_at ?? null;
             return (
               <Card key={u.id} className="p-4 transition-all">
                 <div className="flex items-center justify-between flex-wrap gap-3">
@@ -593,11 +698,64 @@ function AcessosPage() {
                       )}
                     </div>
                     <div>
-                      <p className="font-medium text-foreground">{u.nome}</p>
+                      <p className="font-medium text-foreground flex items-center gap-1.5 flex-wrap">
+                        {u.nome}
+                        {isUserAdmin && (
+                          <Badge variant="default" className="text-[10px] py-0 h-4">
+                            <Shield className="h-2.5 w-2.5 mr-0.5" /> Admin
+                          </Badge>
+                        )}
+                        {isGestor && !isUserAdmin && (
+                          <Badge variant="secondary" className="text-[10px] py-0 h-4">
+                            Gestor
+                          </Badge>
+                        )}
+                      </p>
                       <p className="text-xs text-muted-foreground">{u.email}</p>
+                      <p className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5">
+                        <Clock className="h-3 w-3" />
+                        {lastLogin ? (
+                          <>Último login: {format(new Date(lastLogin), "dd/MM/yyyy HH:mm")}{logins.length > 1 ? ` · ${logins.length} acessos` : ""}</>
+                        ) : (
+                          "Nunca logou (ou histórico indisponível)"
+                        )}
+                      </p>
                     </div>
                   </button>
                   <div className="flex gap-1.5 flex-wrap justify-end items-center">
+                    {/* PROMOÇÃO RÁPIDA A GESTOR */}
+                    {!isGestor ? (
+                      <Button
+                        size="sm"
+                        className="h-7 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+                        onClick={() =>
+                          toggleCargo.mutate({
+                            user_id: u.id,
+                            cargo: { kind: "system", key: "gestor" },
+                            grant: true,
+                          })
+                        }
+                        title="Promover este usuário a gestor"
+                      >
+                        <ArrowUpCircle className="h-3.5 w-3.5" /> Promover a gestor
+                      </Button>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs gap-1"
+                        onClick={() =>
+                          toggleCargo.mutate({
+                            user_id: u.id,
+                            cargo: { kind: "system", key: "gestor" },
+                            grant: false,
+                          })
+                        }
+                        title="Remover o cargo de gestor"
+                      >
+                        <ArrowDownCircle className="h-3.5 w-3.5" /> Rebaixar gestor
+                      </Button>
+                    )}
                     {allCargos.map((c) => {
                       const has = userHasCargo(u, c.ref);
                       return (
@@ -645,6 +803,47 @@ function AcessosPage() {
 
                 {open && (
                   <div className="mt-4 border-t pt-4 space-y-5">
+                    {/* HISTÓRICO DE LOGIN DO PERFIL */}
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-sm font-medium flex items-center gap-1.5">
+                          <History className="h-4 w-4 text-muted-foreground" /> Histórico de login
+                        </p>
+                        <span className="text-xs text-muted-foreground">
+                          {logins.length} acesso(s) registrado(s)
+                        </span>
+                      </div>
+                      {loginTableMissing ? (
+                        <p className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded p-2.5">
+                          Tabela de logins ainda não existe no banco. Aplique a migration{" "}
+                          <code className="font-mono">20260915000000_login_history.sql</code> no
+                          Supabase SQL Editor para começar a registrar os acessos.
+                        </p>
+                      ) : logins.length === 0 ? (
+                        <p className="text-xs text-muted-foreground">
+                          Nenhum acesso registrado para este perfil ainda. Os logins passam a ser
+                          contabilizados automaticamente a partir de agora.
+                        </p>
+                      ) : (
+                        <div className="overflow-x-auto rounded border max-h-48 overflow-y-auto">
+                          <table className="w-full text-sm">
+                            <tbody>
+                              {logins.slice(0, 10).map((l, idx) => (
+                                <tr key={idx} className="border-b last:border-0 hover:bg-muted/20">
+                                  <td className="py-1.5 px-3 text-xs font-mono whitespace-nowrap">
+                                    {format(new Date(l.login_at), "dd/MM/yyyy HH:mm")}
+                                  </td>
+                                  <td className="py-1.5 pr-3 text-xs text-muted-foreground truncate max-w-[280px]">
+                                    {l.user_agent ?? "—"}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+
                     <div>
                       <div className="flex items-center justify-between mb-2">
                         <p className="text-sm font-medium">Obras autorizadas</p>
@@ -794,6 +993,17 @@ function AcessosPage() {
               Nenhum usuário cadastrado.
             </Card>
           )}
+          {usuarios.length > 0 && userSearch && usuarios.filter((u: any) => {
+            const q = userSearch.toLowerCase();
+            return (
+              (u.nome ?? "").toLowerCase().includes(q) ||
+              (u.email ?? "").toLowerCase().includes(q)
+            );
+          }).length === 0 && (
+            <Card className="p-8 text-center text-muted-foreground">
+              Nenhum usuário encontrado para a busca.
+            </Card>
+          )}
         </TabsContent>
 
         {/* TAB 2: CARGOS UNIFICADOS */}
@@ -895,6 +1105,67 @@ function AcessosPage() {
         {/* TAB 4: AUDITORIA / HISTÓRICO */}
         <TabsContent value="audit">
           <AuditPanel rows={auditLog} usuarios={usuarios} customRoles={customRoles} />
+        </TabsContent>
+
+        {/* TAB 5: LOGINS — histórico global de acessos por perfil */}
+        <TabsContent value="logins">
+          <Card className="p-4">
+            <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+              <div>
+                <h3 className="font-semibold text-base flex items-center gap-1.5">
+                  <History className="h-4 w-4" /> Logins recentes
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  Últimos acessos registrados por perfil (a partir da ativação do registro).
+                </p>
+              </div>
+              <Badge variant="secondary" className="text-xs">
+                {(loginHistory as any[]).length} registro(s)
+              </Badge>
+            </div>
+            {loginTableMissing ? (
+              <p className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded p-3">
+                Tabela de logins ainda não existe no banco. Aplique a migration{" "}
+                <code className="font-mono">20260915000000_login_history.sql</code> no Supabase
+                SQL Editor para começar a registrar os acessos automaticamente.
+              </p>
+            ) : (
+              <div className="overflow-x-auto rounded border">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-muted/40 text-left text-muted-foreground">
+                      <th className="py-2.5 px-3 font-medium">Data</th>
+                      <th className="py-2.5 pr-3 font-medium">Usuário</th>
+                      <th className="py-2.5 pr-3 font-medium">Dispositivo</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(loginHistory as any[]).slice(0, 100).map((l: any, idx: number) => (
+                      <tr key={idx} className="border-b last:border-0 hover:bg-muted/20">
+                        <td className="py-2.5 px-3 text-xs text-muted-foreground whitespace-nowrap font-mono">
+                          {format(new Date(l.login_at), "dd/MM/yyyy HH:mm")}
+                        </td>
+                        <td className="py-2.5 pr-3 text-xs font-medium">
+                          {usuarios.find((u: any) => u.id === l.user_id)?.nome ?? l.email ?? l.user_id.slice(0, 8)}
+                        </td>
+                        <td className="py-2.5 pr-3 text-xs text-muted-foreground truncate max-w-[320px]">
+                          {l.user_agent ?? "—"}
+                        </td>
+                      </tr>
+                    ))}
+                    {(loginHistory as any[]).length === 0 && (
+                      <tr>
+                        <td colSpan={3} className="py-6 text-center text-muted-foreground text-sm">
+                          Nenhum login registrado ainda. Os acessos passam a ser contabilizados
+                          automaticamente.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Card>
         </TabsContent>
       </Tabs>
     </div>
@@ -1731,7 +2002,8 @@ function CreateUserLoginCard({
         <div>
           <h3 className="font-semibold text-sm text-foreground">Criar login de acesso</h3>
           <p className="text-xs text-primary/80">
-            Crie cargos, marque o que cada um pode fazer e atribua aos usuários. Administradores têm acesso total.
+            Cadastre um novo usuário com e-mail e senha. Escolha o cargo inicial (ex.: Gestor)
+            ou marque como administrador — depois ajuste obras e permissões na lista abaixo.
           </p>
         </div>
       </div>

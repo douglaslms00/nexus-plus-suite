@@ -338,6 +338,45 @@ export type Database = {
           },
         ]
       }
+      cargo_document_requirements: {
+        Row: {
+          cargo_ref: string | null
+          created_at: string
+          created_by: string | null
+          descricao: string | null
+          documento_nome: string
+          funcao: string | null
+          id: string
+          obrigatorio: boolean
+          updated_at: string
+          validade_meses: number | null
+        }
+        Insert: {
+          cargo_ref?: string | null
+          created_at?: string
+          created_by?: string | null
+          descricao?: string | null
+          documento_nome: string
+          funcao?: string | null
+          id?: string
+          obrigatorio?: boolean
+          updated_at?: string
+          validade_meses?: number | null
+        }
+        Update: {
+          cargo_ref?: string | null
+          created_at?: string
+          created_by?: string | null
+          descricao?: string | null
+          documento_nome?: string
+          funcao?: string | null
+          id?: string
+          obrigatorio?: boolean
+          updated_at?: string
+          validade_meses?: number | null
+        }
+        Relationships: []
+      }
       contas_financeiras: {
         Row: {
           categoria: string | null
@@ -773,6 +812,410 @@ export type Database = {
           },
         ]
       }
+      frota_abastecimentos: {
+        Row: {
+          comprovante_url: string | null
+          created_at: string
+          created_by: string | null
+          data: string
+          forma_pagamento: string | null
+          id: string
+          litros: number
+          motorista_id: string | null
+          obra_id: string | null
+          observacoes: string | null
+          odometro: number
+          posto: string | null
+          tanque_cheio: boolean
+          tipo_combustivel: string
+          updated_at: string
+          valor_por_litro: number
+          valor_total: number
+          veiculo_id: string
+        }
+        Insert: {
+          comprovante_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          data?: string
+          forma_pagamento?: string | null
+          id?: string
+          litros: number
+          motorista_id?: string | null
+          obra_id?: string | null
+          observacoes?: string | null
+          odometro: number
+          posto?: string | null
+          tanque_cheio?: boolean
+          tipo_combustivel?: string
+          updated_at?: string
+          valor_por_litro: number
+          valor_total: number
+          veiculo_id: string
+        }
+        Update: {
+          comprovante_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          data?: string
+          forma_pagamento?: string | null
+          id?: string
+          litros?: number
+          motorista_id?: string | null
+          obra_id?: string | null
+          observacoes?: string | null
+          odometro?: number
+          posto?: string | null
+          tanque_cheio?: boolean
+          tipo_combustivel?: string
+          updated_at?: string
+          valor_por_litro?: number
+          valor_total?: number
+          veiculo_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "frota_abastecimentos_veiculo_id_fkey"
+            columns: ["veiculo_id"]
+            isOneToOne: false
+            referencedRelation: "frota_veiculos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "frota_abastecimentos_motorista_id_fkey"
+            columns: ["motorista_id"]
+            isOneToOne: false
+            referencedRelation: "frota_motoristas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      frota_gastos_avulsos: {
+        Row: {
+          categoria: string
+          comprovante_url: string | null
+          created_at: string
+          created_by: string | null
+          data: string
+          descricao: string
+          forma_pagamento: string | null
+          id: string
+          motorista_id: string | null
+          obra_id: string | null
+          observacoes: string | null
+          updated_at: string
+          valor: number
+          veiculo_id: string | null
+        }
+        Insert: {
+          categoria: string
+          comprovante_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          data?: string
+          descricao: string
+          forma_pagamento?: string | null
+          id?: string
+          motorista_id?: string | null
+          obra_id?: string | null
+          observacoes?: string | null
+          updated_at?: string
+          valor: number
+          veiculo_id?: string | null
+        }
+        Update: {
+          categoria?: string
+          comprovante_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          data?: string
+          descricao?: string
+          forma_pagamento?: string | null
+          id?: string
+          motorista_id?: string | null
+          obra_id?: string | null
+          observacoes?: string | null
+          updated_at?: string
+          valor?: number
+          veiculo_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "frota_gastos_avulsos_veiculo_id_fkey"
+            columns: ["veiculo_id"]
+            isOneToOne: false
+            referencedRelation: "frota_veiculos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      frota_manutencoes: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          data: string
+          id: string
+          obra_id: string | null
+          observacoes: string | null
+          odometro: number | null
+          oficina: string | null
+          pecas_trocadas: string | null
+          proxima_revisao_data: string | null
+          proxima_revisao_km: number | null
+          servico: string
+          status: string
+          tipo: string
+          updated_at: string
+          valor_mao_obra: number
+          valor_pecas: number
+          valor_total: number
+          veiculo_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          data?: string
+          id?: string
+          obra_id?: string | null
+          observacoes?: string | null
+          odometro?: number | null
+          oficina?: string | null
+          pecas_trocadas?: string | null
+          proxima_revisao_data?: string | null
+          proxima_revisao_km?: number | null
+          servico: string
+          status?: string
+          tipo?: string
+          updated_at?: string
+          valor_mao_obra?: number
+          valor_pecas?: number
+          valor_total?: never
+          veiculo_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          data?: string
+          id?: string
+          obra_id?: string | null
+          observacoes?: string | null
+          odometro?: number | null
+          oficina?: string | null
+          pecas_trocadas?: string | null
+          proxima_revisao_data?: string | null
+          proxima_revisao_km?: number | null
+          servico?: string
+          status?: string
+          tipo?: string
+          updated_at?: string
+          valor_mao_obra?: number
+          valor_pecas?: number
+          valor_total?: never
+          veiculo_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "frota_manutencoes_veiculo_id_fkey"
+            columns: ["veiculo_id"]
+            isOneToOne: false
+            referencedRelation: "frota_veiculos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      frota_motoristas: {
+        Row: {
+          cnh_categoria: string
+          cnh_numero: string | null
+          cnh_validade: string | null
+          cpf: string | null
+          created_at: string
+          created_by: string | null
+          email: string | null
+          id: string
+          nome: string
+          observacoes: string | null
+          status: string
+          telefone: string | null
+          updated_at: string
+        }
+        Insert: {
+          cnh_categoria?: string
+          cnh_numero?: string | null
+          cnh_validade?: string | null
+          cpf?: string | null
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          id?: string
+          nome: string
+          observacoes?: string | null
+          status?: string
+          telefone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          cnh_categoria?: string
+          cnh_numero?: string | null
+          cnh_validade?: string | null
+          cpf?: string | null
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          id?: string
+          nome?: string
+          observacoes?: string | null
+          status?: string
+          telefone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      frota_pedagios: {
+        Row: {
+          comprovante_url: string | null
+          created_at: string
+          created_by: string | null
+          data: string
+          data_hora: string
+          forma_pagamento: string
+          id: string
+          motorista_id: string | null
+          obra_id: string | null
+          observacoes: string | null
+          praca: string
+          rota: string | null
+          tag_operadora: string | null
+          updated_at: string
+          valor: number
+          veiculo_id: string
+        }
+        Insert: {
+          comprovante_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          data?: never
+          data_hora?: string
+          forma_pagamento?: string
+          id?: string
+          motorista_id?: string | null
+          obra_id?: string | null
+          observacoes?: string | null
+          praca: string
+          rota?: string | null
+          tag_operadora?: string | null
+          updated_at?: string
+          valor: number
+          veiculo_id: string
+        }
+        Update: {
+          comprovante_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          data?: never
+          data_hora?: string
+          forma_pagamento?: string
+          id?: string
+          motorista_id?: string | null
+          obra_id?: string | null
+          observacoes?: string | null
+          praca?: string
+          rota?: string | null
+          tag_operadora?: string | null
+          updated_at?: string
+          valor?: number
+          veiculo_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "frota_pedagios_veiculo_id_fkey"
+            columns: ["veiculo_id"]
+            isOneToOne: false
+            referencedRelation: "frota_veiculos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      frota_veiculos: {
+        Row: {
+          ano: number | null
+          chassi: string | null
+          combustivel_padrao: string
+          cor: string | null
+          created_at: string
+          created_by: string | null
+          data_proxima_revisao: string | null
+          id: string
+          intervalo_revisao_km: number
+          intervalo_revisao_meses: number
+          marca: string | null
+          modelo: string
+          obra_id: string | null
+          observacoes: string | null
+          odometro_atual: number
+          odometro_proxima_revisao: number | null
+          placa: string
+          renavam: string | null
+          status: string
+          tipo: string
+          updated_at: string
+        }
+        Insert: {
+          ano?: number | null
+          chassi?: string | null
+          combustivel_padrao?: string
+          cor?: string | null
+          created_at?: string
+          created_by?: string | null
+          data_proxima_revisao?: string | null
+          id?: string
+          intervalo_revisao_km?: number
+          intervalo_revisao_meses?: number
+          marca?: string | null
+          modelo: string
+          obra_id?: string | null
+          observacoes?: string | null
+          odometro_atual?: number
+          odometro_proxima_revisao?: number | null
+          placa: string
+          renavam?: string | null
+          status?: string
+          tipo?: string
+          updated_at?: string
+        }
+        Update: {
+          ano?: number | null
+          chassi?: string | null
+          combustivel_padrao?: string
+          cor?: string | null
+          created_at?: string
+          created_by?: string | null
+          data_proxima_revisao?: string | null
+          id?: string
+          intervalo_revisao_km?: number
+          intervalo_revisao_meses?: number
+          marca?: string | null
+          modelo?: string
+          obra_id?: string | null
+          observacoes?: string | null
+          odometro_atual?: number
+          odometro_proxima_revisao?: number | null
+          placa?: string
+          renavam?: string | null
+          status?: string
+          tipo?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "frota_veiculos_obra_id_fkey"
+            columns: ["obra_id"]
+            isOneToOne: false
+            referencedRelation: "obras"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       funcionario_documentos: {
         Row: {
           created_at: string
@@ -979,6 +1422,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      login_history: {
+        Row: {
+          created_at: string
+          email: string | null
+          id: string
+          login_at: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          login_at?: string
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          login_at?: string
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
       }
       materiais: {
         Row: {

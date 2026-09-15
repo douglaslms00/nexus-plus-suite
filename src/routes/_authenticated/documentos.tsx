@@ -100,31 +100,43 @@ function Browser({
   const { data: pastas = [] } = useQuery({
     queryKey: [...baseKey, "pastas"],
     enabled: escopo === "pessoal" ? !!user?.id : !!obraId,
+    retry: 1,
     queryFn: async () => {
-      let q = supabase
-        .from("documento_pastas" as any)
-        .select("*")
-        .eq("escopo", escopo);
-      q = escopo === "obra" ? q.eq("obra_id", obraId!) : q.eq("user_id", user!.id);
-      const { data, error } = await q.order("nome");
-      if (error) throw error;
-      return (data ?? []) as any[];
+      try {
+        let q = supabase
+          .from("documento_pastas" as any)
+          .select("*")
+          .eq("escopo", escopo);
+        q = escopo === "obra" ? q.eq("obra_id", obraId!) : q.eq("user_id", user!.id);
+        const { data, error } = await q.order("nome");
+        if (error) throw error;
+        return (data ?? []) as any[];
+      } catch (e: any) {
+        console.warn("[documentos] pastas indisponíveis, retornando vazio:", e?.message ?? e);
+        return [] as any[];
+      }
     },
   });
   const { data: docs = [] } = useQuery({
     queryKey: [...baseKey, "docs", pastaId],
     enabled: escopo === "pessoal" ? !!user?.id : !!obraId,
+    retry: 1,
     queryFn: async () => {
-      let q = supabase
-        .from("documentos" as any)
-        .select("*")
-        .eq("escopo", escopo);
-      q = escopo === "obra" ? q.eq("obra_id", obraId!) : q.eq("user_id", user!.id);
-      if (pastaId) q = q.eq("pasta_id", pastaId);
-      else q = q.is("pasta_id", null);
-      const { data, error } = await q.order("created_at", { ascending: false });
-      if (error) throw error;
-      return (data ?? []) as any[];
+      try {
+        let q = supabase
+          .from("documentos" as any)
+          .select("*")
+          .eq("escopo", escopo);
+        q = escopo === "obra" ? q.eq("obra_id", obraId!) : q.eq("user_id", user!.id);
+        if (pastaId) q = q.eq("pasta_id", pastaId);
+        else q = q.is("pasta_id", null);
+        const { data, error } = await q.order("created_at", { ascending: false });
+        if (error) throw error;
+        return (data ?? []) as any[];
+      } catch (e: any) {
+        console.warn("[documentos] arquivos indisponíveis, retornando vazio:", e?.message ?? e);
+        return [] as any[];
+      }
     },
   });
 

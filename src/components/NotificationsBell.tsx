@@ -31,15 +31,22 @@ export function NotificationsBell() {
   const { data: notifs = [] } = useQuery({
     queryKey: ["notifications", user?.id],
     enabled: !!user?.id,
+    retry: 1,
     queryFn: async (): Promise<Notif[]> => {
-      const { data, error } = await supabase
-        .from("notifications" as any)
-        .select("id, tipo, titulo, mensagem, link, ref_id, ref_table, lida, created_at, user_id")
-        .eq("user_id", user?.id)
-        .order("created_at", { ascending: false })
-        .limit(50);
-      if (error) throw error;
-      return (data ?? []) as any;
+      try {
+        const { data, error } = await supabase
+          .from("notifications" as any)
+          .select("id, tipo, titulo, mensagem, link, ref_id, ref_table, lida, created_at, user_id")
+          .eq("user_id", user?.id)
+          .order("created_at", { ascending: false })
+          .limit(50);
+        if (error) throw error;
+        return (data ?? []) as any;
+      } catch (e: any) {
+        // Tabela de notificações ausente/bloqueada: sino vazio em vez de travar o AppShell.
+        console.warn("[notifications] indisponível, retornando vazio:", e?.message ?? e);
+        return [];
+      }
     },
   });
 

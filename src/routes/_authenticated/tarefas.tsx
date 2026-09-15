@@ -134,6 +134,7 @@ function TarefasPage() {
 
   const { data: tarefas = [] } = useQuery({
     queryKey: ["tarefas"],
+    retry: 1,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("tarefas")
@@ -145,9 +146,13 @@ function TarefasPage() {
       );
       let nameMap = new Map<string, string>();
       if (ids.length) {
-        const { data: allProfs } = await (supabase as any).rpc("list_profile_directory");
-        const profs = (allProfs ?? []).filter((p: any) => ids.includes(p.id));
-        nameMap = new Map((profs ?? []).map((p: any) => [p.id, p.nome]));
+        try {
+          const { data: allProfs } = await (supabase as any).rpc("list_profile_directory");
+          const profs = (allProfs ?? []).filter((p: any) => ids.includes(p.id));
+          nameMap = new Map((profs ?? []).map((p: any) => [p.id, p.nome]));
+        } catch (e: any) {
+          console.warn("[tarefas] diretório de perfis indisponível:", e?.message ?? e);
+        }
       }
       return (data ?? []).map((t: any) => ({
         ...t,

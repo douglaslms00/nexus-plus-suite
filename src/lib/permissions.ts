@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { isMissingSchemaError } from "@/lib/supabase-safe";
 import type { Obra } from "@/integrations/supabase/database.types";
 
 export type AppRole = "admin" | "gestor" | "colaborador" | "financeiro";
@@ -55,12 +56,21 @@ export function useUserRoles() {
     queryKey: ["userRoles", user?.id],
     enabled: !!user?.id,
     staleTime: 1000 * 60 * 5,
+    retry: 1,
     queryFn: async (): Promise<AppRole[]> => {
       const { data, error } = await supabase
         .from("user_roles")
         .select("role")
         .eq("user_id", user!.id);
-      if (error) throw error;
+      if (error) {
+        // Tabela ainda sem RLS/migration no banco remoto: trata como "sem cargos"
+        // para mostrar a tela de espera em vez de travar o AppShell.
+        if (isMissingSchemaError(error)) {
+          console.warn("[useUserRoles] user_roles indisponível, retornando []:", error.message);
+          return [];
+        }
+        throw error;
+      }
       return (data ?? []).map((r) => r.role as AppRole);
     },
   });
@@ -110,12 +120,19 @@ export function useMyModulePermissions() {
     queryKey: ["my-module-perms", user?.id],
     enabled: !!user?.id,
     staleTime: 1000 * 60 * 5,
+    retry: 1,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("user_module_permissions")
         .select("module, can_view, can_edit, can_delete")
         .eq("user_id", user!.id);
-      if (error) throw error;
+      if (error) {
+        if (isMissingSchemaError(error)) {
+          console.warn("[useMyModulePermissions] indisponível, retornando []:", error.message);
+          return [];
+        }
+        throw error;
+      }
       return (data ?? []) as ({ module: AppModule } & ModulePerm)[];
     },
   });
@@ -145,21 +162,30 @@ export function useAuthorizedObras() {
     queryKey: ["authorized-obras", user?.id, rolesKey],
     enabled: !!user?.id && !!roles,
     staleTime: 1000 * 60 * 5,
+    retry: 1,
     queryFn: async (): Promise<{ id: string; nome: string }[]> => {
-      if (canManage(roles)) {
-        const { data, error } = await supabase.from("obras").select("id, nome").order("nome");
+      try {
+        if (canManage(roles)) {
+          const { data, error } = await supabase.from("obras").select("id, nome").order("nome");
+          if (error) throw error;
+          return data ?? [];
+        }
+        const { data, error } = await supabase
+          .from("user_obras")
+          .select("obra:obras(id, nome)")
+          .eq("user_id", user!.id);
         if (error) throw error;
-        return data ?? [];
+        return (data ?? [])
+          .map((r: { obra: { id: string; nome: string } | null }) => r.obra)
+          .filter((o): o is { id: string; nome: string } => !!o)
+          .sort((a, b) => a.nome.localeCompare(b.nome));
+      } catch (e) {
+        if (isMissingSchemaError(e)) {
+          console.warn("[useAuthorizedObras] indisponível, retornando []:", (e as Error)?.message);
+          return [];
+        }
+        throw e;
       }
-      const { data, error } = await supabase
-        .from("user_obras")
-        .select("obra:obras(id, nome)")
-        .eq("user_id", user!.id);
-      if (error) throw error;
-      return (data ?? [])
-        .map((r: { obra: { id: string; nome: string } | null }) => r.obra)
-        .filter((o): o is { id: string; nome: string } => !!o)
-        .sort((a, b) => a.nome.localeCompare(b.nome));
     },
   });
 }
@@ -170,11 +196,18 @@ export function useAllSystemRolePerms() {
   return useQuery({
     queryKey: ["all-system-role-perms"],
     staleTime: 1000 * 60 * 5,
+    retry: 1,
     queryFn: async (): Promise<SystemRolePerm[]> => {
       const { data, error } = await supabase
         .from("system_role_module_permissions")
         .select("role, module, can_view, can_edit, can_delete");
-      if (error) throw error;
+      if (error) {
+        if (isMissingSchemaError(error)) {
+          console.warn("[useAllSystemRolePerms] indisponível, usando fallback:", error.message);
+          return [];
+        }
+        throw error;
+      }
       return (data ?? []) as SystemRolePerm[];
     },
   });
@@ -239,12 +272,19 @@ export function useMyCustomRoles() {
     queryKey: ["my-custom-roles", user?.id],
     enabled: !!user?.id,
     staleTime: 1000 * 60 * 5,
+    retry: 1,
     queryFn: async (): Promise<CustomRole[]> => {
       const { data, error } = await supabase
         .from("user_custom_roles")
         .select("custom_role:custom_roles(id, name, label, description)")
         .eq("user_id", user!.id);
-      if (error) throw error;
+      if (error) {
+        if (isMissingSchemaError(error)) {
+          console.warn("[useMyCustomRoles] indisponível, retornando []:", error.message);
+          return [];
+        }
+        throw error;
+      }
       return (data ?? [])
         .map((r: { custom_role: CustomRole | null }) => r.custom_role)
         .filter((c): c is CustomRole => !!c);
@@ -256,11 +296,18 @@ export function useAllCustomRolePerms() {
   return useQuery({
     queryKey: ["all-custom-role-perms"],
     staleTime: 1000 * 60 * 5,
+    retry: 1,
     queryFn: async (): Promise<CustomRolePerm[]> => {
       const { data, error } = await supabase
         .from("custom_role_module_permissions")
         .select("custom_role_id, module, can_view, can_edit, can_delete");
-      if (error) throw error;
+      if (error) {
+        if (isMissingSchemaError(error)) {
+          console.warn("[useAllCustomRolePerms] indisponível, retornando []:", error.message);
+          return [];
+        }
+        throw error;
+      }
       return (data ?? []) as CustomRolePerm[];
     },
   });

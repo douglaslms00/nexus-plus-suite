@@ -98,6 +98,13 @@ export type FuncionarioTreinamento = Tables["funcionario_treinamentos"]["Row"];
 export type FuncionarioTreinamentoInsert = Tables["funcionario_treinamentos"]["Insert"];
 export type FuncionarioTreinamentoUpdate = Tables["funcionario_treinamentos"]["Update"];
 
+export type CargoDocumentRequirement = Tables["cargo_document_requirements"]["Row"];
+export type CargoDocumentRequirementInsert = Tables["cargo_document_requirements"]["Insert"];
+export type CargoDocumentRequirementUpdate = Tables["cargo_document_requirements"]["Update"];
+
+export type LoginHistory = Tables["login_history"]["Row"];
+export type LoginHistoryInsert = Tables["login_history"]["Insert"];
+
 export type Documento = Tables["documentos"]["Row"];
 export type DocumentoInsert = Tables["documentos"]["Insert"];
 export type DocumentoUpdate = Tables["documentos"]["Update"];

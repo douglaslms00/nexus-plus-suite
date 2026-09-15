@@ -52,6 +52,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { cn, safeFormatDate, safeParseISO } from "@/lib/utils";
+import { safeList } from "@/lib/supabase-safe";
 import { isAdmin, useUserRoles, useModulePerm } from "@/lib/permissions";
 import { useObraAtual } from "@/lib/obra-context.types";
 import { VENC_FIELDS, computeConformidade, type Status } from "@/lib/conformidade";
@@ -123,38 +124,41 @@ function DashboardPage() {
   const [stockEntryObra, setStockEntryObra] = useState<string>(obraId || "");
 
   // 1. Obras (sincronizado com os módulos: sempre refetch ao montar/voltar)
-  const { data: obras = [] } = useQuery({
+  // Resiliente a 400/schema ausente: retorna [] em vez de travar o painel.
+  const { data: obras = [], error: obrasError } = useQuery({
     queryKey: ["dash-obras"],
     staleTime: 1000 * 30,
     refetchOnMount: "always",
     refetchOnWindowFocus: true,
-    queryFn: async () => {
-      const { data, error } = await supabase.from("obras").select("id, nome").order("nome");
-      if (error) throw error;
-      return data ?? [];
-    },
+    retry: 1,
+    queryFn: async () =>
+      safeList<{ id: string; nome: string }>(async () => {
+        const { data, error } = await supabase.from("obras").select("id, nome").order("nome");
+        return { data, error };
+      }, "dash-obras"),
   });
   const obraAtualNome = obraId ? obras.find((o: any) => o.id === obraId)?.nome : null;
 
   // 2. Funcionários (mesmo filtro do módulo: ativos + obra atual)
-  const { data: funcionarios = [], isLoading: loadingFunc } = useQuery({
+  const { data: funcionarios = [], isLoading: loadingFunc, error: funcError } = useQuery({
     queryKey: ["dash-funcionarios", obraId],
     staleTime: 1000 * 30,
     refetchOnMount: "always",
     refetchOnWindowFocus: true,
-    queryFn: async () => {
-      let q = supabase
-        .from("funcionarios")
-        .select(
-          "id, nome, ativo, obra_id, funcao, setor, telefone, email, cpf, data_admissao, vencimento_aso, vencimento_treinamento, vencimento_folga_campo, vencimento_ferias, vencimento_ficha_epi, vencimento_experiencia, experiencia_concluida",
-        )
-        .eq("ativo", true)
-        .order("nome");
-      if (obraId) q = q.eq("obra_id", obraId);
-      const { data, error } = await q;
-      if (error) throw error;
-      return data ?? [];
-    },
+    retry: 1,
+    queryFn: async () =>
+      safeList(async () => {
+        let q = supabase
+          .from("funcionarios")
+          .select(
+            "id, nome, ativo, obra_id, funcao, setor, telefone, email, cpf, data_admissao, vencimento_aso, vencimento_treinamento, vencimento_folga_campo, vencimento_ferias, vencimento_ficha_epi, vencimento_experiencia, experiencia_concluida",
+          )
+          .eq("ativo", true)
+          .order("nome");
+        if (obraId) q = q.eq("obra_id", obraId);
+        const { data, error } = await q;
+        return { data, error };
+      }, "dash-funcionarios"),
   });
 
   // Treinamentos de NR detalhados dos funcionários
@@ -163,23 +167,24 @@ function DashboardPage() {
     () => funcionarios.map((f: any) => f.id).sort().join(","),
     [funcionarios],
   );
-  const { data: allTreinamentos = [] } = useQuery({
+  const { data: allTreinamentos = [], error: treinError } = useQuery({
     queryKey: ["dash-treinamentos", obraId, funcionariosIdsKey],
     enabled: funcionarios.length > 0,
     staleTime: 1000 * 30,
     refetchOnMount: "always",
     refetchOnWindowFocus: true,
-    queryFn: async () => {
-      const ids = funcionarios.map((f: any) => f.id);
-      if (ids.length === 0) return [];
-      const { data, error } = await supabase
-        .from("funcionario_treinamentos")
-        .select("id, funcionario_id, nome, data_validade, data_realizacao")
-        .in("funcionario_id", ids)
-        .order("nome");
-      if (error) throw error;
-      return data ?? [];
-    },
+    retry: 1,
+    queryFn: async () =>
+      safeList(async () => {
+        const ids = funcionarios.map((f: any) => f.id);
+        if (ids.length === 0) return { data: [], error: null };
+        const { data, error } = await supabase
+          .from("funcionario_treinamentos")
+          .select("id, funcionario_id, nome, data_validade, data_realizacao")
+          .in("funcionario_id", ids)
+          .order("nome");
+        return { data, error };
+      }, "dash-treinamentos"),
   });
 
   const treinamentosPorFuncionario = useMemo(() => {
@@ -198,95 +203,103 @@ function DashboardPage() {
   }, [allTreinamentos]);
 
   // 3. Tarefas (tabela tarefas não possui obra_id: key global, igual ao módulo)
-  const { data: tarefas = [] } = useQuery({
+  const { data: tarefas = [], error: tarefasError } = useQuery({
     queryKey: ["dash-tarefas"],
     staleTime: 1000 * 30,
     refetchOnMount: "always",
     refetchOnWindowFocus: true,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("tarefas")
-        .select("id, status, titulo, descricao, prioridade, data_vencimento")
-        .neq("status", "concluida")
-        .order("data_vencimento", { ascending: true })
-        .limit(100);
-      if (error) throw error;
-      return data ?? [];
-    },
+    retry: 1,
+    queryFn: async () =>
+      safeList(async () => {
+        const { data, error } = await supabase
+          .from("tarefas")
+          .select("id, status, titulo, descricao, prioridade, data_vencimento")
+          .neq("status", "concluida")
+          .order("data_vencimento", { ascending: true })
+          .limit(100);
+        return { data, error };
+      }, "dash-tarefas"),
   });
 
   // 4. EPIs (estoque global, igual ao módulo)
-  const { data: epis = [] } = useQuery({
+  const { data: epis = [], error: episError } = useQuery({
     queryKey: ["dash-epis"],
     staleTime: 1000 * 30,
     refetchOnMount: "always",
     refetchOnWindowFocus: true,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("epis")
-        .select("id, nome, tipo, ca, estoque_atual, estoque_minimo, validade_meses")
-        .eq("ativo", true)
-        .order("nome")
-        .limit(300);
-      if (error) throw error;
-      return data ?? [];
-    },
+    retry: 1,
+    queryFn: async () =>
+      safeList(async () => {
+        const { data, error } = await supabase
+          .from("epis")
+          .select("id, nome, tipo, ca, estoque_atual, estoque_minimo, validade_meses")
+          .eq("ativo", true)
+          .order("nome")
+          .limit(300);
+        return { data, error };
+      }, "dash-epis"),
   });
 
   // 5. Materiais (estoque global, igual ao módulo)
-  const { data: materiais = [] } = useQuery({
+  const { data: materiais = [], error: matError } = useQuery({
     queryKey: ["dash-mat"],
     staleTime: 1000 * 30,
     refetchOnMount: "always",
     refetchOnWindowFocus: true,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("materiais")
-        .select("id, nome, codigo, unidade, preco_medio, estoque_atual, estoque_minimo")
-        .eq("ativo", true)
-        .order("nome")
-        .limit(300);
-      if (error) throw error;
-      return data ?? [];
-    },
+    retry: 1,
+    queryFn: async () =>
+      safeList(async () => {
+        const { data, error } = await supabase
+          .from("materiais")
+          .select("id, nome, codigo, unidade, preco_medio, estoque_atual, estoque_minimo")
+          .eq("ativo", true)
+          .order("nome")
+          .limit(300);
+        return { data, error };
+      }, "dash-materiais"),
   });
 
   // 6. Contas Financeiras a Pagar (mesmo filtro obra do módulo financeiro / aba obra)
-  const { data: contas = [] } = useQuery({
+  const { data: contas = [], error: contasError } = useQuery({
     queryKey: ["dash-contas", obraId],
     staleTime: 1000 * 30,
     refetchOnMount: "always",
     refetchOnWindowFocus: true,
-    queryFn: async () => {
-      let q = supabase
-        .from("contas_financeiras")
-        .select("id, tipo, status, descricao, valor, data_vencimento, obra_id, escopo")
-        .neq("status", "pago")
-        .order("data_vencimento", { ascending: true })
-        .limit(200);
-      if (obraId) q = q.eq("obra_id", obraId);
-      const { data, error } = await q;
-      if (error) throw error;
-      return data ?? [];
-    },
+    retry: 1,
+    queryFn: async () =>
+      safeList(async () => {
+        let q = supabase
+          .from("contas_financeiras")
+          .select("id, tipo, status, descricao, valor, data_vencimento, obra_id, escopo")
+          .neq("status", "pago")
+          .order("data_vencimento", { ascending: true })
+          .limit(200);
+        if (obraId) q = q.eq("obra_id", obraId);
+        const { data, error } = await q;
+        return { data, error };
+      }, "dash-contas"),
   });
 
   // 7. Ferramentas (manutenções e empréstimos em aberto, com filtro de obra)
+  // Embed com alias explícito (ferramenta:/funcionario:) para evitar 400 PGRST200.
   const { data: ferramentasAlertas = [] } = useQuery({
     queryKey: ["dash-ferramentas", obraId],
     staleTime: 1000 * 30,
     refetchOnMount: "always",
     refetchOnWindowFocus: true,
+    retry: 1,
     queryFn: async () => {
-      let q = supabase
-        .from("ferramentas")
-        .select("id, nome, codigo, estado, proxima_manutencao, obra_id")
-        .not("proxima_manutencao", "is", null);
-      if (obraId) q = q.eq("obra_id", obraId);
-      const { data, error } = await q;
-      if (error) return [];
+      const rows = await safeList<any>(async () => {
+        let q = supabase
+          .from("ferramentas")
+          .select("id, nome, codigo, estado, proxima_manutencao, obra_id")
+          .not("proxima_manutencao", "is", null);
+        if (obraId) q = q.eq("obra_id", obraId);
+        const { data, error } = await q;
+        return { data, error };
+      }, "dash-ferramentas");
       const hoje = new Date();
-      return (data ?? []).filter((f: any) => {
+      return rows.filter((f: any) => {
         if (!f.proxima_manutencao) return false;
         const dias = differenceInDays(safeParseISO(f.proxima_manutencao), hoje);
         return dias <= 30; // Vencida ou nos próximos 30 dias
@@ -299,22 +312,28 @@ function DashboardPage() {
     staleTime: 1000 * 30,
     refetchOnMount: "always",
     refetchOnWindowFocus: true,
+    retry: 1,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("ferramenta_emprestimos")
-        .select(
-          "id, data_emprestimo, prevista_devolucao, data_devolucao, ferramenta_id, ferramentas(nome, obra_id), funcionarios(nome)",
-        )
-        .is("data_devolucao", null)
-        .not("prevista_devolucao", "is", null);
-      if (error) return [];
+      const rows = await safeList<any>(async () => {
+        const { data, error } = await supabase
+          .from("ferramenta_emprestimos")
+          .select(
+            "id, data_emprestimo, prevista_devolucao, data_devolucao, ferramenta_id, ferramenta:ferramentas(nome, obra_id), funcionario:funcionarios(nome)",
+          )
+          .is("data_devolucao", null)
+          .not("prevista_devolucao", "is", null);
+        return { data, error };
+      }, "dash-emprestimos");
       const hoje = new Date();
-      return (data ?? []).filter((e: any) => {
+      return rows.filter((e: any) => {
         if (!e.prevista_devolucao) return false;
         if (differenceInDays(safeParseISO(e.prevista_devolucao), hoje) >= 0) return false;
         // Empréstimo não tem obra própria: filtra pela obra da ferramenta (igual ao módulo).
         if (obraId) {
-          const obraFerramenta = (e as any).ferramentas?.obra_id ?? (e as any).obra_id;
+          const obraFerramenta =
+            (e as any).ferramenta?.obra_id ??
+            (e as any).ferramentas?.obra_id ??
+            (e as any).obra_id;
           if (obraFerramenta && obraFerramenta !== obraId) return false;
         }
         return true;
@@ -922,6 +941,34 @@ function DashboardPage() {
           </Link>
         </Card>
       )}
+
+      {/* Aviso não-bloqueante: alguma fonte do painel falhou, mas a tela continua aberta */}
+      {(() => {
+        const falhas = [
+          obrasError && "obras",
+          funcError && "funcionários",
+          treinError && "treinamentos",
+          tarefasError && "tarefas",
+          episError && "EPIs",
+          matError && "materiais",
+          contasError && "financeiro",
+        ].filter(Boolean) as string[];
+        if (falhas.length === 0) return null;
+        return (
+          <Card className="p-3.5 flex flex-wrap items-center justify-between gap-2 bg-amber-50 border-amber-200 dark:bg-amber-950/20 dark:border-amber-800 shadow-sm">
+            <div className="flex items-center gap-2 text-sm text-amber-800 dark:text-amber-200">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              <span>
+                Não foi possível carregar: <b>{falhas.join(", ")}</b>. Os demais cartões
+                continuam funcionando.
+              </span>
+            </div>
+            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={handleRefresh}>
+              Tentar novamente
+            </Button>
+          </Card>
+        );
+      })()}
 
       {/* Cards de Indicadores Interativos (KPIs) */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">

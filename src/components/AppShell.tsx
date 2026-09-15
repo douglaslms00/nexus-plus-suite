@@ -34,6 +34,7 @@ import {
   UserCog,
   Receipt,
   Truck,
+  ClipboardCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -72,6 +73,33 @@ export function AppShell({ children }: { children: ReactNode }) {
     // Garante que o perfil do usuário exista (para aparecer nas listas de usuários)
     void (supabase as any).rpc("ensure_profile");
   }, []);
+
+  // Registra o login no histórico (1x por sessão). Falha silenciosa se a
+  // tabela ainda não existir no banco (migration pendente) — nunca trava.
+  useEffect(() => {
+    const uid = authUser?.id;
+    if (!uid || typeof window === "undefined") return;
+    const flag = `login_recorded_${uid}`;
+    if (window.sessionStorage.getItem(flag)) return;
+    window.sessionStorage.setItem(flag, "1");
+    void (async () => {
+      try {
+        const { error } = await (supabase as any).from("login_history").insert({
+          user_id: uid,
+          email: authUser?.email ?? null,
+          user_agent: window.navigator.userAgent.slice(0, 300),
+        });
+        if (error) throw error;
+      } catch (e: any) {
+        const msg = String(e?.message ?? e);
+        // Tabela ainda sem migration: apenas ignora (não trava o app).
+        if (!/schema cache|does not exist|PGRST205|relation/i.test(msg)) {
+          console.warn("[login_history] não registrado:", msg);
+        }
+        window.sessionStorage.removeItem(flag);
+      }
+    })();
+  }, [authUser?.id, authUser?.email]);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -125,6 +153,12 @@ export function AppShell({ children }: { children: ReactNode }) {
       externalLink: "https://prestacontasms.lovable.app/",
     },
     { to: "/documentos", label: "Documentos", icon: FolderOpen, module: "documentos" },
+    {
+      to: "/documentos-obrigatorios",
+      label: "Docs por cargo",
+      icon: ClipboardCheck,
+      module: "documentos",
+    },
     { to: "/acessos", label: "Acessos", icon: ShieldCheck, module: "acessos" },
   ];
 
