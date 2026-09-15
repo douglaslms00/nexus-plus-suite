@@ -60,7 +60,7 @@ BEGIN
   VALUES (
     gen_random_uuid(), v_instance_id, 'authenticated', 'authenticated', lower(_email),
     crypt(_password, gen_salt('bf')), now(), '', NULL, '', NULL, '', '', NULL, '', 0,
-    NULL, NULL, NULL, NULL, NULL, '', NULL,
+    NULL, NULL, '', '', NULL, '', NULL,
     '{"provider":"email","providers":["email"]}'::jsonb, jsonb_build_object('nome', _nome),
     FALSE, FALSE, FALSE, now(), now()
   )
