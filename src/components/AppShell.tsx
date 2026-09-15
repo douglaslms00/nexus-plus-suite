@@ -34,7 +34,6 @@ import {
   UserCog,
   Receipt,
   Truck,
-  ClipboardCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -153,12 +152,6 @@ export function AppShell({ children }: { children: ReactNode }) {
       externalLink: "https://prestacontasms.lovable.app/",
     },
     { to: "/documentos", label: "Documentos", icon: FolderOpen, module: "documentos" },
-    {
-      to: "/documentos-obrigatorios",
-      label: "Docs por cargo",
-      icon: ClipboardCheck,
-      module: "documentos",
-    },
     { to: "/acessos", label: "Acessos", icon: ShieldCheck, module: "acessos" },
   ];
 

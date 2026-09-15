@@ -52,8 +52,6 @@ import {
   Users,
   History,
   Clock,
-  ArrowUpCircle,
-  ArrowDownCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -723,39 +721,6 @@ function AcessosPage() {
                     </div>
                   </button>
                   <div className="flex gap-1.5 flex-wrap justify-end items-center">
-                    {/* PROMOÇÃO RÁPIDA A GESTOR */}
-                    {!isGestor ? (
-                      <Button
-                        size="sm"
-                        className="h-7 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"
-                        onClick={() =>
-                          toggleCargo.mutate({
-                            user_id: u.id,
-                            cargo: { kind: "system", key: "gestor" },
-                            grant: true,
-                          })
-                        }
-                        title="Promover este usuário a gestor"
-                      >
-                        <ArrowUpCircle className="h-3.5 w-3.5" /> Promover a gestor
-                      </Button>
-                    ) : (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-7 text-xs gap-1"
-                        onClick={() =>
-                          toggleCargo.mutate({
-                            user_id: u.id,
-                            cargo: { kind: "system", key: "gestor" },
-                            grant: false,
-                          })
-                        }
-                        title="Remover o cargo de gestor"
-                      >
-                        <ArrowDownCircle className="h-3.5 w-3.5" /> Rebaixar gestor
-                      </Button>
-                    )}
                     {allCargos.map((c) => {
                       const has = userHasCargo(u, c.ref);
                       return (
