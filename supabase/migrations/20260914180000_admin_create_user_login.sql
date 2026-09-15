@@ -1,6 +1,9 @@
 -- Migration: admin_create_user_login
--- Permite que admins e gestores criem logins de acesso para novos usuários
+-- Permite que admins e gestores criem logins de acesso para novos usuǭrios
 -- diretamente pela tela de Acessos, sem necessidade de auto-cadastro.
+
+-- pgcrypto: exigida pelo corpo da função (crypt/gen_salt). Idempotente.
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 -- Função RPC para criar um novo usuário (chamada pelo frontend como admin)
 -- Requer que a extensão pgcrypto esteja disponível (já é padrão no Supabase).
@@ -99,3 +102,7 @@ $$;
 
 -- Concede execução apenas a usuários autenticados
 GRANT EXECUTE ON FUNCTION public.admin_create_user_login(TEXT, TEXT, TEXT, BOOLEAN, TEXT) TO authenticated;
+
+-- Forca o PostgREST a recarregar o schema cache (sem isso, o frontend pode
+-- continuar recebendo PGRST202 'Could not find the function ... in the schema cache').
+NOTIFY pgrst, 'reload schema';

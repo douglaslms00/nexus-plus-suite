@@ -1915,6 +1915,8 @@ function CreateUserLoginCard({
   const [loading, setLoading] = useState(false);
   // True quando a função admin_create_user_login não existe no banco (migration pendente).
   const [rpcAusente, setRpcAusente] = useState(false);
+  // Último erro bruto do RPC, exibido no banner para diagnóstico.
+  const [ultimoErroRpc, setUltimoErroRpc] = useState<string | null>(null);
 
   const allCargosOptions = [
     ...systemRoles.map((s) => ({ value: `sys:${s.key}`, label: s.label })),
@@ -1961,12 +1963,18 @@ function CreateUserLoginCard({
       if (error) {
         const code = String((error as any)?.code ?? "");
         const msg = String((error as any)?.message ?? "");
-        const funcaoAusente =
+        // Só considera "função ausente" o erro de schema cache do PostgREST.
+        // Qualquer outro erro (ex.: pgcrypto ausente -> 42883 dentro da função,
+        // permission denied -> 42501) é lançado como está, para diagnóstico.
+        const schemaCacheMiss =
           code === "PGRST202" ||
-          code === "42883" ||
-          (/admin_create_user_login/i.test(msg) &&
-            /not found|does not exist|schema cache|Could not find/i.test(msg));
-        if (!funcaoAusente) throw error;
+          /Could not find the function/i.test(msg) ||
+          /in the schema cache/i.test(msg);
+        if (!schemaCacheMiss) {
+          setUltimoErroRpc(`${code ? `[${code}] ` : ""}${msg}`.slice(0, 300));
+          throw error;
+        }
+        setUltimoErroRpc(`${code ? `[${code}] ` : ""}${msg}`.slice(0, 300));
 
         // Contingência: a migration da função ainda não foi aplicada no banco.
         // Usa o cadastro normal (o trigger handle_new_user cria o perfil).
@@ -2033,13 +2041,22 @@ function CreateUserLoginCard({
       </div>
 
       {rpcAusente && (
-        <p className="text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded p-2.5 mb-4">
-          Criação direta indisponível: a função <code className="font-mono">admin_create_user_login</code>{" "}
-          não existe no banco. Aplique a migration{" "}
-          <code className="font-mono">20260914180000_admin_create_user_login.sql</code> no Supabase
-          SQL Editor. Enquanto isso, o cadastro usa confirmação por e-mail e o cargo deve ser
-          atribuído na lista abaixo.
-        </p>
+        <div className="text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded p-2.5 mb-4 space-y-1.5">
+          <p>
+            Criação direta indisponível: a função{" "}
+            <code className="font-mono">admin_create_user_login</code> não está visível para a API.
+            Reaplique a migration{" "}
+            <code className="font-mono">20260914180000_admin_create_user_login.sql</code> no Supabase
+            SQL Editor (ela agora inclui <code className="font-mono">pgcrypto</code> + reload do schema
+            cache). Enquanto isso, o cadastro usa confirmação por e-mail e o cargo deve ser
+            atribuído na lista abaixo.
+          </p>
+          {ultimoErroRpc && (
+            <p className="font-mono text-[11px] break-words opacity-90">
+              Erro retornado: {ultimoErroRpc}
+            </p>
+          )}
+        </div>
       )}
 
       <form onSubmit={handleCreate} className="space-y-4">
