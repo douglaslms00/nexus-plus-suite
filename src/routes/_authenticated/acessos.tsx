@@ -1913,6 +1913,8 @@ function CreateUserLoginCard({
   const [cargoKey, setCargoKey] = useState("");
   const [isAdmin, setIsAdminCheck] = useState(false);
   const [loading, setLoading] = useState(false);
+  // True quando a função admin_create_user_login não existe no banco (migration pendente).
+  const [rpcAusente, setRpcAusente] = useState(false);
 
   const allCargosOptions = [
     ...systemRoles.map((s) => ({ value: `sys:${s.key}`, label: s.label })),
@@ -1955,23 +1957,45 @@ function CreateUserLoginCard({
         _cargo_key: cargoKey || null,
       });
 
+      let usouFallback = false;
       if (error) {
-        // Fallback: se RPC não existir, usa signUp normal
-        if ((error as any)?.code === "PGRST202" || (error as any)?.code === "42883") {
-          const { error: signupErr } = await (supabase as any).auth.admin
-            ? { error: new Error("Admin API unavailable") }
-            : await (supabase as any).auth.signUp({
-                email: email.trim().toLowerCase(),
-                password,
-                options: { data: { nome: nome.trim() } },
-              });
-          if (signupErr) throw signupErr;
-        } else {
-          throw error;
-        }
+        const code = String((error as any)?.code ?? "");
+        const msg = String((error as any)?.message ?? "");
+        const funcaoAusente =
+          code === "PGRST202" ||
+          code === "42883" ||
+          (/admin_create_user_login/i.test(msg) &&
+            /not found|does not exist|schema cache|Could not find/i.test(msg));
+        if (!funcaoAusente) throw error;
+
+        // Contingência: a migration da função ainda não foi aplicada no banco.
+        // Usa o cadastro normal (o trigger handle_new_user cria o perfil).
+        // OBS: nunca usar supabase.auth.admin no frontend — exige service_role (backend).
+        console.warn(
+          "[acessos] RPC admin_create_user_login ausente no banco; usando signUp. " +
+            "Aplique a migration 20260914180000_admin_create_user_login.sql no Supabase SQL Editor.",
+        );
+        setRpcAusente(true);
+        const { error: signupErr } = await supabase.auth.signUp({
+          email: email.trim().toLowerCase(),
+          password,
+          options: { data: { nome: nome.trim() } },
+        });
+        if (signupErr) throw signupErr;
+        usouFallback = true;
       }
 
-      toast.success(`Usuário "${nome.trim()}" criado com sucesso!`);
+      if (usouFallback) {
+        toast.warning(
+          `Login "${nome.trim()}" pré-cadastrado — ele precisa confirmar o e-mail para entrar. ` +
+            `Para criar direto sem confirmação, aplique a migration 20260914180000_admin_create_user_login.sql. ` +
+            `Depois atribua o cargo na lista abaixo.`,
+          { duration: 8000 },
+        );
+      } else {
+        setRpcAusente(false);
+        toast.success(`Usuário "${nome.trim()}" criado com sucesso!`);
+      }
       setNome("");
       setEmail("");
       setPassword("");
@@ -2007,6 +2031,16 @@ function CreateUserLoginCard({
           </p>
         </div>
       </div>
+
+      {rpcAusente && (
+        <p className="text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded p-2.5 mb-4">
+          Criação direta indisponível: a função <code className="font-mono">admin_create_user_login</code>{" "}
+          não existe no banco. Aplique a migration{" "}
+          <code className="font-mono">20260914180000_admin_create_user_login.sql</code> no Supabase
+          SQL Editor. Enquanto isso, o cadastro usa confirmação por e-mail e o cargo deve ser
+          atribuído na lista abaixo.
+        </p>
+      )}
 
       <form onSubmit={handleCreate} className="space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
