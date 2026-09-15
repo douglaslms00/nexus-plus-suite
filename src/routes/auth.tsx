@@ -94,7 +94,15 @@ function AuthPage() {
         return;
       }
       const { error } = await supabase.auth.signInWithPassword({ email: emailToUse, password });
-      if (error) return toast.error(error.message);
+      if (error) {
+        if (error.message.includes("Database error querying schema")) {
+          return toast.error("Erro interno no banco de dados. Aplique as migrations pendentes no Supabase SQL Editor.");
+        }
+        if (error.message.includes("Invalid login credentials")) {
+          return toast.error("E-mail/CPF ou senha incorretos.");
+        }
+        return toast.error(error.message);
+      }
       toast.success("Bem-vindo!");
       navigate({ to: "/dashboard", replace: true });
     } finally {
