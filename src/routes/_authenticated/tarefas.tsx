@@ -122,6 +122,17 @@ function TarefasPage() {
   const canDelete = permTarefas.can_delete;
   const isGestor = canManage(roles) || permTarefas.can_edit;
 
+  const canEditTask = (t: any) => {
+    if (!user?.id || !t) return false;
+    // Permissão global por perfil/cargo (Admin, Gestor ou módulo tarefas can_edit)
+    if (canManage(roles) || permTarefas.can_edit) return true;
+    // Criador da tarefa
+    if (t.created_by === user.id) return true;
+    // Responsável ou pessoa atribuída à tarefa
+    if (t.responsavel_id === user.id || t.assigned_to === user.id) return true;
+    return false;
+  };
+
   const [viewMode, setViewMode] = useState<"kanban" | "lista">("kanban");
   const [fStatus, setFStatus] = useState<string>("todos");
   const [fPrio, setFPrio] = useState<string>("todos");
@@ -204,14 +215,18 @@ function TarefasPage() {
   };
 
   const openEdit = (t: any) => {
+    if (!canEditTask(t)) {
+      toast.error("Você não possui permissão para editar esta tarefa.");
+      return;
+    }
     setEditingId(t.id);
     setForm({
-      titulo: t.titulo,
+      titulo: t.titulo ?? "",
       descricao: t.descricao ?? "",
-      prioridade: t.prioridade,
-      status: t.status,
+      prioridade: t.prioridade ?? "media",
+      status: t.status ?? "pendente",
       data_vencimento: t.data_vencimento ?? "",
-      assigned_to: t.assigned_to ?? "",
+      assigned_to: t.assigned_to ?? t.responsavel_id ?? "",
     });
     setOpen(true);
   };
@@ -221,6 +236,9 @@ function TarefasPage() {
       const assigned = form.assigned_to || null;
       if (editingId) {
         const original = tarefas.find((x: any) => x.id === editingId);
+        if (!original || !canEditTask(original)) {
+          throw new Error("Você não possui permissão para editar esta tarefa.");
+        }
         const assignedChanged = original && original.assigned_to !== assigned;
         const patch: any = {
           titulo: form.titulo,
@@ -229,7 +247,11 @@ function TarefasPage() {
           status: form.status,
           concluida: form.status === "concluida",
           concluida_em:
-            form.status === "concluida" ? original?.concluida_em || new Date().toISOString() : null,
+            form.status === "concluida"
+              ? original?.concluida_em || new Date().toISOString()
+              : form.status === "pendente" || form.status === "em_andamento"
+              ? null
+              : original?.concluida_em,
           data_vencimento: form.data_vencimento || null,
           assigned_to: assigned,
         };
@@ -240,6 +262,11 @@ function TarefasPage() {
           patch.responsavel_id = assigned;
         } else if (assignedChanged && !assigned) {
           patch.assignment_status = null;
+          patch.responsavel_id = user?.id || null;
+        } else if (!assigned) {
+          patch.responsavel_id = user?.id || null;
+        } else {
+          patch.responsavel_id = assigned;
         }
         const { error } = await supabase.from("tarefas").update(patch).eq("id", editingId);
         if (error) throw error;
@@ -252,7 +279,7 @@ function TarefasPage() {
           status: form.status,
           concluida: isConcluida,
           concluida_em: isConcluida ? new Date().toISOString() : null,
-          responsavel_id: form.responsavel_id || assigned || null,
+          responsavel_id: form.responsavel_id || assigned || user?.id || null,
           data_vencimento: form.data_vencimento || null,
           ...(assigned ? { assigned_to: assigned, assignment_status: "pendente" } : {}),
         } as any);
@@ -260,7 +287,7 @@ function TarefasPage() {
       }
     },
     onSuccess: () => {
-      toast.success(editingId ? "Tarefa atualizada" : "Tarefa criada");
+      toast.success(editingId ? "Tarefa atualizada com sucesso!" : "Tarefa criada com sucesso!");
       qc.invalidateQueries({ queryKey: ["tarefas"] });
       qc.invalidateQueries({ queryKey: ["dash-tarefas"] });
       setOpen(false);
@@ -667,12 +694,11 @@ function TarefasPage() {
                                 <DropdownMenuItem onClick={() => setDetailId(t.id)}>
                                   <History className="h-3.5 w-3.5 mr-2" /> Detalhes & Histórico
                                 </DropdownMenuItem>
-                                {t.created_by === user?.id &&
-                                  (!t.assigned_to || t.assignment_status === "pendente") && (
-                                    <DropdownMenuItem onClick={() => openEdit(t)}>
-                                      <Pencil className="h-3.5 w-3.5 mr-2" /> Editar
-                                    </DropdownMenuItem>
-                                  )}
+                                {canEditTask(t) && (
+                                  <DropdownMenuItem onClick={() => openEdit(t)}>
+                                    <Pencil className="h-3.5 w-3.5 mr-2" /> Editar
+                                  </DropdownMenuItem>
+                                )}
                                 {canDelete && (
                                   <>
                                     <DropdownMenuSeparator />
@@ -938,17 +964,16 @@ function TarefasPage() {
                           </Button>
                         </>
                       )}
-                      {t.created_by === user?.id &&
-                        (!t.assigned_to || t.assignment_status === "pendente") && (
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={() => openEdit(t)}
-                            title="Editar"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                        )}
+                      {canEditTask(t) && (
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => openEdit(t)}
+                          title="Editar tarefa"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      )}
                       <Button
                         size="icon"
                         variant="ghost"
@@ -983,123 +1008,139 @@ function TarefasPage() {
       )}
 
       {/* Creation & Edit Dialog */}
-      {canCreate && (
-        <Dialog
-          open={open}
-          onOpenChange={(v) => {
-            setOpen(v);
-            if (!v) setEditingId(null);
-          }}
-        >
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{editingId ? "Editar tarefa" : "Nova tarefa"}</DialogTitle>
-            </DialogHeader>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                create.mutate();
-              }}
-              className="space-y-3"
-            >
-              <div className="space-y-1">
-                <Label>Título *</Label>
-                <Input
-                  required
-                  value={form.titulo ?? ""}
-                  onChange={(e) => setForm({ ...form, titulo: e.target.value })}
-                  placeholder="Nome ou objetivo da tarefa"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label>Descrição</Label>
-                <Textarea
-                  value={form.descricao ?? ""}
-                  onChange={(e) => setForm({ ...form, descricao: e.target.value })}
-                  placeholder="Instruções ou detalhes adicionais..."
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <Label>Status inicial</Label>
-                  <Select
-                    value={form.status}
-                    onValueChange={(v) => setForm({ ...form, status: v })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="pendente">Pendente</SelectItem>
-                      <SelectItem value="em_andamento">Em andamento</SelectItem>
-                      <SelectItem value="concluida">Concluída</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1">
-                  <Label>Prioridade</Label>
-                  <Select
-                    value={form.prioridade}
-                    onValueChange={(v) => setForm({ ...form, prioridade: v })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="baixa">Baixa</SelectItem>
-                      <SelectItem value="media">Média</SelectItem>
-                      <SelectItem value="alta">Alta</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="space-y-1">
-                <Label>Vencimento</Label>
-                <Input
-                  type="date"
-                  value={form.data_vencimento ?? ""}
-                  onChange={(e) => setForm({ ...form, data_vencimento: e.target.value })}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label>Atribuir a (envia para aceitar/recusar)</Label>
+      <Dialog
+        open={open}
+        onOpenChange={(v) => {
+          setOpen(v);
+          if (!v) setEditingId(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Pencil className="h-5 w-5 text-primary" />
+              {editingId ? "Editar tarefa" : "Nova tarefa"}
+            </DialogTitle>
+          </DialogHeader>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              create.mutate();
+            }}
+            className="space-y-4 pt-2"
+          >
+            <div className="space-y-1.5">
+              <Label>Título *</Label>
+              <Input
+                required
+                value={form.titulo ?? ""}
+                onChange={(e) => setForm({ ...form, titulo: e.target.value })}
+                placeholder="Nome ou objetivo da tarefa"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Descrição</Label>
+              <Textarea
+                rows={3}
+                value={form.descricao ?? ""}
+                onChange={(e) => setForm({ ...form, descricao: e.target.value })}
+                placeholder="Instruções ou detalhes adicionais..."
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Status</Label>
                 <Select
-                  value={form.assigned_to ?? ""}
-                  onValueChange={(v) => setForm({ ...form, assigned_to: v })}
+                  value={form.status}
+                  onValueChange={(v) => setForm({ ...form, status: v })}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Ninguém (eu mesmo)" />
+                    <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {pessoas.map((p: any) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.nome}
-                      </SelectItem>
-                    ))}
+                    <SelectItem value="pendente">Pendente</SelectItem>
+                    <SelectItem value="em_andamento">Em andamento</SelectItem>
+                    <SelectItem value="concluida">Concluída</SelectItem>
                   </SelectContent>
                 </Select>
-                {editingId && form.assigned_to && (
-                  <p className="text-[11px] text-muted-foreground">
-                    Alterar o destinatário reenvia a tarefa para aceitar/recusar.
-                  </p>
-                )}
               </div>
+              <div className="space-y-1.5">
+                <Label>Prioridade</Label>
+                <Select
+                  value={form.prioridade}
+                  onValueChange={(v) => setForm({ ...form, prioridade: v })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="baixa">Baixa</SelectItem>
+                    <SelectItem value="media">Média</SelectItem>
+                    <SelectItem value="alta">Alta</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Vencimento</Label>
+              <Input
+                type="date"
+                value={form.data_vencimento ?? ""}
+                onChange={(e) => setForm({ ...form, data_vencimento: e.target.value })}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Atribuir a (envia para aceitar/recusar)</Label>
+              <Select
+                value={form.assigned_to ?? ""}
+                onValueChange={(v) => setForm({ ...form, assigned_to: v })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Ninguém (eu mesmo)" />
+                </SelectTrigger>
+                <SelectContent>
+                  {pessoas.map((p: any) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.nome}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {editingId && form.assigned_to && (
+                <p className="text-[11px] text-muted-foreground">
+                  Alterar o destinatário reenvia a tarefa para aceitar/recusar.
+                </p>
+              )}
+            </div>
 
-              <DialogFooter>
-                <Button type="submit" disabled={create.isPending}>
-                  {create.isPending ? "Salvando..." : editingId ? "Salvar" : "Criar"}
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
-      )}
+            <DialogFooter className="pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setOpen(false);
+                  setEditingId(null);
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={create.isPending}>
+                {create.isPending ? "Salvando..." : editingId ? "Salvar alterações" : "Criar tarefa"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {/* Detail Dialog */}
       <TarefaDetailDialog
         tarefa={detailTask}
         onClose={() => setDetailId(null)}
-        canEdit={!!detailTask && (canCreate || detailTask.responsavel_id === user?.id || isGestor)}
+        canEdit={!!detailTask && canEditTask(detailTask)}
+        onEditTask={(t) => {
+          setDetailId(null);
+          openEdit(t);
+        }}
         pessoas={pessoas}
       />
     </div>
@@ -1110,11 +1151,13 @@ function TarefaDetailDialog({
   tarefa,
   onClose,
   canEdit,
+  onEditTask,
   pessoas,
 }: {
   tarefa: any;
   onClose: () => void;
   canEdit: boolean;
+  onEditTask?: (t: any) => void;
   pessoas: any[];
 }) {
   const qc = useQueryClient();
@@ -1191,8 +1234,18 @@ function TarefaDetailDialog({
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{tarefa.titulo}</DialogTitle>
+        <DialogHeader className="flex flex-row items-center justify-between gap-4 pr-6">
+          <DialogTitle className="text-lg font-bold">{tarefa.titulo}</DialogTitle>
+          {canEdit && onEditTask && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 gap-1.5 text-xs font-medium"
+              onClick={() => onEditTask(tarefa)}
+            >
+              <Pencil className="h-3.5 w-3.5" /> Editar tarefa
+            </Button>
+          )}
         </DialogHeader>
         <div className="space-y-3 text-sm">
           {tarefa.descricao && <p className="text-muted-foreground">{tarefa.descricao}</p>}
