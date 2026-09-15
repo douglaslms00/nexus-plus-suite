@@ -144,9 +144,10 @@ WHERE NOT EXISTS (
   SELECT 1 FROM auth.identities i WHERE i.user_id = u.id
 );
 
--- 3) Garante tokens válidos e limpa campos NULL restantes em auth.users
+-- 3) Garante tokens válidos, confirma e-mails e limpa campos NULL restantes em auth.users
 UPDATE auth.users 
 SET 
+  email_confirmed_at = COALESCE(email_confirmed_at, now()),
   aud = COALESCE(NULLIF(aud, ''), 'authenticated'),
   role = COALESCE(NULLIF(role, ''), 'authenticated'),
   email = COALESCE(email, ''),
