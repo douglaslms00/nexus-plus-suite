@@ -50,6 +50,10 @@ export type NotaAbastecimentoOCR = {
   valor_total: number | null;
   tipo_combustivel: string | null;
   odometro: number | null;
+  /** Placa do veículo normalizada (ex.: "ABC1234" ou "ABC1D23") ou null. */
+  placa: string | null;
+  /** Meio de pagamento como impresso (ex.: "PIX", "Cartão de Crédito") ou null. */
+  forma_pagamento: string | null;
 };
 
 export type FichaRegistroOCR = {
@@ -175,11 +179,19 @@ export const lerFichaRegistroPdf = createServerFn({ method: "POST" })
   });
 
 const NOTA_ABAST_SYSTEM_PROMPT =
-  "Você extrai dados de notas e cupons fiscais de abastecimento de combustível brasileiros (postos de gasolina). Responda SOMENTE com JSON válido, sem markdown, no formato " +
-  '{"data":"YYYY-MM-DD"|null,"posto":string|null,"litros":number|null,"valor_por_litro":number|null,"valor_total":number|null,"tipo_combustivel":string|null,"odometro":number|null}. ' +
-  "Regras: data = data da emissão convertida para YYYY-MM-DD; posto = nome do posto/estabelecimento; litros = quantidade abastecida; valor_por_litro = preço unitário; valor_total = valor TOTAL pago; " +
-  'tipo_combustivel = um destes valores exatos: "gasolina", "etanol", "diesel", "diesel S10", "GNV", "flex" ou "eletrico" (mapeie ex.: S10/diesel S-10→"diesel S10", comum/aditivada→"gasolina", álcool→"etanol"); ' +
+  "Você extrai dados de notas e cupons fiscais de abastecimento de combustível brasileiros (NFC-e / SAT de postos). Responda SOMENTE com JSON válido, sem markdown, no formato " +
+  '{"data":"YYYY-MM-DD"|null,"posto":string|null,"litros":number|null,"valor_por_litro":number|null,"valor_total":number|null,"tipo_combustivel":string|null,"odometro":number|null,"placa":string|null,"forma_pagamento":string|null}. ' +
+  "Regras: data = data de emissão convertida para YYYY-MM-DD; posto = nome fantasia do posto/estabelecimento (sem CNPJ); " +
+  "litros = quantidade do item de COMBUSTÍVEL (unidade L ou LT — se houver vários itens, use o de combustível com maior quantidade; ignore lubrificantes, lavagem e serviços); " +
+  "valor_por_litro = preço unitário do combustível; valor_total = valor TOTAL pago do cupom; " +
+  'tipo_combustivel = um destes valores exatos: "gasolina", "etanol", "diesel", "diesel S10", "GNV", "flex" ou "eletrico" ' +
+  '(mapeie: S10/S-10/diesel S500 comum→"diesel S10" ou "diesel" conforme impresso; comum/aditivada/grid→"gasolina"; álcool/AEHC→"etanol"; GNV→"GNV"); ' +
   "odometro = hodômetro impresso no cupom, se houver (quase nunca há — use null sem inventar). " +
+  "placa = placa do veículo impressa no cupom (procure por rótulos como PLACA, VEÍCULO, FROTA, KM/PLACA). " +
+  "Formatos brasileiros: antigo ABC-1234 (3 letras + 4 dígitos) ou Mercosul ABC1D23 (3 letras + dígito + letra + 2 dígitos). " +
+  "Retorne a placa SEMPRE normalizada: maiúscula, só letras e dígitos, sem traço/espaço (ex.: ABC1234, ABC1D23). " +
+  "Atenção a confusões comuns de leitura: 0/O, 1/I, 5/S, 8/B — use o contexto do formato (posições de letra vs dígito) para decidir. Se não houver placa legível, use null sem inventar. " +
+  "forma_pagamento = meio de pagamento impresso (ex.: Dinheiro, PIX, Cartão de Crédito, Cartão de Débito, Cartão Frota) ou null. " +
   "Use ponto como separador decimal. Extraia apenas o que estiver legível. Não invente dados.";
 
 interface ParsedNotaAbastecimento {
@@ -190,6 +202,19 @@ interface ParsedNotaAbastecimento {
   valor_total?: string | number;
   tipo_combustivel?: string;
   odometro?: string | number;
+  placa?: string;
+  forma_pagamento?: string;
+}
+
+/** Normaliza placa BR: maiúscula, só [A-Z0-9], máx. 7 chars. */
+function normalizarPlacaBR(value: string | undefined): string | null {
+  if (typeof value !== "string") return null;
+  const s = value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 7);
+  if (!s) return null;
+  // Antigo: LLLNNNN | Mercosul: LLLNLNN
+  const ok =
+    /^[A-Z]{3}[0-9]{4}$/.test(s) || /^[A-Z]{3}[0-9][A-Z][0-9]{2}$/.test(s);
+  return ok ? s : null;
 }
 
 function parseNumeroBR(value: string | number | undefined): number | null {
@@ -219,6 +244,10 @@ function parseNotaAbastecimentoJson(raw: string): NotaAbastecimentoOCR {
       : null;
   const date =
     typeof parsed.data === "string" && /^\d{4}-\d{2}-\d{2}$/.test(parsed.data) ? parsed.data : null;
+  const formaPgto =
+    typeof parsed.forma_pagamento === "string" && parsed.forma_pagamento.trim()
+      ? parsed.forma_pagamento.trim().slice(0, 60)
+      : null;
   return {
     data: date,
     posto: text("posto"),
@@ -227,6 +256,8 @@ function parseNotaAbastecimentoJson(raw: string): NotaAbastecimentoOCR {
     valor_total: parseNumeroBR(parsed.valor_total),
     tipo_combustivel: text("tipo_combustivel"),
     odometro: parseNumeroBR(parsed.odometro),
+    placa: normalizarPlacaBR(parsed.placa),
+    forma_pagamento: formaPgto,
   };
 }
 
@@ -270,7 +301,7 @@ export const lerNotaAbastecimento = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<NotaAbastecimentoOCR> => {
     const raw = await chamarIaVisao(
       NOTA_ABAST_SYSTEM_PROMPT,
-      "Extraia os dados deste cupom/nota de abastecimento.",
+      "Extraia os dados deste cupom/nota de abastecimento. Dê atenção especial à placa do veículo (PLACA/VEÍCULO/FROTA) e ao meio de pagamento.",
       data.imageDataUrl,
       "Falha ao ler a nota de abastecimento",
     );
@@ -282,7 +313,7 @@ export const lerNotaAbastecimentoPdf = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<NotaAbastecimentoOCR> => {
     const raw = await chamarIaVisao(
       NOTA_ABAST_SYSTEM_PROMPT,
-      "Extraia os dados desta nota de abastecimento em PDF.",
+      "Extraia os dados desta nota de abastecimento em PDF. Dê atenção especial à placa do veículo (PLACA/VEÍCULO/FROTA) e ao meio de pagamento.",
       `data:application/pdf;base64,${data.pdfBase64}`,
       "Falha ao analisar o PDF da nota de abastecimento",
     );

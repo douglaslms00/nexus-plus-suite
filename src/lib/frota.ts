@@ -166,6 +166,109 @@ export function formatPlaca(v: string): string {
   return s.slice(0, 7);
 }
 
+/** Normaliza placa para comparação: maiúscula, só letras/dígitos, máx. 7. */
+export function normalizarPlaca(v: string | null | undefined): string {
+  return (v ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 7);
+}
+
+/** Valida formato BR: antigo LLLNNNN ou Mercosul LLLNLNN. */
+export function placaValidaBR(v: string | null | undefined): boolean {
+  const s = normalizarPlaca(v);
+  return /^[A-Z]{3}[0-9]{4}$/.test(s) || /^[A-Z]{3}[0-9][A-Z][0-9]{2}$/.test(s);
+}
+
+// Confusões típicas de OCR em cada tipo de posição.
+const OCR_PARA_LETRA: Record<string, string> = { "0": "O", "1": "I", "5": "S", "8": "B", "6": "G", "2": "Z" };
+const OCR_PARA_DIGITO: Record<string, string> = { O: "0", Q: "0", I: "1", L: "1", S: "5", B: "8", G: "6", Z: "2", A: "4" };
+
+// Posições de letra nos dois formatos (0-2 sempre letras; pos 4 só no Mercosul).
+const POS_LETRA_ANTIGO = new Set([0, 1, 2]);
+const POS_LETRA_MERCOSUL = new Set([0, 1, 2, 4]);
+
+/**
+ * Corrige confusões de OCR respeitando o formato da placa:
+ * nas posições de letra troca dígito→letra (0→O, 1→I...),
+ * nas posições de dígito troca letra→dígito (O→0, I→1...).
+ * Retorna a placa corrigida se ficar válida, senão a normalizada.
+ */
+export function corrigirPlacaOcr(placaLida: string | null | undefined): string {
+  const s = normalizarPlaca(placaLida);
+  if (s.length !== 7) return s;
+  // Decide o formato pela posição 4: letra => Mercosul, dígito => antigo.
+  const mercosul = /[A-Z]/.test(s[4]);
+  const posLetra = mercosul ? POS_LETRA_MERCOSUL : POS_LETRA_ANTIGO;
+  const chars = s.split("").map((c, i) =>
+    posLetra.has(i) ? (OCR_PARA_LETRA[c] ?? c) : (OCR_PARA_DIGITO[c] ?? c),
+  );
+  const corrigida = chars.join("");
+  return placaValidaBR(corrigida) ? corrigida : s;
+}
+
+function levenshtein(a: string, b: string): number {
+  const m = a.length;
+  const n = b.length;
+  if (m === 0) return n;
+  if (n === 0) return m;
+  let prev = Array.from({ length: n + 1 }, (_, j) => j);
+  for (let i = 1; i <= m; i++) {
+    const cur = [i];
+    for (let j = 1; j <= n; j++) {
+      cur[j] = Math.min(
+        prev[j] + 1,
+        cur[j - 1] + 1,
+        prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1),
+      );
+    }
+    prev = cur;
+  }
+  return prev[n];
+}
+
+export type VeiculoBasico = { id: string; placa: string; modelo?: string | null; combustivel_padrao?: string | null };
+
+export type ResultadoBuscaPlaca = {
+  /** Placa como lida pela IA (normalizada). */
+  placaLida: string;
+  /** Placa após correção de confusões de OCR. */
+  placaCorrigida: string;
+  /** Veículo com placa idêntica (match exato). */
+  exato: VeiculoBasico | null;
+  /** Veículos próximos (distância ≤ 1) para sugestão manual. */
+  sugestoes: VeiculoBasico[];
+};
+
+/**
+ * Busca a placa lida pela IA entre os veículos cadastrados.
+ * 1) tenta match exato; 2) tenta com correção de OCR; 3) lista próximos (≤1 char).
+ */
+export function buscarVeiculoPorPlaca<T extends VeiculoBasico>(
+  veiculos: T[],
+  placaLida: string | null | undefined,
+): ResultadoBuscaPlaca | null {
+  const lida = normalizarPlaca(placaLida);
+  if (!lida) return null;
+  const porPlaca = new Map(veiculos.map((v) => [normalizarPlaca(v.placa), v]));
+  const exatoDireto = porPlaca.get(lida) ?? null;
+  if (exatoDireto) return { placaLida: lida, placaCorrigida: lida, exato: exatoDireto, sugestoes: [] };
+  const corrigida = corrigirPlacaOcr(lida);
+  const exatoCorrigido = corrigida !== lida ? (porPlaca.get(corrigida) ?? null) : null;
+  if (exatoCorrigido)
+    return { placaLida: lida, placaCorrigida: corrigida, exato: exatoCorrigido, sugestoes: [] };
+  // Sem exato: sugere os mais próximos (tolerância de 1 caractere).
+  const alvos = [lida, corrigida];
+  const sugestoes = veiculos
+    .map((v) => {
+      const p = normalizarPlaca(v.placa);
+      const dist = Math.min(...alvos.map((a) => levenshtein(a, p)));
+      return { v, dist };
+    })
+    .filter(({ dist }) => dist <= 1)
+    .sort((a, b) => a.dist - b.dist)
+    .slice(0, 3)
+    .map(({ v }) => v);
+  return { placaLida: lida, placaCorrigida: corrigida, exato: null, sugestoes };
+}
+
 // Ranking: agrega por motorista
 export function rankingMotoristas(
   motoristas: Motorista[],

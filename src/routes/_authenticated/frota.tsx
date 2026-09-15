@@ -43,6 +43,7 @@ import {
   Loader2,
   Paperclip,
   X,
+  CheckCircle2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { exportCSV, exportPDF } from "@/lib/exports";
@@ -54,6 +55,7 @@ import {
   calcLinhaConsumo,
   alertaRevisao,
   statusCNH,
+  buscarVeiculoPorPlaca,
   CATEGORIAS_GASTO,
   TIPOS_COMBUSTIVEL,
   TIPOS_SERVICO,
@@ -222,12 +224,22 @@ function FrotaPage() {
   const [abastComprovante, setAbastComprovante] = useState<File | null>(null);
   const [abastComprovanteAtual, setAbastComprovanteAtual] = useState<string | null>(null);
   const [lendoNotaAbast, setLendoNotaAbast] = useState(false);
+  // Resultado do reconhecimento de placa da última leitura por IA
+  const [placaIA, setPlacaIA] = useState<null | {
+    placaLida: string;
+    placaCorrigida: string;
+    status: "exato" | "sugestao" | "nao-encontrado";
+    veiculoId?: string;
+    veiculoLabel?: string;
+    sugestoes: { id: string; placa: string; modelo?: string | null; combustivel_padrao?: string | null }[];
+  }>(null);
 
   const abrirNovoAbast = () => {
     setEditAbastId(null);
     setFA({ tipo_combustivel: "diesel", tanque_cheio: true, forma_pagamento: "Dinheiro/PIX", data: new Date().toISOString().slice(0, 10) });
     setAbastComprovante(null);
     setAbastComprovanteAtual(null);
+    setPlacaIA(null);
     setOpenA(true);
   };
 
@@ -250,6 +262,7 @@ function FrotaPage() {
     });
     setAbastComprovante(null);
     setAbastComprovanteAtual(a.comprovante_url ?? null);
+    setPlacaIA(null);
     setOpenA(true);
   };
 
@@ -276,28 +289,129 @@ function FrotaPage() {
       const dados = isPdf
         ? await lerNotaAbastecimentoPdf({ data: { pdfBase64: fileDataUrl.split(",")[1] } })
         : await lerNotaAbastecimento({ data: { imageDataUrl: fileDataUrl } });
+
+      // Cruza a placa lida pela IA com os veículos cadastrados
+      const buscaPlaca = buscarVeiculoPorPlaca(veiculos as any[], dados.placa);
+      const veiculoExato = buscaPlaca?.exato as any | null;
+
+      // Mapeia o meio de pagamento lido para as opções do sistema (tolerante)
+      const meioPagoLido = (dados.forma_pagamento ?? "").toLowerCase();
+      const meioPagoMatch = meioPagoLido
+        ? (MEIOS_PAGAMENTO_ABAST as readonly string[]).find((m) => {
+            const opt = m.toLowerCase();
+            return (
+              opt === meioPagoLido ||
+              (meioPagoLido.includes("pix") && opt.includes("pix")) ||
+              (meioPagoLido.includes("dinheiro") && opt.includes("dinheiro")) ||
+              (meioPagoLido.includes("frota") && opt.includes("frota")) ||
+              (meioPagoLido.includes("shell") && opt.includes("shell")) ||
+              (meioPagoLido.includes("faturamento") && opt.includes("faturamento")) ||
+              (meioPagoLido.includes("credito") && opt.includes("crédito")) ||
+              (meioPagoLido.includes("debito") && opt.includes("débito")) ||
+              (meioPagoLido.includes("cartao") && opt.includes("cartão"))
+            );
+          })
+        : undefined;
+
+      // Normaliza o combustível lido (ex.: "S10" → "diesel S10")
+      const combustLido = (dados.tipo_combustivel ?? "").toLowerCase().replace(/[-_]/g, " ").replace(/\s+/g, " ").trim();
+      const combustMatch = combustLido
+        ? (TIPOS_COMBUSTIVEL as readonly string[]).find((t) => {
+            const opt = t.toLowerCase();
+            return (
+              opt === combustLido ||
+              (combustLido === "s10" && opt === "diesel s10") ||
+              (combustLido.includes("s10") && opt.includes("s10")) ||
+              (combustLido.includes("gasolina") && opt === "gasolina") ||
+              (combustLido.includes("etanol") && opt === "etanol") ||
+              (combustLido.includes("alcool") && opt === "etanol") ||
+              (combustLido.includes("gnv") && opt === "gnv") ||
+              (combustLido.includes("diesel") && opt.startsWith("diesel"))
+            );
+          })
+        : undefined;
+
       setFA((atual: any) => {
         const next: any = { ...atual };
         if (dados.data) next.data = dados.data;
         if (dados.posto) next.posto = dados.posto;
         if (dados.litros != null) next.litros = dados.litros;
         if (dados.valor_por_litro != null) next.valor_por_litro = dados.valor_por_litro;
+        if (dados.valor_total != null) next.valor_total = dados.valor_total;
         if (dados.odometro != null) next.odometro = dados.odometro;
-        if (dados.tipo_combustivel) {
-          const alvo = dados.tipo_combustivel.toLowerCase();
-          const match = (TIPOS_COMBUSTIVEL as readonly string[]).find((t) => t.toLowerCase() === alvo);
-          if (match) next.tipo_combustivel = match;
+        // Veículo: prioriza o reconhecido pela placa; combustível segue a leitura,
+        // ou o padrão do veículo quando a nota não informa.
+        if (veiculoExato) {
+          next.veiculo_id = veiculoExato.id;
+          next.tipo_combustivel = combustMatch ?? veiculoExato.combustivel_padrao ?? next.tipo_combustivel;
+        } else if (combustMatch) {
+          next.tipo_combustivel = combustMatch;
         }
+        if (meioPagoMatch) next.forma_pagamento = meioPagoMatch;
         return next;
       });
+
+      // Guarda o estado da placa para exibir confirmação/sugestão no formulário
+      if (buscaPlaca && veiculoExato) {
+        setPlacaIA({
+          placaLida: buscaPlaca.placaLida,
+          placaCorrigida: buscaPlaca.placaCorrigida,
+          status: "exato",
+          veiculoId: veiculoExato.id,
+          veiculoLabel: `${veiculoExato.placa} — ${veiculoExato.modelo ?? "sem modelo"}`,
+          sugestoes: [],
+        });
+        toast.success(
+          `Placa ${buscaPlaca.placaCorrigida} reconhecida: veículo ${veiculoExato.placa} selecionado. Confira os dados.`,
+        );
+      } else if (buscaPlaca && buscaPlaca.sugestoes.length > 0) {
+        setPlacaIA({
+          placaLida: buscaPlaca.placaLida,
+          placaCorrigida: buscaPlaca.placaCorrigida,
+          status: "sugestao",
+          sugestoes: buscaPlaca.sugestoes,
+        });
+        toast.warning(
+          `Placa ${buscaPlaca.placaCorrigida} lida na nota, mas sem match exato. Confirme o veículo abaixo.`,
+        );
+      } else if (buscaPlaca) {
+        setPlacaIA({
+          placaLida: buscaPlaca.placaLida,
+          placaCorrigida: buscaPlaca.placaCorrigida,
+          status: "nao-encontrado",
+          sugestoes: [],
+        });
+        toast.warning(
+          `Placa ${buscaPlaca.placaCorrigida} reconhecida, mas não há veículo cadastrado com ela. Selecione manualmente.`,
+        );
+      } else {
+        setPlacaIA(null);
+        toast.success("Nota lida com sucesso. Confira os dados antes de salvar.");
+      }
       // Guarda o arquivo como anexo do abastecimento
       setAbastComprovante(file);
-      toast.success("Nota lida com sucesso. Confira os dados antes de salvar.");
     } catch (e: any) {
       toast.error(e.message ?? "Não foi possível ler a nota");
     } finally {
       setLendoNotaAbast(false);
     }
+  };
+
+  // Aplica um veículo sugerido a partir da placa lida pela IA
+  const aplicarSugestaoPlaca = (v: { id: string; placa: string; modelo?: string | null }) => {
+    setFA((atual: any) => ({ ...atual, veiculo_id: v.id }));
+    setPlacaIA((prev) =>
+      prev
+        ? {
+            ...prev,
+            status: "exato",
+            veiculoId: v.id,
+            veiculoLabel: `${v.placa}${v.modelo ? ` — ${v.modelo}` : ""}`,
+            sugestoes: [],
+          }
+        : prev,
+    );
+    toast.success(`Veículo ${v.placa} selecionado.`);
   };
 
   const abrirComprovanteAbast = async (path: string) => {
@@ -821,7 +935,7 @@ function FrotaPage() {
         <TabsContent value="combustivel" className="space-y-3 mt-4">
           <div className="flex flex-wrap gap-2">
             {canEdit && (
-              <Dialog open={openA} onOpenChange={(o) => { setOpenA(o); if (!o) { setAbastComprovante(null); setAbastComprovanteAtual(null); setEditAbastId(null); } }}>
+              <Dialog open={openA} onOpenChange={(o) => { setOpenA(o); if (!o) { setAbastComprovante(null); setAbastComprovanteAtual(null); setEditAbastId(null); setPlacaIA(null); } }}>
                 <DialogTrigger asChild><Button onClick={abrirNovoAbast}><Plus className="h-4 w-4" /> Novo abastecimento</Button></DialogTrigger>
                 <DialogContent className="max-h-[90vh] overflow-y-auto">
                   <DialogHeader><DialogTitle>{editAbastId ? "Editar abastecimento" : "Novo abastecimento"}</DialogTitle></DialogHeader>
@@ -831,7 +945,7 @@ function FrotaPage() {
                         <Sparkles className="h-4 w-4 text-primary" />
                         <span className="text-xs font-bold">Preenchimento automático por IA</span>
                       </div>
-                      <p className="text-[11px] text-muted-foreground">Fotografe a nota ou cupom fiscal do posto (imagem ou PDF) e a IA preenche data, posto, litros e valores.</p>
+                      <p className="text-[11px] text-muted-foreground">Fotografe a nota ou cupom fiscal do posto (imagem ou PDF) e a IA preenche data, posto, placa do veículo, litros, valores e pagamento.</p>
                       <div className="flex items-center gap-2">
                         <Input
                           type="file"
@@ -844,6 +958,51 @@ function FrotaPage() {
                       </div>
                       {lendoNotaAbast && <p className="text-[11px] text-muted-foreground">Lendo nota com IA, aguarde...</p>}
                     </div>
+                    {/* Resultado do reconhecimento da placa */}
+                    {placaIA?.status === "exato" && (
+                      <div className="rounded-lg border border-emerald-300 bg-emerald-50/60 dark:bg-emerald-950/20 dark:border-emerald-800 p-3 flex items-center gap-2">
+                        <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                        <p className="text-xs">
+                          <span className="font-bold">Placa {placaIA.placaCorrigida}</span> reconhecida
+                          {placaIA.placaLida !== placaIA.placaCorrigida && (
+                            <span className="text-muted-foreground"> (lida como {placaIA.placaLida})</span>
+                          )}{" "}
+                          — veículo <span className="font-semibold">{placaIA.veiculoLabel}</span> selecionado automaticamente.
+                        </p>
+                      </div>
+                    )}
+                    {placaIA?.status === "sugestao" && (
+                      <div className="rounded-lg border border-amber-300 bg-amber-50/60 dark:bg-amber-950/20 dark:border-amber-800 p-3 space-y-2">
+                        <p className="text-xs flex items-center gap-1.5">
+                          <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                          <span>
+                            <span className="font-bold">Placa {placaIA.placaCorrigida}</span> lida na nota, sem match exato. Toque para confirmar o veículo:
+                          </span>
+                        </p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {placaIA.sugestoes.map((s) => (
+                            <Button
+                              key={s.id}
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-xs gap-1"
+                              onClick={() => aplicarSugestaoPlaca(s)}
+                            >
+                              <Truck className="h-3.5 w-3.5" /> {s.placa}{s.modelo ? ` — ${s.modelo}` : ""}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {placaIA?.status === "nao-encontrado" && (
+                      <div className="rounded-lg border p-3 flex items-center gap-2 bg-muted/40">
+                        <AlertTriangle className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <p className="text-xs text-muted-foreground">
+                          <span className="font-bold text-foreground">Placa {placaIA.placaCorrigida}</span> reconhecida, mas não há veículo cadastrado com ela. Selecione o veículo manualmente abaixo.
+                        </p>
+                      </div>
+                    )}
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-1 col-span-2"><Label>Veículo *</Label>
                         <Select value={fA.veiculo_id ?? ""} onValueChange={(v) => {
