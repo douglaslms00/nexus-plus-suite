@@ -66,8 +66,11 @@ BEGIN
     v_instance_id := '00000000-0000-0000-0000-000000000000';
   END IF;
 
-  -- INSERT completo: GoTrue NÃO aceita NULL nas colunas de token.
-  -- Todas vão como '' (padrão do Auth API). Timestamptz opcionais ficam NULL.
+  -- INSERT completo: GoTrue NÃO aceita NULL nas colunas de token de e-mail.
+  -- Essas vão como '' (padrão do Auth API). Timestamptz opcionais ficam NULL.
+  -- ATENÇÃO: phone tem UNIQUE (users_phone_key) — múltiplos '' violam a
+  -- constraint. Telefone ausente deve ser NULL (Postgres permite vários NULLs
+  -- no UNIQUE). Por isso phone/phone_change/phone_change_token vão como NULL.
   -- confirmed_at é coluna gerada: não incluir.
   INSERT INTO auth.users (
     id,
@@ -118,10 +121,10 @@ BEGIN
     NULL,    -- email_change_sent_at
     '',      -- email_change_token_current
     0,       -- email_change_confirm_status
-    '',      -- phone (GoTrue espera '' e não NULL)
+    NULL,    -- phone: NULL! '' viola users_phone_key (UNIQUE)
     NULL,    -- phone_confirmed_at
-    '',      -- phone_change
-    '',      -- phone_change_token
+    NULL,    -- phone_change: NULL (sem telefone)
+    NULL,    -- phone_change_token: NULL (sem telefone)
     NULL,    -- phone_change_sent_at
     '',      -- reauthentication_token
     NULL,    -- reauthentication_sent_at
@@ -167,15 +170,20 @@ GRANT EXECUTE ON FUNCTION public.admin_create_user_login(TEXT, TEXT, TEXT, BOOLE
 
 -- Limpeza de usuários já criados com NULL (causam o 500 no login).
 -- Idempotente: só toca onde IS NULL. Colunas timestamptz/bool podem ser NULL.
+-- phone NÃO entra aqui: tem UNIQUE e NULL é o valor correto para "sem telefone".
 UPDATE auth.users SET confirmation_token = '' WHERE confirmation_token IS NULL;
 UPDATE auth.users SET recovery_token = '' WHERE recovery_token IS NULL;
 UPDATE auth.users SET email_change_token_new = '' WHERE email_change_token_new IS NULL;
 UPDATE auth.users SET email_change = '' WHERE email_change IS NULL;
 UPDATE auth.users SET email_change_token_current = '' WHERE email_change_token_current IS NULL;
-UPDATE auth.users SET phone = '' WHERE phone IS NULL;
-UPDATE auth.users SET phone_change = '' WHERE phone_change IS NULL;
-UPDATE auth.users SET phone_change_token = '' WHERE phone_change_token IS NULL;
 UPDATE auth.users SET reauthentication_token = '' WHERE reauthentication_token IS NULL;
 UPDATE auth.users SET email = '' WHERE email IS NULL;
+-- Reverte '' acidental em phone (deixa só NULL; '' duplicado quebra o UNIQUE):
+-- mantém no máximo 1 linha com '' caso ela represente um telefone real vazio,
+-- o resto volta para NULL.
+UPDATE auth.users SET phone = NULL WHERE phone = '';
+-- phone_change/phone_change_token também ficam NULL quando não há telefone:
+UPDATE auth.users SET phone_change = NULL WHERE phone_change = '';
+UPDATE auth.users SET phone_change_token = NULL WHERE phone_change_token = '';
 
 NOTIFY pgrst, 'reload schema';
