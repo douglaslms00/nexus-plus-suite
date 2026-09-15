@@ -77,8 +77,8 @@ const SYSTEM_ROLES: { key: AppRole; label: string; description: string }[] = [
   },
   {
     key: "colaborador",
-    label: "Colaborador",
-    description: "Visualiza apenas Dashboard, Tarefas, Funcionários e EPIs.",
+    label: "Novo Colaborador",
+    description: "Cargo inicial padrão para novos usuários. Permissões básicas até ser alterado por um gestor/admin.",
   },
 ];
 const TEMPLATES: AppRole[] = ["gestor", "financeiro", "colaborador"];
@@ -1875,7 +1875,7 @@ function CreateUserLoginCard({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [cargoKey, setCargoKey] = useState("");
+  const [cargoKey, setCargoKey] = useState("sys:colaborador");
   const [isAdmin, setIsAdminCheck] = useState(false);
   const [loading, setLoading] = useState(false);
   // True quando a função admin_create_user_login não existe no banco (migration pendente).
@@ -1921,7 +1921,7 @@ function CreateUserLoginCard({
         _password: password,
         _nome: nome.trim(),
         _is_admin: isAdmin,
-        _cargo_key: cargoKey || null,
+        _cargo_key: cargoKey || "sys:colaborador",
       });
 
       let usouFallback = false;
@@ -1991,7 +1991,7 @@ function CreateUserLoginCard({
       setNome("");
       setEmail("");
       setPassword("");
-      setCargoKey("");
+      setCargoKey("sys:colaborador");
       setIsAdminCheck(false);
       onUserCreated();
     } catch (err: any) {
