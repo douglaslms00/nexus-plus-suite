@@ -1,12 +1,13 @@
--- Migration: admin_create_user_login
--- Permite que admins e gestores criem logins de acesso para novos usuǭrios
--- diretamente pela tela de Acessos, sem necessidade de auto-cadastro.
+-- Migration: fix admin_create_user_login pgcrypto schema
+-- Corrige "function gen_salt(unknown) does not exist" (SQLSTATE 42883).
+-- Causa: no Supabase a extensão pgcrypto mora no schema "extensions",
+-- mas a função foi criada com SET search_path = public, auth,
+-- então crypt()/gen_salt() ficavam invisíveis dentro da função.
+--
+-- Correção: garante pgcrypto em "extensions" (se ainda não existir em
+-- nenhum schema) e recria a função com search_path = public, auth, extensions,
+-- o que funciona tanto se pgcrypto estiver em "extensions" quanto em "public".
 
--- pgcrypto: exigida pelo corpo da função (crypt/gen_salt). Idempotente.
--- No Supabase as extensões ficam no schema "extensions", por isso garantimos
--- a extensão lá e incluímos "extensions" no search_path da função.
--- (CREATE ... IF NOT EXISTS é no-op se a extensão já existir em outro schema,
---  então o search_path com public + extensions cobre os dois casos.)
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pgcrypto') THEN
@@ -15,8 +16,6 @@ BEGIN
 END
 $$;
 
--- Função RPC para criar um novo usuário (chamada pelo frontend como admin)
--- Requer que a extensão pgcrypto esteja disponível (já é padrão no Supabase).
 CREATE OR REPLACE FUNCTION public.admin_create_user_login(
   _email       TEXT,
   _password    TEXT,
@@ -54,6 +53,7 @@ BEGIN
 
   -- Cria o usuário no auth.users
   -- Usa email_confirmed_at para pular verificação de e-mail
+  -- crypt/gen_salt resolvem via search_path (public, auth, extensions)
   INSERT INTO auth.users (
     id,
     instance_id,
@@ -110,9 +110,6 @@ BEGIN
 END;
 $$;
 
--- Concede execução apenas a usuários autenticados
 GRANT EXECUTE ON FUNCTION public.admin_create_user_login(TEXT, TEXT, TEXT, BOOLEAN, TEXT) TO authenticated;
 
--- Forca o PostgREST a recarregar o schema cache (sem isso, o frontend pode
--- continuar recebendo PGRST202 'Could not find the function ... in the schema cache').
 NOTIFY pgrst, 'reload schema';

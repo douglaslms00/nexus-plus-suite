@@ -1972,6 +1972,25 @@ function CreateUserLoginCard({
           /in the schema cache/i.test(msg);
         if (!schemaCacheMiss) {
           setUltimoErroRpc(`${code ? `[${code}] ` : ""}${msg}`.slice(0, 300));
+          // Erro clássico: pgcrypto fora do search_path -> gen_salt/crypt invisíveis.
+          // Orienta aplicar a migration de correção em vez de mostrar o erro bruto.
+          if (code === "42883" || /gen_salt|crypt/i.test(msg)) {
+            throw new Error(
+              "Falha de configuração no banco (pgcrypto/gen_salt). " +
+                "Rode no Supabase SQL Editor a migration " +
+                "20260916000000_fix_admin_create_user_auth_columns.sql e tente de novo.",
+            );
+          }
+          // GoTrue retorna "Database error querying schema" quando auth.users tem
+          // NULL nas colunas de token (INSERT manual incompleto). A migration
+          // 20260916000000 corrige a função + limpa os NULLs para ''.
+          if (/querying schema|confirmation_token|converting NULL to string/i.test(msg)) {
+            throw new Error(
+              "Banco com usuários incompletos em auth.users (NULL em colunas de token). " +
+                "Rode no Supabase SQL Editor a migration " +
+                "20260916000000_fix_admin_create_user_auth_columns.sql e tente de novo.",
+            );
+          }
           throw error;
         }
         setUltimoErroRpc(`${code ? `[${code}] ` : ""}${msg}`.slice(0, 300));
