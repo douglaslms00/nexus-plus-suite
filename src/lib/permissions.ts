@@ -332,6 +332,7 @@ function mergeCustomPerms(
 
 export function useModulePerm(module: AppModule): ModulePerm {
   const { data: roles } = useUserRoles();
+  if (roles?.includes("admin")) return { can_view: true, can_edit: true, can_delete: true };
   const { data: overrides } = useMyModulePermissions();
   const { data: customRoles } = useMyCustomRoles();
   const { data: customPerms } = useAllCustomRolePerms();
@@ -355,6 +356,7 @@ export function effectivePerm(
   customPerms: CustomRolePerm[] = [],
   systemPerms: SystemRolePerm[] = [],
 ): ModulePerm {
+  if (roles?.includes("admin")) return { can_view: true, can_edit: true, can_delete: true };
   const o = overrides?.find((x) => x.module === module);
   if (o) return { can_view: o.can_view, can_edit: o.can_edit, can_delete: o.can_delete };
   const fromCustom = mergeCustomPerms(module, customRoleIds, customPerms);

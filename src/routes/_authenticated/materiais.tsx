@@ -181,20 +181,115 @@ function MateriaisPage() {
       qc.invalidateQueries({ queryKey: ["dash-mat"] });
     },
   });
-  const createMv = useMutation({
+  const [editingMv, setEditingMv] = useState<any>(null);
+
+  const openNewMv = () => {
+    setEditingMv(null);
+    setFMv({ tipo: "entrada" });
+    setOpenMv(true);
+  };
+
+  const openEditMv = (m: any) => {
+    setEditingMv(m);
+    setFMv({
+      material_id: m.material_id,
+      tipo: m.tipo,
+      quantidade: m.quantidade,
+      obra_id: m.obra_id ?? "",
+      data: m.data ?? new Date().toISOString().slice(0, 10),
+      observacoes: m.observacoes ?? "",
+    });
+    setOpenMv(true);
+  };
+
+  const saveMv = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase
-        .from("material_movimentos")
-        .insert({ ...fMv, created_by: user?.id });
-      if (error) throw error;
+      const qtd = Number(fMv.quantidade) || 0;
+      if (editingMv) {
+        const oldDelta = editingMv.tipo === "entrada" ? Number(editingMv.quantidade) : -Number(editingMv.quantidade);
+        const newDelta = fMv.tipo === "entrada" ? qtd : -qtd;
+
+        const { error } = await supabase
+          .from("material_movimentos")
+          .update({
+            material_id: fMv.material_id,
+            tipo: fMv.tipo,
+            quantidade: qtd,
+            obra_id: fMv.obra_id || null,
+            data: fMv.data || new Date().toISOString().slice(0, 10),
+            observacoes: fMv.observacoes || null,
+          })
+          .eq("id", editingMv.id);
+
+        if (error) throw error;
+
+        if (editingMv.material_id === fMv.material_id) {
+          const mat = materiais.find((x: any) => x.id === fMv.material_id);
+          if (mat) {
+            const netChange = newDelta - oldDelta;
+            const newStock = Math.max(0, (Number(mat.estoque_atual) || 0) + netChange);
+            await supabase.from("materiais").update({ estoque_atual: newStock }).eq("id", mat.id);
+          }
+        } else {
+          // Revert old material
+          const oldMat = materiais.find((x: any) => x.id === editingMv.material_id);
+          if (oldMat) {
+            const reverted = Math.max(0, (Number(oldMat.estoque_atual) || 0) - oldDelta);
+            await supabase.from("materiais").update({ estoque_atual: reverted }).eq("id", oldMat.id);
+          }
+          // Apply new material
+          const newMat = materiais.find((x: any) => x.id === fMv.material_id);
+          if (newMat) {
+            const added = Math.max(0, (Number(newMat.estoque_atual) || 0) + newDelta);
+            await supabase.from("materiais").update({ estoque_atual: added }).eq("id", newMat.id);
+          }
+        }
+      } else {
+        const { error } = await supabase
+          .from("material_movimentos")
+          .insert({ ...fMv, created_by: user?.id });
+        if (error) throw error;
+
+        // Atualiza estoque do material
+        const mat = materiais.find((x: any) => x.id === fMv.material_id);
+        if (mat) {
+          const delta = fMv.tipo === "entrada" ? qtd : -qtd;
+          const newStock = Math.max(0, (Number(mat.estoque_atual) || 0) + delta);
+          await supabase.from("materiais").update({ estoque_atual: newStock }).eq("id", mat.id);
+        }
+      }
     },
     onSuccess: () => {
-      toast.success("Movimento registrado");
+      toast.success(editingMv ? "Movimento atualizado" : "Movimento registrado");
       qc.invalidateQueries({ queryKey: ["material-movs"] });
       qc.invalidateQueries({ queryKey: ["materiais"] });
       qc.invalidateQueries({ queryKey: ["dash-mat"] });
       setOpenMv(false);
+      setEditingMv(null);
       setFMv({ tipo: "entrada" });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const createMv = saveMv;
+
+  const removeMv = useMutation({
+    mutationFn: async (m: any) => {
+      const oldDelta = m.tipo === "entrada" ? Number(m.quantidade) : -Number(m.quantidade);
+      const { error } = await supabase.from("material_movimentos").delete().eq("id", m.id);
+      if (error) throw error;
+
+      const mat = materiais.find((x: any) => x.id === m.material_id);
+      if (mat) {
+        const newStock = Math.max(0, (Number(mat.estoque_atual) || 0) - oldDelta);
+        await supabase.from("materiais").update({ estoque_atual: newStock }).eq("id", mat.id);
+      }
+    },
+    onSuccess: () => {
+      toast.success("Movimento removido e estoque reajustado");
+      qc.invalidateQueries({ queryKey: ["material-movs"] });
+      qc.invalidateQueries({ queryKey: ["materiais"] });
+      qc.invalidateQueries({ queryKey: ["dash-mat"] });
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -453,20 +548,20 @@ function MateriaisPage() {
         <TabsContent value="mov" className="space-y-3">
           <div className="flex flex-wrap gap-2 items-end justify-between">
             {canCreate && (
-              <Dialog open={openMv} onOpenChange={setOpenMv}>
+              <Dialog open={openMv} onOpenChange={(v) => { setOpenMv(v); if (!v) setEditingMv(null); }}>
                 <DialogTrigger asChild>
-                  <Button>
+                  <Button onClick={openNewMv}>
                     <Plus className="h-4 w-4" /> Novo movimento
                   </Button>
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
-                    <DialogTitle>Entrada / Saída</DialogTitle>
+                    <DialogTitle>{editingMv ? "Editar movimento" : "Entrada / Saída"}</DialogTitle>
                   </DialogHeader>
                   <form
                     onSubmit={(e) => {
                       e.preventDefault();
-                      createMv.mutate();
+                      saveMv.mutate();
                     }}
                     className="space-y-3"
                   >
@@ -538,7 +633,9 @@ function MateriaisPage() {
                       />
                     </div>
                     <DialogFooter>
-                      <Button type="submit">Registrar</Button>
+                      <Button type="submit" disabled={saveMv.isPending}>
+                        {editingMv ? "Salvar" : "Registrar"}
+                      </Button>
                     </DialogFooter>
                   </form>
                 </DialogContent>
@@ -647,6 +744,28 @@ function MateriaisPage() {
                       {m.observacoes && `· ${m.observacoes}`}
                     </p>
                   </div>
+                </div>
+                <div className="flex items-center gap-1">
+                  {canCreate && (
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => openEditMv(m)}
+                      title="Editar movimento"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  )}
+                  {canDelete && (
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => confirm("Excluir movimento? O estoque será reajustado.") && removeMv.mutate(m)}
+                      title="Excluir movimento"
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  )}
                 </div>
               </Card>
             ))}

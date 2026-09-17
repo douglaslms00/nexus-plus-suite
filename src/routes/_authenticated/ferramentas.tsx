@@ -134,28 +134,88 @@ function FerramentasPage() {
     },
   });
 
-  const emprestar = useMutation({
+  const [editingEmp, setEditingEmp] = useState<any>(null);
+
+  const openNewEmp = () => {
+    setEditingEmp(null);
+    setFE({});
+    setOpenE(true);
+  };
+
+  const openEditEmp = (e: any) => {
+    setEditingEmp(e);
+    setFE({
+      ferramenta_id: e.ferramenta_id,
+      funcionario_id: e.funcionario_id,
+      data_emprestimo: e.data_emprestimo ?? "",
+      prevista_devolucao: e.prevista_devolucao ?? "",
+      data_devolucao: e.data_devolucao ?? "",
+      anexo_url: e.anexo_url ?? "",
+      observacoes: e.observacoes ?? "",
+    });
+    setOpenE(true);
+  };
+
+  const saveEmprestimo = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase
-        .from("ferramenta_emprestimos")
-        .insert({ ...fE, created_by: user?.id });
-      if (error) throw error;
-      await supabase
-        .from("ferramentas")
-        .update({ estado: "emprestada" })
-        .eq("id", fE.ferramenta_id);
+      if (editingEmp) {
+        const payload = {
+          ferramenta_id: fE.ferramenta_id,
+          funcionario_id: fE.funcionario_id || null,
+          data_emprestimo: fE.data_emprestimo || new Date().toISOString().slice(0, 10),
+          prevista_devolucao: fE.prevista_devolucao || null,
+          data_devolucao: fE.data_devolucao || null,
+          anexo_url: fE.anexo_url || null,
+          observacoes: fE.observacoes || null,
+        };
+        const { error } = await supabase.from("ferramenta_emprestimos").update(payload).eq("id", editingEmp.id);
+        if (error) throw error;
+
+        // Atualiza estado da ferramenta conforme devolução
+        if (fE.data_devolucao) {
+          await supabase.from("ferramentas").update({ estado: "disponivel" }).eq("id", fE.ferramenta_id);
+        }
+      } else {
+        const { error } = await supabase
+          .from("ferramenta_emprestimos")
+          .insert({ ...fE, created_by: user?.id });
+        if (error) throw error;
+        await supabase
+          .from("ferramentas")
+          .update({ estado: "emprestada" })
+          .eq("id", fE.ferramenta_id);
+      }
     },
     onSuccess: () => {
-      toast.success("Empréstimo registrado");
+      toast.success(editingEmp ? "Empréstimo atualizado" : "Empréstimo registrado");
       qc.invalidateQueries({ queryKey: ["emprestimos"] });
       qc.invalidateQueries({ queryKey: ["ferramentas"] });
       qc.invalidateQueries({ queryKey: ["dash-emprestimos"] });
       qc.invalidateQueries({ queryKey: ["dash-ferramentas"] });
       setOpenE(false);
+      setEditingEmp(null);
       setFE({});
     },
     onError: (e: any) => toast.error(e.message),
   });
+
+  const removeEmprestimo = useMutation({
+    mutationFn: async (emp: any) => {
+      const { error } = await supabase.from("ferramenta_emprestimos").delete().eq("id", emp.id);
+      if (error) throw error;
+      if (!emp.data_devolucao) {
+        await supabase.from("ferramentas").update({ estado: "disponivel" }).eq("id", emp.ferramenta_id);
+      }
+    },
+    onSuccess: () => {
+      toast.success("Empréstimo removido");
+      qc.invalidateQueries({ queryKey: ["emprestimos"] });
+      qc.invalidateQueries({ queryKey: ["ferramentas"] });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const emprestar = saveEmprestimo;
 
   const devolver = useMutation({
     mutationFn: async (e: any) => {
@@ -490,7 +550,7 @@ function FerramentasPage() {
                     {e.data_devolucao ? `· devolvido em ${e.data_devolucao}` : "· em aberto"}
                   </p>
                 </div>
-                <div className="flex gap-1">
+                <div className="flex items-center gap-1">
                   {e.anexo_url && (
                     <Button
                       size="icon"
@@ -503,7 +563,27 @@ function FerramentasPage() {
                   )}
                   {!e.data_devolucao && canEdit && (
                     <Button size="sm" variant="outline" onClick={() => devolver.mutate(e)}>
-                      <RotateCcw className="h-3 w-3" /> Devolver
+                      <RotateCcw className="h-3 w-3 mr-1" /> Devolver
+                    </Button>
+                  )}
+                  {canEdit && (
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => openEditEmp(e)}
+                      title="Editar empréstimo"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  )}
+                  {canDelete && (
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => confirm("Excluir empréstimo?") && removeEmprestimo.mutate(e)}
+                      title="Excluir empréstimo"
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
                   )}
                 </div>

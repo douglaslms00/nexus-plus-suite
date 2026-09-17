@@ -25,7 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Plus, Trash2, Wrench, ArrowRightLeft, Check, X } from "lucide-react";
+import { Plus, Trash2, Wrench, ArrowRightLeft, Check, X, Pencil } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/ativos")({ component: AtivosPage });
@@ -84,25 +84,86 @@ function AtivosPage() {
   const [fM, setFM] = useState<any>({ tipo: "preventiva" });
   const [fT, setFT] = useState<any>({});
 
-  const createAtivo = useMutation({
+  const [editingAtivo, setEditingAtivo] = useState<any>(null);
+
+  const openNewAtivo = () => {
+    setEditingAtivo(null);
+    setFA({ estado: "em_uso" });
+    setOpenA(true);
+  };
+
+  const openEditAtivo = (a: any) => {
+    setEditingAtivo(a);
+    setFA({
+      nome: a.nome ?? "",
+      codigo: a.codigo ?? "",
+      categoria: a.categoria ?? "",
+      valor: a.valor ?? "",
+      data_aquisicao: a.data_aquisicao ?? "",
+      estado: a.estado ?? "em_uso",
+      obra_id: a.obra_id ?? "",
+      descricao: a.descricao ?? "",
+    });
+    setOpenA(true);
+  };
+
+  const saveAtivo = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from("ativos").insert(fA);
-      if (error) throw error;
+      const payload = { ...fA };
+      delete payload.obra;
+      Object.keys(payload).forEach((k) => {
+        if (payload[k] === "") payload[k] = null;
+      });
+      if (editingAtivo) {
+        const { error } = await supabase.from("ativos").update(payload).eq("id", editingAtivo.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("ativos").insert(payload);
+        if (error) throw error;
+      }
     },
     onSuccess: () => {
-      toast.success("Ativo criado");
+      toast.success(editingAtivo ? "Ativo atualizado" : "Ativo criado");
       qc.invalidateQueries({ queryKey: ["ativos"] });
       setOpenA(false);
+      setEditingAtivo(null);
       setFA({ estado: "em_uso" });
     },
     onError: (e: any) => toast.error(e.message),
   });
+
+  const createAtivo = saveAtivo;
+
   const removeAtivo = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("ativos").delete().eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["ativos"] }),
+  });
+
+  const removeManut = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("ativo_manutencoes").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Manutenção removida");
+      qc.invalidateQueries({ queryKey: ["manutencoes"] });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const removeTransf = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("ativo_transferencias").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Transferência removida");
+      qc.invalidateQueries({ queryKey: ["transferencias"] });
+    },
+    onError: (e: any) => toast.error(e.message),
   });
   const createManut = useMutation({
     mutationFn: async () => {
@@ -181,20 +242,20 @@ function AtivosPage() {
 
         <TabsContent value="lista" className="space-y-3">
           {canCreate && (
-            <Dialog open={openA} onOpenChange={setOpenA}>
+            <Dialog open={openA} onOpenChange={(v) => { setOpenA(v); if (!v) setEditingAtivo(null); }}>
               <DialogTrigger asChild>
-                <Button>
+                <Button onClick={openNewAtivo}>
                   <Plus className="h-4 w-4" /> Novo ativo
                 </Button>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Novo ativo</DialogTitle>
+                  <DialogTitle>{editingAtivo ? "Editar ativo" : "Novo ativo"}</DialogTitle>
                 </DialogHeader>
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
-                    createAtivo.mutate();
+                    saveAtivo.mutate();
                   }}
                   className="space-y-3"
                 >
@@ -279,7 +340,7 @@ function AtivosPage() {
                     />
                   </div>
                   <DialogFooter>
-                    <Button type="submit">Criar</Button>
+                    <Button type="submit">{editingAtivo ? "Salvar" : "Criar"}</Button>
                   </DialogFooter>
                 </form>
               </DialogContent>
@@ -301,15 +362,28 @@ function AtivosPage() {
                     </p>
                     {a.valor && <p className="text-sm mt-1">R$ {Number(a.valor).toFixed(2)}</p>}
                   </div>
-                  {canDelete && (
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => confirm("Excluir?") && removeAtivo.mutate(a.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  )}
+                  <div className="flex items-center gap-1">
+                    {canCreate && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => openEditAtivo(a)}
+                        title="Editar ativo"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                    )}
+                    {canDelete && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => confirm("Excluir?") && removeAtivo.mutate(a.id)}
+                        title="Excluir ativo"
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </Card>
             ))}
@@ -426,7 +500,19 @@ function AtivosPage() {
                     </p>
                   </div>
                 </div>
-                {m.custo && <span className="text-sm">R$ {Number(m.custo).toFixed(2)}</span>}
+                <div className="flex items-center gap-2">
+                  {m.custo && <span className="text-sm">R$ {Number(m.custo).toFixed(2)}</span>}
+                  {canDelete && (
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => confirm("Excluir manutenção?") && removeManut.mutate(m.id)}
+                      title="Excluir manutenção"
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  )}
+                </div>
               </Card>
             ))}
             {manutencoes.length === 0 && (
@@ -554,6 +640,16 @@ function AtivosPage() {
                           <X className="h-4 w-4 text-destructive" />
                         </Button>
                       </>
+                    )}
+                    {canDelete && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => confirm("Excluir transferência?") && removeTransf.mutate(t.id)}
+                        title="Excluir transferência"
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
                     )}
                   </div>
                 </div>
