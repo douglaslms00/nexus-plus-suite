@@ -60,14 +60,17 @@ function MateriaisPage() {
 
   const { data: materiais = [] } = useQuery({
     queryKey: ["materiais"],
+    enabled: perm.can_view,
     queryFn: async () => (await supabase.from("materiais").select("*").order("nome")).data ?? [],
   });
   const { data: obras = [] } = useQuery({
     queryKey: ["obras-min2"],
+    enabled: perm.can_view,
     queryFn: async () => (await supabase.from("obras").select("id, nome").order("nome")).data ?? [],
   });
   const { data: movs = [] } = useQuery({
     queryKey: ["material-movs", obraId],
+    enabled: perm.can_view,
     queryFn: async () => {
       let q = supabase
         .from("material_movimentos")

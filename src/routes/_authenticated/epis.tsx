@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useModulePerm } from "@/lib/permissions";
+import { RequireModulePerm } from "@/components/RequireModulePerm";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -35,7 +36,11 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/epis")({
-  component: EpisPage,
+  component: () => (
+    <RequireModulePerm module="epis">
+      <EpisPage />
+    </RequireModulePerm>
+  ),
 });
 
 function EpisPage() {
@@ -46,6 +51,7 @@ function EpisPage() {
 
   const { data: epis = [] } = useQuery({
     queryKey: ["epis"],
+    enabled: perm.can_view,
     queryFn: async () => {
       const { data, error } = await supabase.from("epis").select("*").order("nome");
       if (error) throw error;
@@ -55,6 +61,7 @@ function EpisPage() {
 
   const { data: movs = [] } = useQuery({
     queryKey: ["epi_movs"],
+    enabled: perm.can_view,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("epi_movimentos")
@@ -68,6 +75,7 @@ function EpisPage() {
 
   const { data: funcionarios = [] } = useQuery({
     queryKey: ["funcionarios-min"],
+    enabled: perm.can_view,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("funcionarios")

@@ -45,6 +45,7 @@ function FinanceiroPage() {
 
   const { data: contasObra = [] } = useQuery({
     queryKey: ["contas-obra", obraId],
+    enabled: perm.can_view,
     queryFn: async () => {
       let q = (supabase as any)
         .from("contas_financeiras")
@@ -58,7 +59,7 @@ function FinanceiroPage() {
 
   const { data: contasPessoais = [] } = useQuery({
     queryKey: ["contas-pessoal", user?.id],
-    enabled: !!user?.id,
+    enabled: !!user?.id && perm.can_view,
     queryFn: async () =>
       (
         await (supabase as any)
@@ -73,7 +74,7 @@ function FinanceiroPage() {
   const { data: profiles = [] } = useQuery({
     queryKey: ["profiles-fin"],
     queryFn: async () => (await (supabase as any).rpc("list_profile_directory")).data ?? [],
-    enabled: canEdit,
+    enabled: perm.can_view && canEdit,
   });
 
   const [open, setOpen] = useState(false);

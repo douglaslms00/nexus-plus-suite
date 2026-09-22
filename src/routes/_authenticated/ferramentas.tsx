@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { canManage, isAdmin, useUserRoles, useCurrentUser, useModulePerm } from "@/lib/permissions";
+import { RequireModulePerm } from "@/components/RequireModulePerm";
 import { useObraAtual } from "@/lib/obra-context.types";
 import { uploadAnexo, getAnexoUrl } from "@/lib/upload";
 import { Button } from "@/components/ui/button";
@@ -39,7 +40,13 @@ import { toast } from "sonner";
 import { differenceInDays } from "date-fns";
 import { safeParseISO } from "@/lib/utils";
 
-export const Route = createFileRoute("/_authenticated/ferramentas")({ component: FerramentasPage });
+export const Route = createFileRoute("/_authenticated/ferramentas")({
+  component: () => (
+    <RequireModulePerm module="ferramentas">
+      <FerramentasPage />
+    </RequireModulePerm>
+  ),
+});
 
 function FerramentasPage() {
   const qc = useQueryClient();
@@ -52,6 +59,7 @@ function FerramentasPage() {
 
   const { data: ferramentas = [] } = useQuery({
     queryKey: ["ferramentas", obraId],
+    enabled: perm.can_view,
     queryFn: async () => {
       let q = supabase.from("ferramentas").select("*, obra:obras(nome)").order("nome");
       if (obraId) q = q.eq("obra_id", obraId);
@@ -60,16 +68,19 @@ function FerramentasPage() {
   });
   const { data: obras = [] } = useQuery({
     queryKey: ["obras-min-fer"],
+    enabled: perm.can_view,
     queryFn: async () => (await supabase.from("obras").select("id, nome").order("nome")).data ?? [],
   });
   const { data: funcionarios = [] } = useQuery({
     queryKey: ["func-min"],
+    enabled: perm.can_view,
     queryFn: async () =>
       (await supabase.from("funcionarios").select("id, nome").eq("ativo", true).order("nome"))
         .data ?? [],
   });
   const { data: emprestimos = [] } = useQuery({
     queryKey: ["emprestimos"],
+    enabled: perm.can_view,
     queryFn: async () =>
       (
         await supabase

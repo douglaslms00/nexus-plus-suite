@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { canManage, isAdmin, useUserRoles, useModulePerm } from "@/lib/permissions";
+import { RequireModulePerm } from "@/components/RequireModulePerm";
 import { useObraAtual } from "@/lib/obra-context.types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -68,7 +69,11 @@ import { cn, safeParseISO, safeFormatDate } from "@/lib/utils";
 import { lerFichaRegistro, lerFichaRegistroPdf } from "@/lib/ocr.functions";
 
 export const Route = createFileRoute("/_authenticated/funcionarios")({
-  component: FuncionariosPage,
+  component: () => (
+    <RequireModulePerm module="funcionarios">
+      <FuncionariosPage />
+    </RequireModulePerm>
+  ),
 });
 
 const VENC: ReadonlyArray<readonly [string, string, string | null]> = [
@@ -168,6 +173,7 @@ function FuncionariosPage() {
 
   const { data: funcionarios = [], isLoading } = useQuery({
     queryKey: ["funcionarios", obraId],
+    enabled: perm.can_view,
     staleTime: 1000 * 60 * 2,
     queryFn: async () => {
       let q = supabase.from("funcionarios").select("*").order("nome").limit(1000);
@@ -180,6 +186,7 @@ function FuncionariosPage() {
 
   const { data: obras = [] } = useQuery({
     queryKey: ["obras-min-func"],
+    enabled: perm.can_view,
     staleTime: 1000 * 60 * 10,
     queryFn: async () => {
       const { data, error } = await supabase.from("obras").select("id, nome").order("nome");
@@ -190,7 +197,7 @@ function FuncionariosPage() {
 
   const { data: allTreinamentosRaw = [] } = useQuery({
     queryKey: ["funcionario-treinamentos-all", funcionarios.map((f: any) => f.id).sort().join(",")],
-    enabled: funcionarios.length > 0,
+    enabled: perm.can_view && funcionarios.length > 0,
     staleTime: 1000 * 60 * 2,
     retry: 1,
     queryFn: async () => {

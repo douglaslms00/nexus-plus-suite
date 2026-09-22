@@ -110,6 +110,7 @@ function FrotaPage() {
   // ---- QUERIES ----
   const { data: veiculos = [] } = useQuery({
     queryKey: ["frota-veiculos", obraId],
+    enabled: perm.can_view,
     queryFn: async () => {
       let q = supabase.from("frota_veiculos").select("*, obra:obras(nome)").order("placa");
       if (obraId) q = q.eq("obra_id", obraId);
@@ -120,6 +121,7 @@ function FrotaPage() {
   });
   const { data: motoristas = [] } = useQuery({
     queryKey: ["frota-motoristas"],
+    enabled: perm.can_view,
     queryFn: async () => {
       const { data, error } = await supabase.from("frota_motoristas").select("*").order("nome");
       if (error) throw error;
@@ -128,6 +130,7 @@ function FrotaPage() {
   });
   const { data: abastecimentos = [] } = useQuery({
     queryKey: ["frota-abastecimentos", obraId],
+    enabled: perm.can_view,
     queryFn: async () => {
       let q = supabase
         .from("frota_abastecimentos")
@@ -142,6 +145,7 @@ function FrotaPage() {
   });
   const { data: manutencoes = [] } = useQuery({
     queryKey: ["frota-manutencoes", obraId],
+    enabled: perm.can_view,
     queryFn: async () => {
       let q = supabase
         .from("frota_manutencoes")
@@ -155,6 +159,7 @@ function FrotaPage() {
   });
   const { data: gastos = [] } = useQuery({
     queryKey: ["frota-gastos", obraId],
+    enabled: perm.can_view,
     queryFn: async () => {
       let q = supabase
         .from("frota_gastos_avulsos")
@@ -168,6 +173,7 @@ function FrotaPage() {
   });
   const { data: pedagios = [] } = useQuery({
     queryKey: ["frota-pedagios", obraId],
+    enabled: perm.can_view,
     queryFn: async () => {
       let q = supabase
         .from("frota_pedagios")
@@ -181,10 +187,12 @@ function FrotaPage() {
   });
   const { data: obras = [] } = useQuery({
     queryKey: ["obras-min-frota"],
+    enabled: perm.can_view,
     queryFn: async () => (await supabase.from("obras").select("id, nome").order("nome")).data ?? [],
   });
   const { data: termos = [] } = useQuery({
     queryKey: ["frota-termos"],
+    enabled: perm.can_view,
     queryFn: () =>
       safeList(async () => {
         const { data, error } = await supabase

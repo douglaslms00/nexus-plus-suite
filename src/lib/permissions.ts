@@ -330,21 +330,38 @@ function mergeCustomPerms(
   };
 }
 
+const DENY_ALL: ModulePerm = { can_view: false, can_edit: false, can_delete: false };
+
 export function useModulePerm(module: AppModule): ModulePerm {
-  const { data: roles } = useUserRoles();
+  const { data: roles, isLoading: rolesLoading } = useUserRoles();
+  const { data: overrides, isLoading: overridesLoading } = useMyModulePermissions();
+  const { data: customRoles, isLoading: customRolesLoading } = useMyCustomRoles();
+  const { data: customPerms, isLoading: customPermsLoading } = useAllCustomRolePerms();
+  const { data: systemPerms, isLoading: systemPermsLoading } = useAllSystemRolePerms();
+
   if (roles?.includes("admin")) return { can_view: true, can_edit: true, can_delete: true };
-  const { data: overrides } = useMyModulePermissions();
-  const { data: customRoles } = useMyCustomRoles();
-  const { data: customPerms } = useAllCustomRolePerms();
-  const { data: systemPerms } = useAllSystemRolePerms();
+
   const o = overrides?.find((x) => x.module === module);
   if (o) return { can_view: o.can_view, can_edit: o.can_edit, can_delete: o.can_delete };
+
   const fromCustom = mergeCustomPerms(
     module,
     (customRoles ?? []).map((c) => c.id),
     customPerms,
   );
   if (fromCustom) return fromCustom;
+
+  // Nega por padrão enquanto as permissões ainda estão carregando.
+  // Antes, o fallback liberava `can_view: true` durante o loading e o
+  // dashboard disparava queries/exibia dados de módulos sem permissão.
+  if (rolesLoading || overridesLoading || customRolesLoading || customPermsLoading || systemPermsLoading) {
+    return DENY_ALL;
+  }
+  if (!roles) return DENY_ALL;
+  // Se as listas de permissões ainda não resolveram, não usa fallback amplo.
+  if (overrides === undefined || customRoles === undefined || customPerms === undefined || systemPerms === undefined) {
+    return DENY_ALL;
+  }
   return defaultPerm(module, roles, systemPerms);
 }
 

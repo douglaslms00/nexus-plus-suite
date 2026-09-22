@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useModulePerm } from "@/lib/permissions";
+import { RequireModulePerm } from "@/components/RequireModulePerm";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,7 +29,13 @@ import { toast } from "sonner";
 import { differenceInDays } from "date-fns";
 import { cn, safeParseISO, safeFormatDate } from "@/lib/utils";
 
-export const Route = createFileRoute("/_authenticated/obras")({ component: ObrasPage });
+export const Route = createFileRoute("/_authenticated/obras")({
+  component: () => (
+    <RequireModulePerm module="obras">
+      <ObrasPage />
+    </RequireModulePerm>
+  ),
+});
 
 const VENC_OBRAS: ReadonlyArray<readonly [string, string, string]> = [
   ["vencimento_alvara", "Alvará", "data_alvara"],
@@ -86,6 +93,7 @@ function ObrasPage() {
 
   const { data: obras = [] } = useQuery({
     queryKey: ["obras"],
+    enabled: perm.can_view,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("obras")
@@ -98,7 +106,7 @@ function ObrasPage() {
 
   const { data: todosOutros = [] } = useQuery({
     queryKey: ["obra-vencimentos-all", obras.map((o: any) => o.id).sort().join(",")],
-    enabled: obras.length > 0,
+    enabled: perm.can_view && obras.length > 0,
     staleTime: 1000 * 60 * 2,
     queryFn: async () => {
       const ids = obras.map((o: any) => o.id);

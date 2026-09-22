@@ -4,9 +4,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { ExternalLink, Loader2, Receipt } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { RequireModulePerm } from "@/components/RequireModulePerm";
 
 export const Route = createFileRoute("/_authenticated/prestacao")({
-  component: PrestacaoPage,
+  component: () => (
+    <RequireModulePerm module="prestacao">
+      <PrestacaoPage />
+    </RequireModulePerm>
+  ),
 });
 
 function PrestacaoPage() {

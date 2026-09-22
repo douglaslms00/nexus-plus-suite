@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { canManage, isAdmin, useUserRoles, useCurrentUser, useModulePerm } from "@/lib/permissions";
+import { RequireModulePerm } from "@/components/RequireModulePerm";
 import { useObraAtual } from "@/lib/obra-context.types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,7 +29,13 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Plus, Trash2, Wrench, ArrowRightLeft, Check, X, Pencil } from "lucide-react";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/_authenticated/ativos")({ component: AtivosPage });
+export const Route = createFileRoute("/_authenticated/ativos")({
+  component: () => (
+    <RequireModulePerm module="ativos">
+      <AtivosPage />
+    </RequireModulePerm>
+  ),
+});
 
 function AtivosPage() {
   const qc = useQueryClient();
@@ -41,6 +48,7 @@ function AtivosPage() {
   const { obraId } = useObraAtual();
   const { data: ativos = [] } = useQuery({
     queryKey: ["ativos", obraId],
+    enabled: perm.can_view,
     queryFn: async () => {
       let q = supabase
         .from("ativos")
@@ -52,10 +60,12 @@ function AtivosPage() {
   });
   const { data: obras = [] } = useQuery({
     queryKey: ["obras-min"],
+    enabled: perm.can_view,
     queryFn: async () => (await supabase.from("obras").select("id, nome").order("nome")).data ?? [],
   });
   const { data: manutencoes = [] } = useQuery({
     queryKey: ["manutencoes"],
+    enabled: perm.can_view,
     queryFn: async () =>
       (
         await supabase
@@ -66,6 +76,7 @@ function AtivosPage() {
   });
   const { data: transferencias = [] } = useQuery({
     queryKey: ["transferencias"],
+    enabled: perm.can_view,
     queryFn: async () =>
       (
         await supabase

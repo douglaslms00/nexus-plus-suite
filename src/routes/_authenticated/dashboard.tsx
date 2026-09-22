@@ -54,12 +54,19 @@ import {
 import { cn, safeFormatDate, safeParseISO } from "@/lib/utils";
 import { safeList } from "@/lib/supabase-safe";
 import { isAdmin, useUserRoles, useModulePerm } from "@/lib/permissions";
+import { RequireModulePerm } from "@/components/RequireModulePerm";
 import { useObraAtual } from "@/lib/obra-context.types";
 import { VENC_FIELDS, computeConformidade, type Status } from "@/lib/conformidade";
 import { differenceInDays } from "date-fns";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/_authenticated/dashboard")({ component: DashboardPage });
+export const Route = createFileRoute("/_authenticated/dashboard")({
+  component: () => (
+    <RequireModulePerm module="dashboard">
+      <DashboardPage />
+    </RequireModulePerm>
+  ),
+});
 
 function StatusDot({ status }: { status: Status }) {
   return (
@@ -356,6 +363,23 @@ function DashboardPage() {
       return obraId || prev || "";
     });
   }, [obraId]);
+
+  // Se a aba ativa deixar de ser permitida (permissões carregaram e negaram),
+  // volta para "alertas" para não exibir conteúdo de módulo sem acesso.
+  // Também corrige o subfiltro de estoque quando o módulo correspondente é negado.
+  const canSeeEstoquesNow = permEpi.can_view || permMat.can_view;
+  const canSeeEquipamentosNow = permFerr.can_view;
+  useEffect(() => {
+    if (activeTab === "vencimentos" && !permFunc.can_view) setActiveTab("alertas");
+    else if (activeTab === "estoques" && !canSeeEstoquesNow) setActiveTab("alertas");
+    else if (activeTab === "tarefas" && !permTarefas.can_view) setActiveTab("alertas");
+    else if (activeTab === "financeiro" && !permFin.can_view) setActiveTab("alertas");
+    else if (activeTab === "equipamentos" && !canSeeEquipamentosNow) setActiveTab("alertas");
+  }, [activeTab, permFunc.can_view, canSeeEstoquesNow, permTarefas.can_view, permFin.can_view, canSeeEquipamentosNow]);
+  useEffect(() => {
+    if (stockFilter === "epis" && !permEpi.can_view) setStockFilter("todos");
+    else if (stockFilter === "materiais" && !permMat.can_view) setStockFilter("todos");
+  }, [stockFilter, permEpi.can_view, permMat.can_view]);
 
   // Sincronismo em tempo real: qualquer mudança no banco invalida o dashboard.
   useEffect(() => {
@@ -1477,8 +1501,9 @@ function DashboardPage() {
         </TabsContent>
 
         {/* ------------------------------------------------------------- */}
-        {/* ABA 2: VENCIMENTOS DE FUNCIONÁRIOS (RH & SST) */}
+        {/* ABA 2: VENCIMENTOS DE FUNCIONÁRIOS (RH & SST) — só com permissão */}
         {/* ------------------------------------------------------------- */}
+        {permFunc.can_view && (
         <TabsContent value="vencimentos" className="space-y-4">
           <Card className="shadow-sm">
             <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pb-3">
@@ -1677,10 +1702,12 @@ function DashboardPage() {
             </CardContent>
           </Card>
         </TabsContent>
+        )}
 
         {/* ------------------------------------------------------------- */}
-        {/* ABA 3: ESTOQUES CRÍTICOS & REABASTECIMENTO */}
+        {/* ABA 3: ESTOQUES CRÍTICOS & REABASTECIMENTO — só com permissão */}
         {/* ------------------------------------------------------------- */}
+        {canSeeEstoques && (
         <TabsContent value="estoques" className="space-y-4">
           <Card className="shadow-sm">
             <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pb-3">
@@ -1703,12 +1730,16 @@ function DashboardPage() {
                     <TabsTrigger value="todos" className="text-xs">
                       Todos ({estoqueCriticoTotal.length})
                     </TabsTrigger>
-                    <TabsTrigger value="epis" className="text-xs">
-                      EPIs ({epiAbaixoMin.length})
-                    </TabsTrigger>
-                    <TabsTrigger value="materiais" className="text-xs">
-                      Materiais ({matAbaixoMin.length})
-                    </TabsTrigger>
+                    {permEpi.can_view && (
+                      <TabsTrigger value="epis" className="text-xs">
+                        EPIs ({epiAbaixoMin.length})
+                      </TabsTrigger>
+                    )}
+                    {permMat.can_view && (
+                      <TabsTrigger value="materiais" className="text-xs">
+                        Materiais ({matAbaixoMin.length})
+                      </TabsTrigger>
+                    )}
                   </TabsList>
                 </Tabs>
               </div>
@@ -1806,14 +1837,17 @@ function DashboardPage() {
                           </div>
                         </div>
 
-                        {/* Botões de Ação */}
+                        {/* Botões de Ação — link só se tiver permissão no módulo de destino */}
                         <div className="mt-4 pt-3 border-t flex items-center justify-between gap-2">
-                          <Link
-                            to={item.tipoItem === "epi" ? "/epis" : "/materiais"}
-                            className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
-                          >
-                            Ver no módulo <ExternalLink className="h-3 w-3" />
-                          </Link>
+                          {((item.tipoItem === "epi" && permEpi.can_view) ||
+                            (item.tipoItem === "material" && permMat.can_view)) && (
+                            <Link
+                              to={item.tipoItem === "epi" ? "/epis" : "/materiais"}
+                              className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
+                            >
+                              Ver no módulo <ExternalLink className="h-3 w-3" />
+                            </Link>
+                          )}
 
                           <Button
                             size="sm"
@@ -1834,10 +1868,12 @@ function DashboardPage() {
             </CardContent>
           </Card>
         </TabsContent>
+        )}
 
         {/* ------------------------------------------------------------- */}
-        {/* ABA 4: TAREFAS & PRAZOS */}
+        {/* ABA 4: TAREFAS & PRAZOS — só com permissão */}
         {/* ------------------------------------------------------------- */}
+        {permTarefas.can_view && (
         <TabsContent value="tarefas" className="space-y-4">
           <Card className="shadow-sm">
             <CardHeader className="flex flex-row items-center justify-between pb-3">
@@ -1934,10 +1970,12 @@ function DashboardPage() {
             </CardContent>
           </Card>
         </TabsContent>
+        )}
 
         {/* ------------------------------------------------------------- */}
-        {/* ABA 5: FINANCEIRO */}
+        {/* ABA 5: FINANCEIRO — só com permissão */}
         {/* ------------------------------------------------------------- */}
+        {permFin.can_view && (
         <TabsContent value="financeiro" className="space-y-4">
           <Card className="shadow-sm">
             <CardHeader className="flex flex-row items-center justify-between pb-3">
@@ -2028,10 +2066,12 @@ function DashboardPage() {
             </CardContent>
           </Card>
         </TabsContent>
+        )}
 
         {/* ------------------------------------------------------------- */}
-        {/* ABA 6: EQUIPAMENTOS & EMPRÉSTIMOS */}
+        {/* ABA 6: EQUIPAMENTOS & EMPRÉSTIMOS — só com permissão */}
         {/* ------------------------------------------------------------- */}
+        {canSeeEquipamentos && (
         <TabsContent value="equipamentos" className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2">
             <Card className="shadow-sm">
@@ -2126,6 +2166,7 @@ function DashboardPage() {
             </Card>
           </div>
         </TabsContent>
+        )}
       </Tabs>
 
       {/* ============================================================= */}
@@ -2331,23 +2372,25 @@ function DashboardPage() {
               </div>
 
               <DialogFooter className="flex flex-row items-center justify-between sm:justify-between w-full">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    navigate({
-                      to: "/funcionarios",
-                      search: {
-                        busca: selectedFuncionario.nome,
-                        highlight: selectedFuncionario.id,
-                      } as any,
-                    });
-                  }}
-                  className="gap-1 text-xs"
-                >
-                  <ExternalLink className="h-3.5 w-3.5" /> Abrir Ficha Completa
-                </Button>
+                {permFunc.can_view && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      navigate({
+                        to: "/funcionarios",
+                        search: {
+                          busca: selectedFuncionario.nome,
+                          highlight: selectedFuncionario.id,
+                        } as any,
+                      });
+                    }}
+                    className="gap-1 text-xs"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" /> Abrir Ficha Completa
+                  </Button>
+                )}
                 <Button
                   type="button"
                   variant="secondary"

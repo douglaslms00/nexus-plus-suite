@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { canManage, useCurrentUser, useUserRoles, useModulePerm } from "@/lib/permissions";
+import { RequireModulePerm } from "@/components/RequireModulePerm";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -55,7 +56,11 @@ import { cn, safeParseISO, safeFormatDate } from "@/lib/utils";
 import { differenceInCalendarDays } from "date-fns";
 
 export const Route = createFileRoute("/_authenticated/tarefas")({
-  component: TarefasPage,
+  component: () => (
+    <RequireModulePerm module="tarefas">
+      <TarefasPage />
+    </RequireModulePerm>
+  ),
 });
 
 type TaskStatus = "pendente" | "em_andamento" | "concluida";
@@ -145,6 +150,7 @@ function TarefasPage() {
 
   const { data: tarefas = [] } = useQuery({
     queryKey: ["tarefas"],
+    enabled: permTarefas.can_view,
     retry: 1,
     queryFn: async () => {
       const { data, error } = await supabase
