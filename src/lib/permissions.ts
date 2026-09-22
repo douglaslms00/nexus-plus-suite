@@ -4,6 +4,97 @@ import { isMissingSchemaError } from "@/lib/supabase-safe";
 
 export type AppRole = "admin" | "gestor" | "colaborador" | "financeiro";
 
+// Labels amigáveis dos cargos do sistema (mesmos usados em Acessos).
+// Podem ser sobrescritos pelos valores da tabela `system_role_labels`.
+export const SYSTEM_ROLE_LABELS: Record<AppRole, string> = {
+  admin: "Administrador",
+  gestor: "Gestor",
+  financeiro: "Financeiro",
+  colaborador: "Colaborador",
+};
+
+export type SystemRoleLabel = {
+  role: AppRole;
+  label: string;
+  description: string | null;
+};
+
+export function useSystemRoleLabels() {
+  return useQuery({
+    queryKey: ["system-role-labels"],
+    staleTime: 1000 * 60 * 5,
+    retry: 1,
+    queryFn: async (): Promise<SystemRoleLabel[]> => {
+      const { data, error } = await supabase
+        .from("system_role_labels")
+        .select("role, label, description");
+      if (error) {
+        if (isMissingSchemaError(error)) {
+          console.warn("[useSystemRoleLabels] indisponível, usando padrão:", error.message);
+          return [];
+        }
+        throw error;
+      }
+      return (data ?? []) as SystemRoleLabel[];
+    },
+  });
+}
+
+/** Label amigável de um cargo do sistema, respeitando `system_role_labels`. */
+export function getSystemRoleLabel(
+  role: AppRole,
+  overrides?: SystemRoleLabel[] | null,
+): string {
+  const found = (overrides ?? []).find((l) => l.role === role);
+  const label = found?.label?.trim();
+  if (label) return label;
+  return SYSTEM_ROLE_LABELS[role] ?? role;
+}
+
+export type ResolvedCargo = {
+  key: string;
+  label: string;
+  system: boolean;
+};
+
+/**
+ * Resolve a lista de cargos do usuário para exibição (cabeçalho / sidebar).
+ * - Cargos do sistema primeiro (com label amigável), depois personalizados.
+ * - Deduplicado por `key`.
+ */
+export function resolveUserCargos(
+  roles: AppRole[] | undefined | null,
+  customRoles: Pick<CustomRole, "id" | "label">[] | undefined | null,
+  systemLabels?: SystemRoleLabel[] | null,
+): ResolvedCargo[] {
+  const out: ResolvedCargo[] = [];
+  const seen = new Set<string>();
+  for (const r of roles ?? []) {
+    const key = `sys:${r}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ key, label: getSystemRoleLabel(r, systemLabels), system: true });
+  }
+  for (const c of customRoles ?? []) {
+    if (!c?.id) continue;
+    const key = `cus:${c.id}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const label = (c.label ?? "").trim() || "Personalizado";
+    out.push({ key, label, system: false });
+  }
+  return out;
+}
+
+/** Cargo principal (primeiro da lista) para exibição compacta no cabeçalho. */
+export function resolvePrimaryCargo(
+  roles: AppRole[] | undefined | null,
+  customRoles: Pick<CustomRole, "id" | "label">[] | undefined | null,
+  systemLabels?: SystemRoleLabel[] | null,
+): ResolvedCargo | null {
+  return resolveUserCargos(roles, customRoles, systemLabels)[0] ?? null;
+}
+
 export type AppModule =
   | "dashboard"
   | "funcionarios"

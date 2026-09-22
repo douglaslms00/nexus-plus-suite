@@ -8,6 +8,8 @@ import {
   useMyCustomRoles,
   useAllCustomRolePerms,
   useAllSystemRolePerms,
+  useSystemRoleLabels,
+  resolveUserCargos,
   effectivePerm,
   useAuthorizedObras,
   canManage,
@@ -54,10 +56,14 @@ import { InstallAppButton } from "@/components/InstallAppButton";
 function UserHeaderProfile({
   profile,
   email,
+  cargoLabel,
+  cargoTitle,
   compact = false,
 }: {
   profile?: { nome?: string | null; avatar_url?: string | null } | null;
   email?: string | null;
+  cargoLabel?: string | null;
+  cargoTitle?: string | null;
   compact?: boolean;
 }) {
   const displayName = profile?.nome || "Usuário";
@@ -73,8 +79,8 @@ function UserHeaderProfile({
           ? "gap-1.5 p-1 pl-1 pr-2.5 max-w-[150px] sm:max-w-[220px]"
           : "gap-2.5 p-1 px-2.5 max-w-[240px] xl:max-w-[300px]",
       )}
-      title="Ir para o meu perfil"
-      aria-label={`Perfil de ${displayName}`}
+      title={cargoTitle ?? (displayEmail ? `${displayName} — ${displayEmail}` : displayName)}
+      aria-label={`Perfil de ${displayName}${cargoLabel ? `, cargo ${cargoLabel}` : ""}`}
     >
       <Avatar className={cn("shrink-0 ring-1 ring-border/50", compact ? "h-7 w-7" : "h-8 w-8")}>
         {profile?.avatar_url && <AvatarImage src={profile.avatar_url} alt={displayName} />}
@@ -91,11 +97,23 @@ function UserHeaderProfile({
         >
           {displayName}
         </span>
+        {cargoLabel ? (
+          <span
+            className={cn(
+              "leading-tight truncate font-medium text-primary",
+              compact ? "text-[10px]" : "text-[11px]",
+            )}
+            title={cargoTitle ?? cargoLabel}
+          >
+            {cargoLabel}
+          </span>
+        ) : null}
         {displayEmail && (
           <span
             className={cn(
               "leading-tight text-muted-foreground truncate",
               compact ? "text-[10px]" : "text-[11px]",
+              cargoLabel && compact ? "hidden sm:block" : undefined,
             )}
           >
             {displayEmail}
@@ -116,9 +134,17 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { data: myCustomRoles } = useMyCustomRoles();
   const { data: customRolePerms } = useAllCustomRolePerms();
   const { data: systemRolePerms } = useAllSystemRolePerms();
+  const { data: systemLabels } = useSystemRoleLabels();
   const { obraId, setObraId } = useObraAtual();
   const [open, setOpen] = useState(false); // mobile drawer
   const [collapsed, setCollapsed] = useState(false);
+
+  // Cargos do usuário para exibição no cabeçalho e no rodapé da sidebar.
+  // Sistema primeiro (label amigável), depois personalizados.
+  const userCargos = resolveUserCargos(roles, myCustomRoles, systemLabels);
+  const primaryCargo = userCargos[0] ?? null;
+  const cargosTitle =
+    userCargos.length > 0 ? userCargos.map((c) => c.label).join(", ") : "Sem cargo";
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -309,21 +335,60 @@ export function AppShell({ children }: { children: ReactNode }) {
       </TooltipProvider>
 
       <div className={cn("border-t border-sidebar-border space-y-3", mini ? "p-2" : "p-4")}>
-        {!mini && (
+        {!mini ? (
           <div>
             <p className="text-sm font-medium truncate">{profile?.nome ?? "Usuário"}</p>
+            <p className="text-xs font-medium text-primary truncate" title={cargosTitle}>
+              {primaryCargo?.label ?? "Sem cargo"}
+            </p>
             <p className="text-xs opacity-70 truncate">{authUser?.email}</p>
             <div className="mt-1 flex flex-wrap gap-1">
-              {(roles ?? []).map((r) => (
-                <span
-                  key={r}
-                  className="text-[10px] uppercase tracking-wide bg-sidebar-accent text-sidebar-accent-foreground px-2 py-0.5 rounded"
-                >
-                  {r}
+              {userCargos.length > 0 ? (
+                userCargos.map((c) => (
+                  <span
+                    key={c.key}
+                    className="text-[10px] uppercase tracking-wide bg-sidebar-accent text-sidebar-accent-foreground px-2 py-0.5 rounded"
+                    title={c.system ? "Cargo do sistema" : "Cargo personalizado"}
+                  >
+                    {c.label}
+                  </span>
+                ))
+              ) : (
+                <span className="text-[10px] uppercase tracking-wide bg-sidebar-accent text-sidebar-accent-foreground px-2 py-0.5 rounded">
+                  Sem cargo
                 </span>
-              ))}
+              )}
             </div>
           </div>
+        ) : (
+          <TooltipProvider delayDuration={0}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex justify-center">
+                  <Avatar className="h-10 w-10 ring-1 ring-border/50">
+                    {profile?.avatar_url && (
+                      <AvatarImage
+                        src={profile.avatar_url}
+                        alt={profile?.nome ?? "Usuário"}
+                      />
+                    )}
+                    <AvatarFallback className="bg-primary/10 text-primary font-semibold text-xs">
+                      {(profile?.nome || authUser?.email || "U").slice(0, 2).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="right">
+                <p className="font-medium">{profile?.nome ?? "Usuário"}</p>
+                <p className="text-xs text-primary font-medium">
+                  {primaryCargo?.label ?? "Sem cargo"}
+                </p>
+                {authUser?.email && (
+                  <p className="text-xs opacity-70">{authUser.email}</p>
+                )}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         )}
         <Button
           variant="secondary"
@@ -376,7 +441,13 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div className="flex items-center gap-1.5">
             <InstallAppButton compact />
             <NotificationsBell />
-            <UserHeaderProfile profile={profile} email={authUser?.email} compact />
+            <UserHeaderProfile
+              profile={profile}
+              email={authUser?.email}
+              cargoLabel={primaryCargo?.label}
+              cargoTitle={cargosTitle}
+              compact
+            />
           </div>
         </header>
 
@@ -415,7 +486,12 @@ export function AppShell({ children }: { children: ReactNode }) {
             </Select>
             <InstallAppButton />
             <NotificationsBell />
-            <UserHeaderProfile profile={profile} email={authUser?.email} />
+            <UserHeaderProfile
+              profile={profile}
+              email={authUser?.email}
+              cargoLabel={primaryCargo?.label}
+              cargoTitle={cargosTitle}
+            />
           </div>
         </div>
 
