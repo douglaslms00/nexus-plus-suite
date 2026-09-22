@@ -92,7 +92,7 @@ function UserHeaderProfile({
         <span
           className={cn(
             "font-semibold leading-tight truncate text-foreground group-hover:text-primary transition-colors",
-            compact ? "text-[11px]" : "text-xs",
+            compact ? "text-xs" : "text-sm",
           )}
         >
           {displayName}
@@ -101,7 +101,7 @@ function UserHeaderProfile({
           <span
             className={cn(
               "leading-tight truncate font-medium text-primary",
-              compact ? "text-[10px]" : "text-[11px]",
+              compact ? "text-[9px]" : "text-[10px]",
             )}
             title={cargoTitle ?? cargoLabel}
           >
@@ -112,7 +112,7 @@ function UserHeaderProfile({
           <span
             className={cn(
               "leading-tight text-muted-foreground truncate",
-              compact ? "text-[10px]" : "text-[11px]",
+              compact ? "text-[9px]" : "text-[10px]",
               cargoLabel && compact ? "hidden sm:block" : undefined,
             )}
           >
