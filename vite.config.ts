@@ -19,7 +19,6 @@ export default defineConfig({
         output: {
           manualChunks(id) {
             if (id.includes("node_modules")) {
-              if (id.includes("recharts")) return "charts";
               if (id.includes("date-fns")) return "dates";
               if (id.includes("@radix-ui") || id.includes("lucide-react")) return "ui";
               if (id.includes("jspdf") || id.includes("jspdf-autotable")) return "pdf";

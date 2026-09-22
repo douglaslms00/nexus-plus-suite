@@ -280,8 +280,6 @@ function MateriaisPage() {
     onError: (e: any) => toast.error(e.message),
   });
 
-  const createMv = saveMv;
-
   const removeMv = useMutation({
     mutationFn: async (m: any) => {
       const oldDelta = m.tipo === "entrada" ? Number(m.quantidade) : -Number(m.quantidade);

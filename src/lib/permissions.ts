@@ -1,7 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { isMissingSchemaError } from "@/lib/supabase-safe";
-import type { Obra } from "@/integrations/supabase/database.types";
 
 export type AppRole = "admin" | "gestor" | "colaborador" | "financeiro";
 

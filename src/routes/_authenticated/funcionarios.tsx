@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { canManage, isAdmin, useUserRoles, useModulePerm } from "@/lib/permissions";
+import { useModulePerm } from "@/lib/permissions";
 import { RequireModulePerm } from "@/components/RequireModulePerm";
 import { useObraAtual } from "@/lib/obra-context.types";
 import { Button } from "@/components/ui/button";
@@ -49,7 +49,6 @@ import {
   Trash2,
   Pencil,
   FileText,
-  Upload,
   Download,
   Bell,
   AlertTriangle,
@@ -64,9 +63,8 @@ import {
   requirementsForFuncao,
   docEntregue,
 } from "@/lib/document-requirements";
-import { differenceInDays, addMonths } from "date-fns";
+import { differenceInDays } from "date-fns";
 import { cn, safeParseISO, safeFormatDate } from "@/lib/utils";
-import { lerFichaRegistro, lerFichaRegistroPdf } from "@/lib/ocr.functions";
 
 export const Route = createFileRoute("/_authenticated/funcionarios")({
   component: () => (
@@ -165,7 +163,6 @@ function colunasMissing(msg: string): string[] {
 
 function FuncionariosPage() {
   const qc = useQueryClient();
-  const { data: roles } = useUserRoles();
   const { obraId } = useObraAtual();
   const perm = useModulePerm("funcionarios");
   const canEdit = perm.can_edit;
@@ -256,8 +253,6 @@ function FuncionariosPage() {
     return "todos";
   });
   const [docsFor, setDocsFor] = useState<Funcionario | null>(null);
-  const [fichaRegistro, setFichaRegistro] = useState<File | null>(null);
-  const [lendoFicha, setLendoFicha] = useState(false);
   const [treinamentos, setTreinamentos] = useState<TreinamentoItem[]>([novoTreinamento()]);
   // Visualização dos treinamentos do formulário em ordem alfabética (por nome)
   const treinamentosOrdenados = useMemo(
@@ -325,7 +320,6 @@ function FuncionariosPage() {
   const openNew = () => {
     setEditing(null);
     setAbaForm("dados");
-    setFichaRegistro(null);
     setForm({ ativo: true });
     setTreinamentos([novoTreinamento()]);
     setOpen(true);
@@ -333,7 +327,6 @@ function FuncionariosPage() {
   const openEdit = async (f: Funcionario) => {
     setEditing(f);
     setAbaForm("dados");
-    setFichaRegistro(null);
     setForm({ ...f });
     // Carrega treinamentos existentes do funcionário em ordem alfabética
     try {
@@ -360,46 +353,6 @@ function FuncionariosPage() {
       setTreinamentos([novoTreinamento()]);
     }
     setOpen(true);
-  };
-
-  const lerFicha = async (file: File) => {
-    const isImagem = file.type.startsWith("image/");
-    const isPdf = file.type === "application/pdf";
-    if (!isImagem && !isPdf) {
-      toast.error("Envie a ficha em JPG, PNG, WEBP ou PDF.");
-      return;
-    }
-    if (file.size > (isPdf ? 50 : 5) * 1024 * 1024) {
-      toast.error(isPdf ? "O PDF deve ter no máximo 50 MB." : "A imagem deve ter no máximo 5 MB.");
-      return;
-    }
-    setFichaRegistro(file);
-    setLendoFicha(true);
-    try {
-      const fileDataUrl = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result));
-        reader.onerror = () => reject(new Error("Não foi possível ler o arquivo"));
-        reader.readAsDataURL(file);
-      });
-      let dados;
-      if (isPdf) {
-        // Extrai apenas a parte base64 do data URL (remove o prefixo "data:application/pdf;base64,")
-        const pdfBase64 = fileDataUrl.split(",")[1];
-        dados = await lerFichaRegistroPdf({ data: { pdfBase64 } });
-      } else {
-        dados = await lerFichaRegistro({ data: { imageDataUrl: fileDataUrl } });
-      }
-      setForm((atual: any) => ({
-        ...atual,
-        ...Object.fromEntries(Object.entries(dados).filter(([, value]) => value)),
-      }));
-      toast.success("Ficha lida com sucesso. Confira os dados antes de salvar.");
-    } catch (e: any) {
-      toast.error(e.message ?? "Não foi possível ler a ficha");
-    } finally {
-      setLendoFicha(false);
-    }
   };
 
   // Colunas conhecidas da tabela funcionarios (exclui colunas que podem não existir ainda)
@@ -492,19 +445,6 @@ function FuncionariosPage() {
             .insert(rows);
           if (te) console.warn("Treinamentos não salvos:", te.message);
         }
-      }
-      if (fichaRegistro && funcionarioId) {
-        const path = await uploadAnexo(fichaRegistro, `funcionarios/${funcionarioId}`);
-        const user = (await supabase.auth.getUser()).data.user;
-        const { error } = await (supabase as any).from("funcionario_documentos").insert({
-          funcionario_id: funcionarioId,
-          nome: fichaRegistro.name,
-          tipo: fichaRegistro.type || null,
-          storage_path: path,
-          tamanho: fichaRegistro.size,
-          uploaded_by: user?.id ?? null,
-        });
-        if (error) throw error;
       }
     },
     onSuccess: () => {

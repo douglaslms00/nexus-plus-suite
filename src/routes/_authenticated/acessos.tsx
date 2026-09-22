@@ -3,7 +3,6 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  isAdmin,
   canManage,
   useUserRoles,
   ALL_MODULES,
@@ -49,7 +48,6 @@ import {
   Shield,
   Sparkles,
   SlidersHorizontal,
-  Users,
   History,
   Clock,
 } from "lucide-react";
@@ -1036,7 +1034,6 @@ function AcessosPage() {
                 <UnifiedCargoCard
                   key={cargo.id}
                   cargo={cargo}
-                  customRoles={customRoles}
                   systemRolePerms={systemRolePerms}
                   customRolePerms={customRolePerms}
                   onUpdateSystemLabel={(p) => updateSystemRoleLabel.mutate(p)}
@@ -1142,7 +1139,6 @@ function AcessosPage() {
  */
 function UnifiedCargoCard({
   cargo,
-  customRoles,
   systemRolePerms,
   customRolePerms,
   onUpdateSystemLabel,
@@ -1152,7 +1148,6 @@ function UnifiedCargoCard({
   onSetCustomPerm,
 }: {
   cargo: UnifiedCargo;
-  customRoles: CustomRole[];
   systemRolePerms: SystemRolePerm[];
   customRolePerms: CustomRolePerm[];
   onUpdateSystemLabel: (p: { role: AppRole; label: string; description: string }) => void;

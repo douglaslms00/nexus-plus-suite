@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { canManage, isAdmin, useUserRoles, useCurrentUser, useModulePerm } from "@/lib/permissions";
+import { useCurrentUser, useModulePerm } from "@/lib/permissions";
 import { RequireModulePerm } from "@/components/RequireModulePerm";
 import { useObraAtual } from "@/lib/obra-context.types";
 import { Button } from "@/components/ui/button";
@@ -40,7 +40,6 @@ export const Route = createFileRoute("/_authenticated/ativos")({
 function AtivosPage() {
   const qc = useQueryClient();
   const { data: user } = useCurrentUser();
-  const { data: roles } = useUserRoles();
   const perm = useModulePerm("ativos");
   const canCreate = perm.can_edit;
   const canDelete = perm.can_delete;
@@ -142,8 +141,6 @@ function AtivosPage() {
     },
     onError: (e: any) => toast.error(e.message),
   });
-
-  const createAtivo = saveAtivo;
 
   const removeAtivo = useMutation({
     mutationFn: async (id: string) => {

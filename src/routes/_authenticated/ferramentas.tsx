@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { canManage, isAdmin, useUserRoles, useCurrentUser, useModulePerm } from "@/lib/permissions";
+import { useCurrentUser, useModulePerm } from "@/lib/permissions";
 import { RequireModulePerm } from "@/components/RequireModulePerm";
 import { useObraAtual } from "@/lib/obra-context.types";
 import { uploadAnexo, getAnexoUrl } from "@/lib/upload";
@@ -52,7 +52,6 @@ function FerramentasPage() {
   const qc = useQueryClient();
   const { obraId } = useObraAtual();
   const { data: user } = useCurrentUser();
-  const { data: roles } = useUserRoles();
   const perm = useModulePerm("ferramentas");
   const canEdit = perm.can_edit;
   const canDelete = perm.can_delete;
@@ -146,12 +145,6 @@ function FerramentasPage() {
   });
 
   const [editingEmp, setEditingEmp] = useState<any>(null);
-
-  const openNewEmp = () => {
-    setEditingEmp(null);
-    setFE({});
-    setOpenE(true);
-  };
 
   const openEditEmp = (e: any) => {
     setEditingEmp(e);
@@ -449,13 +442,18 @@ function FerramentasPage() {
           {canEdit && (
             <Dialog open={openE} onOpenChange={setOpenE}>
               <DialogTrigger asChild>
-                <Button>
+                <Button
+                  onClick={() => {
+                    setEditingEmp(null);
+                    setFE({});
+                  }}
+                >
                   <Plus className="h-4 w-4" /> Novo empréstimo
                 </Button>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Registrar empréstimo</DialogTitle>
+                  <DialogTitle>{editingEmp ? "Editar empréstimo" : "Registrar empréstimo"}</DialogTitle>
                 </DialogHeader>
                 <form
                   onSubmit={(e) => {

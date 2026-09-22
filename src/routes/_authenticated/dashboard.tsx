@@ -44,11 +44,7 @@ import {
   PlusCircle,
   Wrench,
   CheckCircle2,
-  Calendar,
   AlertCircle,
-  Phone,
-  Building,
-  TrendingDown,
   Sparkles,
 } from "lucide-react";
 import { cn, safeFormatDate, safeParseISO } from "@/lib/utils";
@@ -148,7 +144,7 @@ function DashboardPage() {
   const obraAtualNome = obraId ? obras.find((o: any) => o.id === obraId)?.nome : null;
 
   // 2. Funcionários (mesmo filtro do módulo: ativos + obra atual)
-  const { data: funcionarios = [], isLoading: loadingFunc, error: funcError } = useQuery({
+  const { data: funcionarios = [], error: funcError } = useQuery({
     queryKey: ["dash-funcionarios", obraId],
     enabled: permFunc.can_view,
     staleTime: 1000 * 30,
@@ -866,7 +862,7 @@ function DashboardPage() {
       valor: totalVencimentosRH,
       icon: Users,
       status: totalVencimentosRH === 0 ? "verde" : ("vermelho" as const),
-      route: "/funcionarios?venc=vencidos",
+      route: { to: "/funcionarios", search: { venc: "vencidos" } } as const,
       tab: "vencimentos" as const,
       visible: permFunc.can_view,
     },
@@ -877,7 +873,7 @@ function DashboardPage() {
       valor: epiAbaixoMin.length,
       icon: HardHat,
       status: epiAbaixoMin.length === 0 ? "verde" : ("vermelho" as const),
-      route: "/epis?soBaixo=true",
+      route: { to: "/epis", search: { soBaixo: "true" } } as const,
       tab: "estoques" as const,
       subfilter: "epis" as const,
       visible: permEpi.can_view,
@@ -889,7 +885,7 @@ function DashboardPage() {
       valor: matAbaixoMin.length,
       icon: Package,
       status: matAbaixoMin.length === 0 ? "verde" : ("vermelho" as const),
-      route: "/materiais?soBaixo=true",
+      route: { to: "/materiais", search: { soBaixo: "true" } } as const,
       tab: "estoques" as const,
       subfilter: "materiais" as const,
       visible: permMat.can_view,
@@ -901,7 +897,7 @@ function DashboardPage() {
       valor: tarefas.length,
       icon: CheckSquare,
       status: tarefasAtrasadas.length > 0 ? "vermelho" : tarefas.length > 0 ? "amarelo" : "verde",
-      route: "/tarefas",
+      route: { to: "/tarefas" } as const,
       tab: "tarefas" as const,
       visible: permTarefas.can_view,
     },
@@ -912,7 +908,7 @@ function DashboardPage() {
       valor: contasPagar.length,
       icon: Wallet,
       status: contasVencidas.length > 0 ? "vermelho" : contasPagar.length > 0 ? "amarelo" : "verde",
-      route: "/financeiro",
+      route: { to: "/financeiro" } as const,
       tab: "financeiro" as const,
       visible: permFin.can_view,
     },
@@ -1060,7 +1056,8 @@ function DashboardPage() {
                 <div className="flex items-center gap-1">
                   {ind.route && (
                     <Link
-                      to={ind.route as any}
+                      to={ind.route.to as any}
+                      search={"search" in ind.route ? (ind.route.search as any) : undefined}
                       onClick={(e) => e.stopPropagation()}
                       className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 text-muted-foreground hover:text-foreground"
                       title="Abrir página completa"

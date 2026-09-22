@@ -49,7 +49,7 @@ async function resolveEmail(identifier: string): Promise<string | null> {
   const trimmed = identifier.trim();
   if (isEmail(trimmed)) return trimmed.toLowerCase();
   const digits = onlyDigits(trimmed);
-  if (digits.length !== 11) return null;
+  if (digits.length !== 11 || !validarCPF(trimmed)) return null;
   const { data, error } = await (supabase as any).rpc("get_email_by_cpf", { cpf_input: trimmed });
   if (error) {
     if ((error as any)?.code === "PGRST202")

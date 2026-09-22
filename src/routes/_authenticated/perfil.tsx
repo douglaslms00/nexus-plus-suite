@@ -205,7 +205,7 @@ function PerfilPage() {
 
   const changePwd = useMutation({
     mutationFn: async () => {
-      const { strength, requisitos } = validarSenha(pwd);
+      const { strength } = validarSenha(pwd);
       if (pwd.length < 6) throw new Error("Senha precisa ter ao menos 6 caracteres");
       if (pwd !== pwd2) throw new Error("Senhas não conferem");
       if (strength === "fraca")

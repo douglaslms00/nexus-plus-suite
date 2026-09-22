@@ -14,20 +14,6 @@ interface AiResponse {
   choices: AiChoice[];
 }
 
-interface ParsedFicha {
-  nome?: string;
-  cpf?: string;
-  telefone?: string;
-  email?: string;
-  endereco?: string;
-  cidade?: string;
-  funcao?: string;
-  setor?: string;
-  data_admissao?: string;
-  matricula?: string;
-  data_nascimento?: string;
-}
-
 interface ParsedCupom {
   data?: string;
   estabelecimento?: string;

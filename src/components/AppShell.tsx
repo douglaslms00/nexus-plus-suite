@@ -31,7 +31,6 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   FolderOpen,
-  UserCog,
   Receipt,
   Truck,
 } from "lucide-react";
