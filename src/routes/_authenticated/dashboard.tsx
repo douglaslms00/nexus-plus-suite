@@ -86,12 +86,13 @@ function DashboardPage() {
   const { data: roles } = useUserRoles();
   const { obraId } = useObraAtual();
 
-  // Permissões
+  // Permissões por módulo — usadas para gate de queries, UI e ações
   const permFunc = useModulePerm("funcionarios");
   const permEpi = useModulePerm("epis");
   const permMat = useModulePerm("materiais");
   const permTarefas = useModulePerm("tarefas");
   const permFin = useModulePerm("financeiro");
+  const permFerr = useModulePerm("ferramentas");
 
   // Estado geral de navegação e filtros
   const [activeTab, setActiveTab] = useState<DashboardTab>("alertas");
@@ -142,6 +143,7 @@ function DashboardPage() {
   // 2. Funcionários (mesmo filtro do módulo: ativos + obra atual)
   const { data: funcionarios = [], isLoading: loadingFunc, error: funcError } = useQuery({
     queryKey: ["dash-funcionarios", obraId],
+    enabled: permFunc.can_view,
     staleTime: 1000 * 30,
     refetchOnMount: "always",
     refetchOnWindowFocus: true,
@@ -169,7 +171,7 @@ function DashboardPage() {
   );
   const { data: allTreinamentos = [], error: treinError } = useQuery({
     queryKey: ["dash-treinamentos", obraId, funcionariosIdsKey],
-    enabled: funcionarios.length > 0,
+    enabled: permFunc.can_view && funcionarios.length > 0,
     staleTime: 1000 * 30,
     refetchOnMount: "always",
     refetchOnWindowFocus: true,
@@ -205,6 +207,7 @@ function DashboardPage() {
   // 3. Tarefas (tabela tarefas não possui obra_id: key global, igual ao módulo)
   const { data: tarefas = [], error: tarefasError } = useQuery({
     queryKey: ["dash-tarefas"],
+    enabled: permTarefas.can_view,
     staleTime: 1000 * 30,
     refetchOnMount: "always",
     refetchOnWindowFocus: true,
@@ -224,6 +227,7 @@ function DashboardPage() {
   // 4. EPIs (estoque global, igual ao módulo)
   const { data: epis = [], error: episError } = useQuery({
     queryKey: ["dash-epis"],
+    enabled: permEpi.can_view,
     staleTime: 1000 * 30,
     refetchOnMount: "always",
     refetchOnWindowFocus: true,
@@ -243,6 +247,7 @@ function DashboardPage() {
   // 5. Materiais (estoque global, igual ao módulo)
   const { data: materiais = [], error: matError } = useQuery({
     queryKey: ["dash-mat"],
+    enabled: permMat.can_view,
     staleTime: 1000 * 30,
     refetchOnMount: "always",
     refetchOnWindowFocus: true,
@@ -262,6 +267,7 @@ function DashboardPage() {
   // 6. Contas Financeiras a Pagar (mesmo filtro obra do módulo financeiro / aba obra)
   const { data: contas = [], error: contasError } = useQuery({
     queryKey: ["dash-contas", obraId],
+    enabled: permFin.can_view,
     staleTime: 1000 * 30,
     refetchOnMount: "always",
     refetchOnWindowFocus: true,
@@ -284,6 +290,7 @@ function DashboardPage() {
   // Embed com alias explícito (ferramenta:/funcionario:) para evitar 400 PGRST200.
   const { data: ferramentasAlertas = [] } = useQuery({
     queryKey: ["dash-ferramentas", obraId],
+    enabled: permFerr.can_view,
     staleTime: 1000 * 30,
     refetchOnMount: "always",
     refetchOnWindowFocus: true,
@@ -309,6 +316,7 @@ function DashboardPage() {
 
   const { data: emprestimosAtrasados = [] } = useQuery({
     queryKey: ["dash-emprestimos", obraId],
+    enabled: permFerr.can_view,
     staleTime: 1000 * 30,
     refetchOnMount: "always",
     refetchOnWindowFocus: true,
@@ -557,6 +565,7 @@ function DashboardPage() {
   // 1. Renovação rápida de vencimento do funcionário
   const renewVencimento = useMutation({
     mutationFn: async () => {
+      if (!permFunc.can_edit) throw new Error("Sem permissão para editar funcionários.");
       if (!selectedFuncionario || !renewField || !renewDate) {
         throw new Error("Selecione o documento e a nova data de vencimento.");
       }
@@ -584,6 +593,8 @@ function DashboardPage() {
   const restockItem = useMutation({
     mutationFn: async () => {
       if (!selectedStockItem) return;
+      const editPerm = selectedStockItem.tipoItem === "epi" ? permEpi : permMat;
+      if (!editPerm.can_edit) throw new Error("Sem permissão para editar estoque.");
       const qtd = Number(stockEntryQtd);
       if (!qtd || qtd <= 0) throw new Error("Informe uma quantidade válida para entrada.");
 
@@ -644,6 +655,7 @@ function DashboardPage() {
   // 3. Concluir tarefa rapidamente
   const completeTask = useMutation({
     mutationFn: async (taskId: string) => {
+      if (!permTarefas.can_edit) throw new Error("Sem permissão para editar tarefas.");
       const { error } = await supabase
         .from("tarefas")
         .update({
@@ -665,6 +677,7 @@ function DashboardPage() {
   // 4. Marcar conta como paga
   const payAccount = useMutation({
     mutationFn: async (contaId: string) => {
+      if (!permFin.can_edit) throw new Error("Sem permissão para editar financeiro.");
       const { error } = await supabase
         .from("contas_financeiras")
         .update({
@@ -805,7 +818,7 @@ function DashboardPage() {
   // ---------------------------------------------
   // Indicadores KPI Interativos
   // ---------------------------------------------
-  const indicadores = [
+  const indicadoresAll = [
     {
       id: "alertas" as const,
       label: "Alertas Ativos",
@@ -815,6 +828,7 @@ function DashboardPage() {
       status: alertasAtivos === 0 ? "verde" : alertasAtivos > 5 ? "vermelho" : "amarelo",
       route: null,
       tab: "alertas" as const,
+      visible: true, // aba alertas sempre visível, filtra internamente
     },
     {
       id: "vencimentos" as const,
@@ -825,6 +839,7 @@ function DashboardPage() {
       status: totalVencimentosRH === 0 ? "verde" : ("vermelho" as const),
       route: "/funcionarios?venc=vencidos",
       tab: "vencimentos" as const,
+      visible: permFunc.can_view,
     },
     {
       id: "epis" as const,
@@ -836,6 +851,7 @@ function DashboardPage() {
       route: "/epis?soBaixo=true",
       tab: "estoques" as const,
       subfilter: "epis" as const,
+      visible: permEpi.can_view,
     },
     {
       id: "materiais" as const,
@@ -847,6 +863,7 @@ function DashboardPage() {
       route: "/materiais?soBaixo=true",
       tab: "estoques" as const,
       subfilter: "materiais" as const,
+      visible: permMat.can_view,
     },
     {
       id: "tarefas" as const,
@@ -857,6 +874,7 @@ function DashboardPage() {
       status: tarefasAtrasadas.length > 0 ? "vermelho" : tarefas.length > 0 ? "amarelo" : "verde",
       route: "/tarefas",
       tab: "tarefas" as const,
+      visible: permTarefas.can_view,
     },
     {
       id: "financeiro" as const,
@@ -867,8 +885,16 @@ function DashboardPage() {
       status: contasVencidas.length > 0 ? "vermelho" : contasPagar.length > 0 ? "amarelo" : "verde",
       route: "/financeiro",
       tab: "financeiro" as const,
+      visible: permFin.can_view,
     },
   ];
+
+  // Filtra indicadores pelos módulos que o usuário pode visualizar
+  const indicadores = indicadoresAll.filter((i) => i.visible);
+
+  // Abas acessíveis (baseadas em permissão)
+  const canSeeEstoques = permEpi.can_view || permMat.can_view;
+  const canSeeEquipamentos = permFerr.can_view;
 
   const handleKpiClick = (ind: (typeof indicadores)[number]) => {
     setActiveTab(ind.tab);
@@ -1053,36 +1079,46 @@ function DashboardPage() {
                 </Badge>
               )}
             </TabsTrigger>
-            <TabsTrigger value="vencimentos" className="gap-1.5 text-xs font-medium">
-              <CalendarClock className="h-3.5 w-3.5" />
-              Vencimentos RH
-              {totalVencimentosRH > 0 && (
-                <Badge variant="secondary" className="h-4 px-1 text-[10px] ml-1">
-                  {totalVencimentosRH}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="estoques" className="gap-1.5 text-xs font-medium">
-              <Package className="h-3.5 w-3.5" />
-              Estoques Críticos
-              {estoqueCriticoTotal.length > 0 && (
-                <Badge variant="secondary" className="h-4 px-1 text-[10px] ml-1">
-                  {estoqueCriticoTotal.length}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="tarefas" className="gap-1.5 text-xs font-medium">
-              <CheckSquare className="h-3.5 w-3.5" />
-              Tarefas
-            </TabsTrigger>
-            <TabsTrigger value="financeiro" className="gap-1.5 text-xs font-medium">
-              <Wallet className="h-3.5 w-3.5" />
-              Financeiro
-            </TabsTrigger>
-            <TabsTrigger value="equipamentos" className="gap-1.5 text-xs font-medium">
-              <Wrench className="h-3.5 w-3.5" />
-              Equipamentos
-            </TabsTrigger>
+            {permFunc.can_view && (
+              <TabsTrigger value="vencimentos" className="gap-1.5 text-xs font-medium">
+                <CalendarClock className="h-3.5 w-3.5" />
+                Vencimentos RH
+                {totalVencimentosRH > 0 && (
+                  <Badge variant="secondary" className="h-4 px-1 text-[10px] ml-1">
+                    {totalVencimentosRH}
+                  </Badge>
+                )}
+              </TabsTrigger>
+            )}
+            {canSeeEstoques && (
+              <TabsTrigger value="estoques" className="gap-1.5 text-xs font-medium">
+                <Package className="h-3.5 w-3.5" />
+                Estoques Críticos
+                {estoqueCriticoTotal.length > 0 && (
+                  <Badge variant="secondary" className="h-4 px-1 text-[10px] ml-1">
+                    {estoqueCriticoTotal.length}
+                  </Badge>
+                )}
+              </TabsTrigger>
+            )}
+            {permTarefas.can_view && (
+              <TabsTrigger value="tarefas" className="gap-1.5 text-xs font-medium">
+                <CheckSquare className="h-3.5 w-3.5" />
+                Tarefas
+              </TabsTrigger>
+            )}
+            {permFin.can_view && (
+              <TabsTrigger value="financeiro" className="gap-1.5 text-xs font-medium">
+                <Wallet className="h-3.5 w-3.5" />
+                Financeiro
+              </TabsTrigger>
+            )}
+            {canSeeEquipamentos && (
+              <TabsTrigger value="equipamentos" className="gap-1.5 text-xs font-medium">
+                <Wrench className="h-3.5 w-3.5" />
+                Equipamentos
+              </TabsTrigger>
+            )}
           </TabsList>
 
           {/* Campo de Busca Rápida Unificado */}
@@ -1110,8 +1146,8 @@ function DashboardPage() {
         {/* ------------------------------------------------------------- */}
         <TabsContent value="alertas" className="space-y-4">
           <div className="grid gap-4 lg:grid-cols-2">
-            {/* Vencimentos mais urgentes */}
-            <Card className="shadow-sm">
+            {/* Vencimentos mais urgentes (só se tiver permissão de funcionários) */}
+            {permFunc.can_view && <Card className="shadow-sm">
               <CardHeader className="pb-3 flex flex-row items-center justify-between">
                 <div>
                   <CardTitle className="text-base flex items-center gap-2">
@@ -1222,10 +1258,10 @@ function DashboardPage() {
                   </ul>
                 )}
               </CardContent>
-            </Card>
+            </Card>}
 
-            {/* Estoques Críticos */}
-            <Card className="shadow-sm">
+            {/* Estoques Críticos (só se tiver permissão de EPIs ou Materiais) */}
+            {canSeeEstoques && <Card className="shadow-sm">
               <CardHeader className="pb-3 flex flex-row items-center justify-between">
                 <div>
                   <CardTitle className="text-base flex items-center gap-2">
@@ -1299,10 +1335,10 @@ function DashboardPage() {
                   </ul>
                 )}
               </CardContent>
-            </Card>
+            </Card>}
 
-            {/* Tarefas Atrasadas & Pendentes */}
-            <Card className="shadow-sm">
+            {/* Tarefas Atrasadas & Pendentes (só se tiver permissão de tarefas) */}
+            {permTarefas.can_view && <Card className="shadow-sm">
               <CardHeader className="pb-3 flex flex-row items-center justify-between">
                 <div>
                   <CardTitle className="text-base flex items-center gap-2">
@@ -1350,15 +1386,17 @@ function DashboardPage() {
                                 Atrasada ({Math.abs(dias!)}d)
                               </Badge>
                             )}
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-7 text-xs text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
-                              onClick={() => completeTask.mutate(t.id)}
-                              disabled={completeTask.isPending}
-                            >
-                              <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Concluir
-                            </Button>
+                            {permTarefas.can_edit && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 text-xs text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+                                onClick={() => completeTask.mutate(t.id)}
+                                disabled={completeTask.isPending}
+                              >
+                                <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Concluir
+                              </Button>
+                            )}
                           </div>
                         </li>
                       );
@@ -1366,10 +1404,10 @@ function DashboardPage() {
                   </ul>
                 )}
               </CardContent>
-            </Card>
+            </Card>}
 
-            {/* Contas a Pagar Vencendo */}
-            <Card className="shadow-sm">
+            {/* Contas a Pagar Vencendo (só se tiver permissão de financeiro) */}
+            {permFin.can_view && <Card className="shadow-sm">
               <CardHeader className="pb-3 flex flex-row items-center justify-between">
                 <div>
                   <CardTitle className="text-base flex items-center gap-2">
@@ -1416,15 +1454,17 @@ function DashboardPage() {
                                 Vencida
                               </Badge>
                             )}
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-7 text-xs"
-                              onClick={() => payAccount.mutate(c.id)}
-                              disabled={payAccount.isPending}
-                            >
-                              Dar baixa
-                            </Button>
+                            {permFin.can_edit && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-xs"
+                                onClick={() => payAccount.mutate(c.id)}
+                                disabled={payAccount.isPending}
+                              >
+                                Dar baixa
+                              </Button>
+                            )}
                           </div>
                         </li>
                       );
@@ -1432,7 +1472,7 @@ function DashboardPage() {
                   </ul>
                 )}
               </CardContent>
-            </Card>
+            </Card>}
           </div>
         </TabsContent>
 
@@ -1875,15 +1915,17 @@ function DashboardPage() {
                             </div>
                           </div>
 
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-8 text-xs shrink-0 border-emerald-500/30 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
-                            onClick={() => completeTask.mutate(t.id)}
-                            disabled={completeTask.isPending}
-                          >
-                            <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Concluir
-                          </Button>
+                          {permTarefas.can_edit && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-8 text-xs shrink-0 border-emerald-500/30 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
+                              onClick={() => completeTask.mutate(t.id)}
+                              disabled={completeTask.isPending}
+                            >
+                              <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Concluir
+                            </Button>
+                          )}
                         </div>
                       );
                     })}
@@ -1964,6 +2006,7 @@ function DashboardPage() {
                                 )}
                               </td>
                               <td className="py-2.5 px-3 text-right">
+                                {permFin.can_edit && (
                                 <Button
                                   size="sm"
                                   variant="outline"
@@ -1973,6 +2016,7 @@ function DashboardPage() {
                                 >
                                   Dar baixa
                                 </Button>
+                              )}
                               </td>
                             </tr>
                           );
