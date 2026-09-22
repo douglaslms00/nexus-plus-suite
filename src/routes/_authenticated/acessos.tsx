@@ -295,39 +295,55 @@ function AcessosPage() {
     onError: (e: any) => toast.error(e.message),
   });
 
-  // Unified cargo toggle — handles both system roles and custom roles
-  const toggleCargo = useMutation({
+  // Cargo único por usuário — atribuir substitui qualquer cargo anterior.
+  // Usa a RPC admin_set_user_cargo (migration 20260923000000); com fallback
+  // manual caso o banco ainda não tenha a função.
+  const setCargoExclusive = async (user_id: string, cargo: CargoRef | null) => {
+    const cargoKey = cargo ? cargoId(cargo) : null;
+    const { error } = await (supabase as any).rpc("admin_set_user_cargo", {
+      _user_id: user_id,
+      _cargo_key: cargoKey,
+    });
+    if (!error) return;
+    const msg = String((error as any)?.message ?? "");
+    const code = String((error as any)?.code ?? "");
+    const missing =
+      code === "PGRST202" || /Could not find the function|schema cache/i.test(msg);
+    if (!missing) throw error;
+    // Fallback: limpa tudo e insere o escolhido via tabelas
+    const del1 = await supabase.from("user_roles").delete().eq("user_id", user_id);
+    if (del1.error) throw del1.error;
+    const del2 = await (supabase as any)
+      .from("user_custom_roles")
+      .delete()
+      .eq("user_id", user_id);
+    if (del2.error) throw del2.error;
+    if (!cargo) return;
+    if (cargo.kind === "system") {
+      const { error: e2 } = await supabase.rpc("admin_set_role", {
+        _user_id: user_id,
+        _role: cargo.key,
+        _grant: true,
+      });
+      if (e2) throw e2;
+    } else {
+      const { error: e2 } = await (supabase as any)
+        .from("user_custom_roles")
+        .insert({ user_id, custom_role_id: cargo.id });
+      if (e2 && !String(e2.message).includes("duplicate")) throw e2;
+    }
+  };
+
+  // Define o cargo único do usuário (null = remover e deixar sem cargo)
+  const setCargo = useMutation({
     mutationFn: async ({
       user_id,
       cargo,
-      grant,
     }: {
       user_id: string;
-      cargo: CargoRef;
-      grant: boolean;
+      cargo: CargoRef | null;
     }) => {
-      if (cargo.kind === "system") {
-        const { error } = await supabase.rpc("admin_set_role", {
-          _user_id: user_id,
-          _role: cargo.key,
-          _grant: grant,
-        });
-        if (error) throw error;
-      } else {
-        if (grant) {
-          const { error } = await (supabase as any)
-            .from("user_custom_roles")
-            .insert({ user_id, custom_role_id: cargo.id });
-          if (error && !String(error.message).includes("duplicate")) throw error;
-        } else {
-          const { error } = await (supabase as any)
-            .from("user_custom_roles")
-            .delete()
-            .eq("user_id", user_id)
-            .eq("custom_role_id", cargo.id);
-          if (error) throw error;
-        }
-      }
+      await setCargoExclusive(user_id, cargo);
     },
     onSuccess: () => {
       toast.success("Cargo atualizado");
@@ -377,25 +393,18 @@ function AcessosPage() {
     onError: (e: any) => toast.error(e.message),
   });
 
-  // Bulk — supports system role or custom cargo
+  // Em massa — cargo único: definir substitui o cargo atual de cada usuário
   const bulkAssign = useMutation({
-    mutationFn: async (p: { user_ids: string[]; cargo: CargoRef; grant: boolean }) => {
-      if (p.cargo.kind === "system") {
+    mutationFn: async (p: { user_ids: string[]; cargo: CargoRef | null; grant: boolean }) => {
+      // grant=true => define o cargo (exclusivo); grant=false => remove (deixa sem cargo)
+      if (p.grant && p.cargo) {
         for (const uid of p.user_ids) {
-          const { error } = await supabase.rpc("admin_set_role", {
-            _user_id: uid,
-            _role: p.cargo.key,
-            _grant: p.grant,
-          });
-          if (error) throw error;
+          await setCargoExclusive(uid, p.cargo);
         }
       } else {
-        const { error } = await (supabase as any).rpc("admin_bulk_set_custom_role", {
-          _user_ids: p.user_ids,
-          _custom_role_id: p.cargo.id,
-          _grant: p.grant,
-        });
-        if (error) throw error;
+        for (const uid of p.user_ids) {
+          await setCargoExclusive(uid, null);
+        }
       }
     },
     onSuccess: (_d, v) => {
@@ -595,13 +604,33 @@ function AcessosPage() {
   const userHasCargo = (u: any, ref: CargoRef) =>
     ref.kind === "system" ? u.roles.includes(ref.key) : u.customRoleIds.includes(ref.id);
 
+  // Cargo único: retorna o cargo atual (ou null). Se o banco antigo tiver
+  // múltiplos, prioriza o primeiro cargo do sistema, depois personalizado.
+  const getUserCargo = (u: any): { ref: CargoRef; label: string; system: boolean } | null => {
+    const sysKey = (u.roles ?? [])[0] as AppRole | undefined;
+    if (sysKey) {
+      const found = allCargos.find((c) => c.system && (c.ref as any).key === sysKey);
+      return (
+        found ?? { ref: { kind: "system" as const, key: sysKey }, label: sysKey, system: true }
+      );
+    }
+    const cusId = (u.customRoleIds ?? [])[0] as string | undefined;
+    if (cusId) {
+      const found = allCargos.find((c) => !c.system && (c.ref as any).id === cusId);
+      return (
+        found ?? { ref: { kind: "custom" as const, id: cusId }, label: "Personalizado", system: false }
+      );
+    }
+    return null;
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Acessos</h1>
           <p className="text-muted-foreground">
-            Gestão unificada de cargos, permissões por módulo, obras autorizadas e histórico.
+            Gestão de cargo único por usuário, permissões por módulo, obras autorizadas e histórico.
           </p>
         </div>
       </div>
@@ -719,31 +748,61 @@ function AcessosPage() {
                     </div>
                   </button>
                   <div className="flex gap-1.5 flex-wrap justify-end items-center">
-                    {allCargos.map((c) => {
-                      const has = userHasCargo(u, c.ref);
+                    {(() => {
+                      const atual = getUserCargo(u);
+                      const totalCargos =
+                        (u.roles ?? []).length + (u.customRoleIds ?? []).length;
                       return (
-                        <Button
-                          key={cargoId(c.ref)}
-                          size="sm"
-                          variant={has ? "default" : "outline"}
-                          className={cn(
-                            "h-7 text-xs",
-                            has && !c.system && "bg-indigo-600 hover:bg-indigo-700 text-white",
-                          )}
-                          onClick={() =>
-                            toggleCargo.mutate({ user_id: u.id, cargo: c.ref, grant: !has })
-                          }
-                          title={c.system ? "Cargo do sistema" : "Cargo personalizado"}
-                        >
-                          {c.label}
-                          {c.system ? (
-                            <span className="ml-1 text-[10px] opacity-70 font-mono">•sis</span>
+                        <>
+                          {atual ? (
+                            <Badge
+                              variant={atual.system ? "secondary" : "outline"}
+                              className={cn(
+                                "text-xs h-7 px-2.5 flex items-center gap-1",
+                                !atual.system &&
+                                  "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950 dark:text-indigo-300 dark:border-indigo-800",
+                              )}
+                              title={atual.system ? "Cargo do sistema" : "Cargo personalizado"}
+                            >
+                              {atual.system ? (
+                                <Shield className="h-3 w-3" />
+                              ) : (
+                                <Sparkles className="h-3 w-3" />
+                              )}
+                              {atual.label}
+                              {totalCargos > 1 && (
+                                <span className="ml-1 opacity-70">+{totalCargos - 1}</span>
+                              )}
+                            </Badge>
                           ) : (
-                            <span className="ml-1 text-[10px] opacity-80 font-mono">•pers</span>
+                            <Badge variant="outline" className="text-xs h-7">
+                              Sem cargo
+                            </Badge>
                           )}
-                        </Button>
+                          <Select
+                            value={atual ? cargoId(atual.ref) : "none"}
+                            onValueChange={(v) =>
+                              setCargo.mutate({
+                                user_id: u.id,
+                                cargo: v === "none" ? null : parseCargoId(v),
+                              })
+                            }
+                          >
+                            <SelectTrigger className="h-7 text-xs w-44">
+                              <SelectValue placeholder="Definir cargo" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">Sem cargo (remover)</SelectItem>
+                              {allCargos.map((c) => (
+                                <SelectItem key={cargoId(c.ref)} value={cargoId(c.ref)}>
+                                  {c.label} {c.system ? "(Sistema)" : "(Personalizado)"}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </>
                       );
-                    })}
+                    })()}
                     <Button
                       size="sm"
                       variant="ghost"
@@ -751,7 +810,7 @@ function AcessosPage() {
                       onClick={() => {
                         if (
                           confirm(
-                            `Excluir o usuário "${u.nome}"? Esta ação remove perfil, cargos e permissões.`,
+                            `Excluir o usuário "${u.nome}"? Esta ação remove perfil, cargo e permissões.`,
                           )
                         ) {
                           deleteUser.mutate(u.id);
@@ -1606,7 +1665,7 @@ function BulkAssignPanel({
 }: {
   usuarios: any[];
   allCargos: { ref: CargoRef; label: string; system: boolean }[];
-  onBulk: (p: { user_ids: string[]; cargo: CargoRef; grant: boolean }) => void;
+  onBulk: (p: { user_ids: string[]; cargo: CargoRef | null; grant: boolean }) => void;
 }) {
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [cargoKey, setCargoKey] = useState<string>("");
@@ -1635,7 +1694,7 @@ function BulkAssignPanel({
   };
 
   const act = (grant: boolean) => {
-    if (!cargoKey) {
+    if (grant && !cargoKey) {
       toast.error("Selecione um cargo");
       return;
     }
@@ -1643,17 +1702,22 @@ function BulkAssignPanel({
       toast.error("Selecione ao menos um usuário");
       return;
     }
-    onBulk({ user_ids: selectedIds, cargo: parseCargoId(cargoKey), grant });
+    // Cargo único: definir substitui o atual; remover deixa sem cargo
+    onBulk({
+      user_ids: selectedIds,
+      cargo: grant ? parseCargoId(cargoKey) : null,
+      grant,
+    });
     setSelected({});
   };
 
   return (
     <Card className="p-4 space-y-4">
       <div>
-        <h3 className="font-semibold text-base">Atribuição em Massa de Cargos</h3>
+        <h3 className="font-semibold text-base">Atribuição em Massa de Cargo</h3>
         <p className="text-xs text-muted-foreground">
-          Selecione os usuários, escolha o cargo desejado e atribua ou remova para todos
-          simultaneamente.
+          Cada usuário possui apenas <b>um cargo</b>. Ao definir, o cargo atual é
+          substituído automaticamente para todos os selecionados.
         </p>
       </div>
 
@@ -1687,15 +1751,15 @@ function BulkAssignPanel({
           disabled={selectedIds.length === 0 || !cargoKey}
           className="h-9 text-xs"
         >
-          Atribuir a {selectedIds.length}
+          Definir cargo ({selectedIds.length})
         </Button>
         <Button
           variant="outline"
           onClick={() => act(false)}
-          disabled={selectedIds.length === 0 || !cargoKey}
+          disabled={selectedIds.length === 0}
           className="h-9 text-xs"
         >
-          Remover de {selectedIds.length}
+          Remover cargo ({selectedIds.length})
         </Button>
       </div>
 
@@ -1708,7 +1772,7 @@ function BulkAssignPanel({
               </th>
               <th className="py-2.5 pr-3 font-medium">Usuário</th>
               <th className="py-2.5 pr-3 font-medium">E-mail</th>
-              <th className="py-2.5 pr-3 font-medium">Cargos Atribuídos</th>
+              <th className="py-2.5 pr-3 font-medium">Cargo</th>
             </tr>
           </thead>
           <tbody>
@@ -1718,6 +1782,8 @@ function BulkAssignPanel({
                   ? u.roles.includes((c.ref as any).key)
                   : u.customRoleIds.includes((c.ref as any).id),
               );
+              // Cargo único: exibe o primeiro; legados com múltiplos mostram "+N"
+              const principal = userCargos[0];
 
               return (
                 <tr key={u.id} className="border-b last:border-0 hover:bg-muted/20">
@@ -1731,20 +1797,22 @@ function BulkAssignPanel({
                   <td className="py-2.5 pr-3 text-xs text-muted-foreground">{u.email}</td>
                   <td className="py-2.5 pr-3">
                     <div className="flex flex-wrap gap-1">
-                      {userCargos.map((c) => (
+                      {principal ? (
                         <Badge
-                          key={cargoId(c.ref)}
-                          variant={c.system ? "secondary" : "outline"}
+                          key={cargoId(principal.ref)}
+                          variant={principal.system ? "secondary" : "outline"}
                           className={cn(
                             "text-[10px] py-0",
-                            !c.system &&
+                            !principal.system &&
                               "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950 dark:text-indigo-300 dark:border-indigo-800",
                           )}
                         >
-                          {c.label}
+                          {principal.label}
+                          {userCargos.length > 1 && (
+                            <span className="ml-1 opacity-70">+{userCargos.length - 1}</span>
+                          )}
                         </Badge>
-                      ))}
-                      {userCargos.length === 0 && (
+                      ) : (
                         <span className="text-xs text-muted-foreground">—</span>
                       )}
                     </div>
@@ -1871,7 +1939,6 @@ function CreateUserLoginCard({
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [cargoKey, setCargoKey] = useState("sys:colaborador");
-  const [isAdmin, setIsAdminCheck] = useState(false);
   const [loading, setLoading] = useState(false);
   // True quando a função admin_create_user_login não existe no banco (migration pendente).
   const [rpcAusente, setRpcAusente] = useState(false);
@@ -1911,11 +1978,13 @@ function CreateUserLoginCard({
     setLoading(true);
     try {
       // Cria o usuário via RPC admin (sem necessidade de confirmação de e-mail)
+      // Cargo único: admin é apenas mais uma opção do select (sys:admin)
+      const isAdminCargo = cargoKey === "sys:admin";
       const { error } = await (supabase as any).rpc("admin_create_user_login", {
         _email: email.trim().toLowerCase(),
         _password: password,
         _nome: nome.trim(),
-        _is_admin: isAdmin,
+        _is_admin: isAdminCargo,
         _cargo_key: cargoKey || "sys:colaborador",
       });
 
@@ -1987,7 +2056,6 @@ function CreateUserLoginCard({
       setEmail("");
       setPassword("");
       setCargoKey("sys:colaborador");
-      setIsAdminCheck(false);
       onUserCreated();
     } catch (err: any) {
       toast.error(err?.message ?? "Erro ao criar usuário.");
@@ -2013,8 +2081,8 @@ function CreateUserLoginCard({
         <div>
           <h3 className="font-semibold text-sm text-foreground">Criar login de acesso</h3>
           <p className="text-xs text-primary/80">
-            Cadastre um novo usuário com e-mail e senha. Escolha o cargo inicial (ex.: Gestor)
-            ou marque como administrador — depois ajuste obras e permissões na lista abaixo.
+            Cadastre um novo usuário com e-mail, senha e <b>um único cargo</b> — depois ajuste
+            obras e permissões na lista abaixo.
           </p>
         </div>
       </div>
@@ -2106,10 +2174,10 @@ function CreateUserLoginCard({
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="new-user-cargo" className="text-sm">Cargo (opcional)</Label>
+            <Label htmlFor="new-user-cargo" className="text-sm">Cargo (único)</Label>
             <Select value={cargoKey} onValueChange={setCargoKey}>
               <SelectTrigger id="new-user-cargo">
-                <SelectValue placeholder="Selecione um cargo" />
+                <SelectValue placeholder="Selecione o cargo" />
               </SelectTrigger>
               <SelectContent>
                 {allCargosOptions.map((c) => (
@@ -2119,18 +2187,10 @@ function CreateUserLoginCard({
                 ))}
               </SelectContent>
             </Select>
+            <p className="text-[11px] text-muted-foreground">
+              Cada usuário possui apenas um cargo. Para trocar depois, use o seletor na lista.
+            </p>
           </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Checkbox
-            id="new-user-admin"
-            checked={isAdmin}
-            onCheckedChange={(v) => setIsAdminCheck(!!v)}
-          />
-          <label htmlFor="new-user-admin" className="text-sm cursor-pointer select-none">
-            Marcar como administrador
-          </label>
         </div>
 
         <div>
