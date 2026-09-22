@@ -97,19 +97,46 @@ function MateriaisPage() {
     if (typeof window !== "undefined") return new URLSearchParams(window.location.search).get("busca") || "";
     return "";
   });
-  const [soBaixo, setSoBaixo] = useState(() => {
-    if (typeof window !== "undefined") return new URLSearchParams(window.location.search).get("soBaixo") === "true";
-    return false;
+  const [estoqueInv, setEstoqueInv] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      const p = new URLSearchParams(window.location.search);
+      if (p.get("soBaixo") === "true") return "baixo";
+      return p.get("estoque") || "all";
+    }
+    return "all";
   });
+  const [unidadeInv, setUnidadeInv] = useState("all");
+  const [obraInv, setObraInv] = useState("all");
+
+  const unidadesDisponiveis = useMemo(() => {
+    const s = new Set<string>();
+    (materiais as any[]).forEach((m: any) => {
+      if (m.unidade) s.add(String(m.unidade));
+    });
+    return Array.from(s).sort();
+  }, [materiais]);
 
   const materiaisFiltrados = useMemo(() => {
     const q = busca.trim().toLowerCase();
-    return materiais.filter((m: any) => {
-      if (soBaixo && !(Number(m.estoque_atual) < Number(m.estoque_minimo))) return false;
+    return (materiais as any[]).filter((m: any) => {
+      const est = Number(m.estoque_atual) || 0;
+      if (estoqueInv === "com_estoque" && !(est > 0)) return false;
+      if (estoqueInv === "acima_1" && !(est > 1)) return false;
+      if (estoqueInv === "zerado" && !(est <= 0)) return false;
+      if (estoqueInv === "baixo" && !(est < Number(m.estoque_minimo))) return false;
+      if (unidadeInv !== "all" && String(m.unidade ?? "") !== unidadeInv) return false;
+      if (obraInv !== "all") {
+        if (obraInv === "__geral") {
+          if (m.obra_id) return false;
+        } else if (m.obra_id !== obraInv) return false;
+      }
       if (!q) return true;
-      return (m.nome ?? "").toLowerCase().includes(q) || (m.codigo ?? "").toLowerCase().includes(q);
+      return (
+        (m.nome ?? "").toLowerCase().includes(q) ||
+        (m.codigo ?? "").toLowerCase().includes(q)
+      );
     });
-  }, [materiais, busca, soBaixo]);
+  }, [materiais, busca, estoqueInv, unidadeInv, obraInv]);
 
   useEffect(() => {
     if (obraId) setFMv((p: any) => ({ ...p, obra_id: p.obra_id ?? obraId }));
@@ -345,6 +372,47 @@ function MateriaisPage() {
     }
   };
 
+  const estoqueLabel: Record<string, string> = {
+    all: "Todos",
+    com_estoque: "Com estoque (> 0)",
+    acima_1: "Acima de 1 unidade (> 1)",
+    zerado: "Zerados (= 0)",
+    baixo: "Abaixo do mínimo",
+  };
+
+  const describeInventarioFilter = () => {
+    const parts: string[] = [];
+    if (busca.trim()) parts.push(`Busca: "${busca.trim()}"`);
+    parts.push(`Estoque: ${estoqueLabel[estoqueInv] ?? estoqueInv}`);
+    if (unidadeInv !== "all") parts.push(`Unidade: ${unidadeInv}`);
+    if (obraInv !== "all") {
+      parts.push(
+        `Obra: ${obraInv === "__geral" ? "Geral" : obraNome(obraInv)}`,
+      );
+    }
+    parts.push(`${materiaisFiltrados.length} item(ns)`);
+    return "Filtros — " + parts.join(" | ");
+  };
+
+  const exportInventario = (kind: "csv" | "pdf") => {
+    const headers = ["Nome", "Código", "Unidade", "Obra", "Estoque", "Mínimo", "Preço médio"];
+    const rows = materiaisFiltrados.map((m: any) => [
+      m.nome ?? "",
+      m.codigo ?? "",
+      m.unidade ?? "",
+      obraNome(m.obra_id),
+      Number(m.estoque_atual).toFixed(2),
+      Number(m.estoque_minimo ?? 0).toFixed(2),
+      m.preco_medio != null ? Number(m.preco_medio).toFixed(2) : "",
+    ]);
+    const fname = `inventario-materiais-${new Date().toISOString().slice(0, 10)}`;
+    if (kind === "csv") {
+      exportCSV(fname, headers, rows);
+    } else {
+      exportPDF("Inventário de materiais", headers, rows, fname, describeInventarioFilter());
+    }
+  };
+
   if (!perm.can_view) {
     return (
       <Card className="p-8 text-center text-muted-foreground">
@@ -471,8 +539,8 @@ function MateriaisPage() {
           )}
 
           <Card className="p-3">
-            <div className="flex flex-wrap gap-2 items-end">
-              <div className="flex-1 min-w-[200px]">
+            <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-5 items-end">
+              <div className="lg:col-span-2">
                 <Label className="text-xs">Buscar (nome ou código)</Label>
                 <Input
                   value={busca}
@@ -480,27 +548,78 @@ function MateriaisPage() {
                   placeholder="Digite para filtrar..."
                 />
               </div>
-              <Button
-                variant={soBaixo ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSoBaixo((v) => !v)}
-              >
-                <AlertTriangle className="h-4 w-4" /> Apenas estoque baixo
+              <div>
+                <Label className="text-xs">Estoque (impressão)</Label>
+                <Select value={estoqueInv} onValueChange={setEstoqueInv}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="com_estoque">Com estoque (&gt; 0)</SelectItem>
+                    <SelectItem value="acima_1">Acima de 1 (&gt; 1)</SelectItem>
+                    <SelectItem value="zerado">Zerados (= 0)</SelectItem>
+                    <SelectItem value="baixo">Abaixo do mínimo</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs">Unidade / Tipo</Label>
+                <Select value={unidadeInv} onValueChange={setUnidadeInv}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas</SelectItem>
+                    {unidadesDisponiveis.map((u) => (
+                      <SelectItem key={u} value={u}>
+                        {u}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs">Obra</Label>
+                <Select value={obraInv} onValueChange={setObraInv}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas</SelectItem>
+                    <SelectItem value="__geral">Geral</SelectItem>
+                    {(obras as any[]).map((o: any) => (
+                      <SelectItem key={o.id} value={o.id}>
+                        {o.nome}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2 items-center mt-3">
+              <Button variant="outline" size="sm" onClick={() => exportInventario("csv")}>
+                <FileDown className="h-4 w-4" /> CSV inventário
               </Button>
-              {(busca || soBaixo) && (
+              <Button variant="outline" size="sm" onClick={() => exportInventario("pdf")}>
+                <FileText className="h-4 w-4" /> PDF inventário
+              </Button>
+              {(busca || estoqueInv !== "all" || unidadeInv !== "all" || obraInv !== "all") && (
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => {
                     setBusca("");
-                    setSoBaixo(false);
+                    setEstoqueInv("all");
+                    setUnidadeInv("all");
+                    setObraInv("all");
                   }}
                 >
-                  Limpar
+                  Limpar filtros
                 </Button>
               )}
               <span className="text-xs text-muted-foreground ml-auto">
-                {materiaisFiltrados.length} de {materiais.length}
+                {materiaisFiltrados.length} de {materiais.length} — o PDF usa o filtro atual
               </span>
             </div>
           </Card>

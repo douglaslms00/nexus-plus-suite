@@ -32,9 +32,18 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Trash2, ArrowDownToLine, ArrowUpFromLine, Pencil } from "lucide-react";
+import {
+  Plus,
+  Trash2,
+  ArrowDownToLine,
+  ArrowUpFromLine,
+  Pencil,
+  FileDown,
+  FileText,
+} from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { exportCSV, exportPDF } from "@/lib/exports";
 
 export const Route = createFileRoute("/_authenticated/epis")({
   component: () => (
@@ -106,24 +115,73 @@ function EpisPage() {
   const [editingEpi, setEditingEpi] = useState<any>(null);
   const [form, setForm] = useState<any>({ tipo: "EPI", estoque_atual: 0, estoque_minimo: 0 });
 
-  // Filters
+  // Filters — inventário (valem também para impressão/PDF)
   const [busca, setBusca] = useState(() => {
     if (typeof window !== "undefined") return new URLSearchParams(window.location.search).get("busca") || "";
     return "";
   });
-  const [soBaixo, setSoBaixo] = useState(() => {
-    if (typeof window !== "undefined") return new URLSearchParams(window.location.search).get("soBaixo") === "true";
-    return false;
+  const [estoqueInv, setEstoqueInv] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      const p = new URLSearchParams(window.location.search);
+      if (p.get("soBaixo") === "true") return "baixo";
+      return p.get("estoque") || "all";
+    }
+    return "all";
   });
+  const [tipoInv, setTipoInv] = useState("all");
+  const [obraInv, setObraInv] = useState("all");
 
   const episFiltrados = useMemo(() => {
     const q = busca.trim().toLowerCase();
-    return epis.filter((e: any) => {
-      if (soBaixo && !(Number(e.estoque_atual) < Number(e.estoque_minimo))) return false;
+    return (epis as any[]).filter((e: any) => {
+      const est = Number(e.estoque_atual) || 0;
+      if (estoqueInv === "com_estoque" && !(est > 0)) return false;
+      if (estoqueInv === "acima_1" && !(est > 1)) return false;
+      if (estoqueInv === "zerado" && !(est <= 0)) return false;
+      if (estoqueInv === "baixo" && !(est < Number(e.estoque_minimo))) return false;
+      if (tipoInv !== "all" && String(e.tipo ?? "") !== tipoInv) return false;
+      if (obraInv !== "all") {
+        if (obraInv === "__geral") {
+          if ((e as any).obra_id) return false;
+        } else if ((e as any).obra_id !== obraInv) return false;
+      }
       if (!q) return true;
       return (e.nome ?? "").toLowerCase().includes(q) || (e.ca ?? "").toLowerCase().includes(q);
     });
-  }, [epis, busca, soBaixo]);
+  }, [epis, busca, estoqueInv, tipoInv, obraInv]);
+
+  const estoqueEpiLabel: Record<string, string> = {
+    all: "Todos",
+    com_estoque: "Com estoque (> 0)",
+    acima_1: "Acima de 1 unidade (> 1)",
+    zerado: "Zerados (= 0)",
+    baixo: "Abaixo do mínimo",
+  };
+
+  const exportInventarioEpi = (kind: "csv" | "pdf") => {
+    const headers = ["Nome", "Tipo", "CA", "Obra", "Estoque", "Mínimo", "Validade (meses)"];
+    const rows = episFiltrados.map((e: any) => [
+      e.nome ?? "",
+      e.tipo ?? "",
+      e.ca ?? "",
+      obraNome((e as any).obra_id),
+      String(e.estoque_atual ?? 0),
+      String(e.estoque_minimo ?? 0),
+      e.validade_meses != null ? String(e.validade_meses) : "",
+    ]);
+    const fname = `inventario-epis-${new Date().toISOString().slice(0, 10)}`;
+    if (kind === "csv") {
+      exportCSV(fname, headers, rows);
+    } else {
+      const parts: string[] = [];
+      if (busca.trim()) parts.push(`Busca: "${busca.trim()}"`);
+      parts.push(`Estoque: ${estoqueEpiLabel[estoqueInv] ?? estoqueInv}`);
+      parts.push(`Tipo: ${tipoInv === "all" ? "Todos (EPI + EPC)" : tipoInv}`);
+      if (obraInv !== "all") parts.push(`Obra: ${obraInv === "__geral" ? "Geral" : obraNome(obraInv)}`);
+      parts.push(`${episFiltrados.length} item(ns)`);
+      exportPDF("Inventário de EPI / EPC", headers, rows, fname, "Filtros — " + parts.join(" | "));
+    }
+  };
 
   const handleNewEpi = () => {
     setEditingEpi(null);
@@ -595,33 +653,88 @@ function EpisPage() {
           <TabsTrigger value="movs">Histórico de movimentações</TabsTrigger>
         </TabsList>
         <TabsContent value="catalogo" className="space-y-4">
-          <div className="flex flex-wrap items-center gap-2">
-            <Input
-              placeholder="Buscar por nome ou CA..."
-              value={busca}
-              onChange={(e) => setBusca(e.target.value)}
-              className="max-w-xs"
-            />
-            <Button
-              variant={soBaixo ? "default" : "outline"}
-              size="sm"
-              onClick={() => setSoBaixo(!soBaixo)}
-            >
-              Abaixo do mínimo
-            </Button>
-            {busca || soBaixo ? (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setBusca("");
-                  setSoBaixo(false);
-                }}
-              >
-                Limpar filtros
+          <Card className="p-3">
+            <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-5 items-end">
+              <div className="lg:col-span-2">
+                <Label className="text-xs">Buscar (nome ou CA)</Label>
+                <Input
+                  placeholder="Buscar por nome ou CA..."
+                  value={busca}
+                  onChange={(e) => setBusca(e.target.value)}
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Estoque (impressão)</Label>
+                <Select value={estoqueInv} onValueChange={setEstoqueInv}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="com_estoque">Com estoque (&gt; 0)</SelectItem>
+                    <SelectItem value="acima_1">Acima de 1 (&gt; 1)</SelectItem>
+                    <SelectItem value="zerado">Zerados (= 0)</SelectItem>
+                    <SelectItem value="baixo">Abaixo do mínimo</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs">Tipo</Label>
+                <Select value={tipoInv} onValueChange={setTipoInv}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">EPI + EPC</SelectItem>
+                    <SelectItem value="EPI">Só EPI</SelectItem>
+                    <SelectItem value="EPC">Só EPC</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs">Obra</Label>
+                <Select value={obraInv} onValueChange={setObraInv}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas</SelectItem>
+                    <SelectItem value="__geral">Geral</SelectItem>
+                    {(obras as any[]).map((o: any) => (
+                      <SelectItem key={o.id} value={o.id}>
+                        {o.nome}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2 items-center mt-3">
+              <Button variant="outline" size="sm" onClick={() => exportInventarioEpi("csv")}>
+                <FileDown className="h-4 w-4" /> CSV inventário
               </Button>
-            ) : null}
-          </div>
+              <Button variant="outline" size="sm" onClick={() => exportInventarioEpi("pdf")}>
+                <FileText className="h-4 w-4" /> PDF inventário
+              </Button>
+              {busca || estoqueInv !== "all" || tipoInv !== "all" || obraInv !== "all" ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setBusca("");
+                    setEstoqueInv("all");
+                    setTipoInv("all");
+                    setObraInv("all");
+                  }}
+                >
+                  Limpar filtros
+                </Button>
+              ) : null}
+              <span className="text-xs text-muted-foreground ml-auto">
+                {episFiltrados.length} de {epis.length} — o PDF usa o filtro atual
+              </span>
+            </div>
+          </Card>
           <Card>
             <Table>
               <TableHeader>
@@ -679,10 +792,12 @@ function EpisPage() {
                     </TableRow>
                   );
                 })}
-                {epis.length === 0 && (
+                {episFiltrados.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                      Nenhum EPI cadastrado.
+                      {epis.length === 0
+                        ? "Nenhum EPI cadastrado."
+                        : "Nenhum EPI no filtro atual."}
                     </TableCell>
                   </TableRow>
                 )}

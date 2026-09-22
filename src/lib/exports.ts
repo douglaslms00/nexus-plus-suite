@@ -18,6 +18,7 @@ export async function exportPDF(
   headers: string[],
   rows: (string | number)[][],
   filename?: string,
+  subtitle?: string,
 ) {
   const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
     import("jspdf"),
@@ -28,10 +29,17 @@ export async function exportPDF(
   doc.text(title, 14, 16);
   doc.setFontSize(9);
   doc.text(`Gerado em ${new Date().toLocaleString("pt-BR")}`, 14, 22);
+  let startY = 28;
+  if (subtitle) {
+    doc.setFontSize(9);
+    const lines = doc.splitTextToSize(subtitle, 180);
+    doc.text(lines, 14, 27);
+    startY = 27 + lines.length * 5 + 3;
+  }
   autoTable(doc, {
     head: [headers],
     body: rows.map((r) => r.map((v) => String(v ?? ""))),
-    startY: 28,
+    startY,
     styles: { fontSize: 9 },
     headStyles: { fillColor: [30, 58, 95] },
   });

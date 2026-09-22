@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useCurrentUser, useModulePerm } from "@/lib/permissions";
 import { RequireModulePerm } from "@/components/RequireModulePerm";
@@ -35,10 +35,20 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Trash2, AlertTriangle, RotateCcw, Pencil, Paperclip } from "lucide-react";
+import {
+  Plus,
+  Trash2,
+  AlertTriangle,
+  RotateCcw,
+  Pencil,
+  Paperclip,
+  FileDown,
+  FileText,
+} from "lucide-react";
 import { toast } from "sonner";
 import { differenceInDays } from "date-fns";
 import { safeParseISO } from "@/lib/utils";
+import { exportCSV, exportPDF } from "@/lib/exports";
 
 export const Route = createFileRoute("/_authenticated/ferramentas")({
   component: () => (
@@ -95,6 +105,77 @@ function FerramentasPage() {
   const [fF, setFF] = useState<any>({ estado: "disponivel" });
   const [fE, setFE] = useState<any>({});
   const [uploading, setUploading] = useState(false);
+
+  // Filtros do inventário — valem para a tabela e para impressão/PDF
+  const [buscaFer, setBuscaFer] = useState("");
+  const [estadoInv, setEstadoInv] = useState("all");
+  const [obraInvFer, setObraInvFer] = useState("all");
+  const [manutInv, setManutInv] = useState("all");
+
+  const ferramentasFiltradas = useMemo(() => {
+    const q = buscaFer.trim().toLowerCase();
+    const hoje = new Date();
+    return (ferramentas as any[]).filter((f: any) => {
+      if (estadoInv !== "all" && String(f.estado ?? "") !== estadoInv) return false;
+      if (obraInvFer !== "all") {
+        if (obraInvFer === "__geral") {
+          if ((f as any).obra_id) return false;
+        } else if ((f as any).obra_id !== obraInvFer) return false;
+      }
+      if (manutInv !== "all") {
+        const dias = f.proxima_manutencao
+          ? differenceInDays(safeParseISO(f.proxima_manutencao), hoje)
+          : null;
+        if (manutInv === "sem_data" && f.proxima_manutencao) return false;
+        if (manutInv === "vencida" && !(dias !== null && dias < 0)) return false;
+        if (manutInv === "prox_15" && !(dias !== null && dias >= 0 && dias <= 15)) return false;
+        if (manutInv === "com_data" && !f.proxima_manutencao) return false;
+      }
+      if (!q) return true;
+      return (
+        (f.nome ?? "").toLowerCase().includes(q) ||
+        (f.codigo ?? "").toLowerCase().includes(q)
+      );
+    });
+  }, [ferramentas, buscaFer, estadoInv, obraInvFer, manutInv]);
+
+  const exportInventarioFer = (kind: "csv" | "pdf") => {
+    const headers = ["Nome", "Código", "Estado", "Obra", "Próx. manutenção", "Descrição"];
+    const rows = ferramentasFiltradas.map((f: any) => [
+      f.nome ?? "",
+      f.codigo ?? "",
+      f.estado ?? "",
+      f.obra?.nome ?? "",
+      f.proxima_manutencao ?? "",
+      (f.descricao ?? "").replace(/\s+/g, " ").slice(0, 120),
+    ]);
+    const fname = `inventario-ferramentas-${new Date().toISOString().slice(0, 10)}`;
+    if (kind === "csv") {
+      exportCSV(fname, headers, rows);
+    } else {
+      const estadoTxt = estadoInv === "all" ? "Todos os estados" : estadoInv;
+      const obraTxt =
+        obraInvFer === "all"
+          ? "Todas as obras"
+          : obraInvFer === "__geral"
+            ? "Geral (sem obra)"
+            : ((obras as any[]).find((o: any) => o.id === obraInvFer)?.nome ?? obraInvFer);
+      const manutTxt: Record<string, string> = {
+        all: "Todas",
+        vencida: "Manutenção vencida",
+        prox_15: "Manutenção próximos 15 dias",
+        sem_data: "Sem data de manutenção",
+        com_data: "Com data definida",
+      };
+      const parts: string[] = [];
+      if (buscaFer.trim()) parts.push(`Busca: "${buscaFer.trim()}"`);
+      parts.push(`Estado/Tipo: ${estadoTxt}`);
+      parts.push(`Obra: ${obraTxt}`);
+      parts.push(`Manutenção: ${manutTxt[manutInv] ?? manutInv}`);
+      parts.push(`${ferramentasFiltradas.length} item(ns) — cada ferramenta = 1 unidade`);
+      exportPDF("Inventário de ferramentas", headers, rows, fname, "Filtros — " + parts.join(" | "));
+    }
+  };
 
   const openNewF = () => {
     setEditing(null);
@@ -370,6 +451,91 @@ function FerramentasPage() {
             </Dialog>
           )}
 
+          <Card className="p-3">
+            <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-5 items-end">
+              <div className="lg:col-span-2">
+                <Label className="text-xs">Buscar (nome ou código)</Label>
+                <Input
+                  value={buscaFer}
+                  onChange={(e) => setBuscaFer(e.target.value)}
+                  placeholder="Digite para filtrar..."
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Estado / Tipo</Label>
+                <Select value={estadoInv} onValueChange={setEstadoInv}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="disponivel">Disponível</SelectItem>
+                    <SelectItem value="emprestada">Emprestada</SelectItem>
+                    <SelectItem value="manutencao">Manutenção</SelectItem>
+                    <SelectItem value="descartada">Descartada</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs">Obra</Label>
+                <Select value={obraInvFer} onValueChange={setObraInvFer}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas</SelectItem>
+                    <SelectItem value="__geral">Geral (sem obra)</SelectItem>
+                    {(obras as any[]).map((o: any) => (
+                      <SelectItem key={o.id} value={o.id}>
+                        {o.nome}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs">Manutenção</Label>
+                <Select value={manutInv} onValueChange={setManutInv}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas</SelectItem>
+                    <SelectItem value="vencida">Vencida</SelectItem>
+                    <SelectItem value="prox_15">Próx. 15 dias</SelectItem>
+                    <SelectItem value="com_data">Com data</SelectItem>
+                    <SelectItem value="sem_data">Sem data</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2 items-center mt-3">
+              <Button variant="outline" size="sm" onClick={() => exportInventarioFer("csv")}>
+                <FileDown className="h-4 w-4" /> CSV inventário
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => exportInventarioFer("pdf")}>
+                <FileText className="h-4 w-4" /> PDF inventário
+              </Button>
+              {(buscaFer || estadoInv !== "all" || obraInvFer !== "all" || manutInv !== "all") && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setBuscaFer("");
+                    setEstadoInv("all");
+                    setObraInvFer("all");
+                    setManutInv("all");
+                  }}
+                >
+                  Limpar filtros
+                </Button>
+              )}
+              <span className="text-xs text-muted-foreground ml-auto">
+                {ferramentasFiltradas.length} de {ferramentas.length} — o PDF usa o filtro atual
+              </span>
+            </div>
+          </Card>
+
           <Card>
             <Table>
               <TableHeader>
@@ -383,7 +549,7 @@ function FerramentasPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {ferramentas.map((f: any) => {
+                {ferramentasFiltradas.map((f: any) => {
                   const dias = f.proxima_manutencao
                     ? differenceInDays(safeParseISO(f.proxima_manutencao), new Date())
                     : null;
@@ -426,10 +592,12 @@ function FerramentasPage() {
                     </TableRow>
                   );
                 })}
-                {ferramentas.length === 0 && (
+                {ferramentasFiltradas.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                      Nenhuma ferramenta cadastrada.
+                      {ferramentas.length === 0
+                        ? "Nenhuma ferramenta cadastrada."
+                        : "Nenhuma ferramenta no filtro atual."}
                     </TableCell>
                   </TableRow>
                 )}
