@@ -625,6 +625,7 @@ export type Database = {
           funcionario_id: string | null
           id: string
           motivo_retirada: string | null
+          obra_id: string | null
           observacoes: string | null
           quantidade: number
           tipo: Database["public"]["Enums"]["epi_movimento_tipo"]
@@ -638,6 +639,7 @@ export type Database = {
           funcionario_id?: string | null
           id?: string
           motivo_retirada?: string | null
+          obra_id?: string | null
           observacoes?: string | null
           quantidade?: number
           tipo: Database["public"]["Enums"]["epi_movimento_tipo"]
@@ -651,6 +653,7 @@ export type Database = {
           funcionario_id?: string | null
           id?: string
           motivo_retirada?: string | null
+          obra_id?: string | null
           observacoes?: string | null
           quantidade?: number
           tipo?: Database["public"]["Enums"]["epi_movimento_tipo"]
@@ -670,6 +673,13 @@ export type Database = {
             referencedRelation: "funcionarios"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "epi_movimentos_obra_id_fkey"
+            columns: ["obra_id"]
+            isOneToOne: false
+            referencedRelation: "obras"
+            referencedColumns: ["id"]
+          },
         ]
       }
       epis: {
@@ -682,6 +692,7 @@ export type Database = {
           estoque_minimo: number
           id: string
           nome: string
+          obra_id: string | null
           tipo: string
           updated_at: string
           validade_meses: number | null
@@ -695,6 +706,7 @@ export type Database = {
           estoque_minimo?: number
           id?: string
           nome: string
+          obra_id?: string | null
           tipo?: string
           updated_at?: string
           validade_meses?: number | null
@@ -708,11 +720,20 @@ export type Database = {
           estoque_minimo?: number
           id?: string
           nome?: string
+          obra_id?: string | null
           tipo?: string
           updated_at?: string
           validade_meses?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "epis_obra_id_fkey"
+            columns: ["obra_id"]
+            isOneToOne: false
+            referencedRelation: "obras"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       ferramenta_emprestimos: {
         Row: {
@@ -1460,6 +1481,7 @@ export type Database = {
           estoque_minimo: number
           id: string
           nome: string
+          obra_id: string | null
           preco_medio: number | null
           unidade: string
           updated_at: string
@@ -1473,6 +1495,7 @@ export type Database = {
           estoque_minimo?: number
           id?: string
           nome: string
+          obra_id?: string | null
           preco_medio?: number | null
           unidade?: string
           updated_at?: string
@@ -1486,11 +1509,20 @@ export type Database = {
           estoque_minimo?: number
           id?: string
           nome?: string
+          obra_id?: string | null
           preco_medio?: number | null
           unidade?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "materiais_obra_id_fkey"
+            columns: ["obra_id"]
+            isOneToOne: false
+            referencedRelation: "obras"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       material_movimentos: {
         Row: {

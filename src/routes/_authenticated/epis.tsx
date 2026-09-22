@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useModulePerm } from "@/lib/permissions";
+import { useObraAtual } from "@/lib/obra-context.types";
 import { RequireModulePerm } from "@/components/RequireModulePerm";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,26 +49,39 @@ function EpisPage() {
   const perm = useModulePerm("epis");
   const canEdit = perm.can_edit;
   const canDelete = perm.can_delete;
+  const { obraId } = useObraAtual();
+
+  const { data: obras = [] } = useQuery({
+    queryKey: ["obras-min-epi"],
+    enabled: perm.can_view,
+    queryFn: async () => (await supabase.from("obras").select("id, nome").order("nome")).data ?? [],
+  });
+  const obraNome = (id: string | null | undefined) =>
+    (obras as any[]).find((o: any) => o.id === id)?.nome ?? "Geral";
 
   const { data: epis = [] } = useQuery({
-    queryKey: ["epis"],
+    queryKey: ["epis", obraId],
     enabled: perm.can_view,
     queryFn: async () => {
-      const { data, error } = await supabase.from("epis").select("*").order("nome");
+      let q = supabase.from("epis").select("*").order("nome");
+      if (obraId) q = q.eq("obra_id", obraId);
+      const { data, error } = await q;
       if (error) throw error;
       return data;
     },
   });
 
   const { data: movs = [] } = useQuery({
-    queryKey: ["epi_movs"],
+    queryKey: ["epi_movs", obraId],
     enabled: perm.can_view,
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from("epi_movimentos")
         .select("*, epis(nome,tipo), funcionarios(nome)")
         .order("data_movimento", { ascending: false })
-        .limit(100);
+        .limit(200);
+      if (obraId) q = q.eq("obra_id", obraId);
+      const { data, error } = await q;
       if (error) throw error;
       return data;
     },
@@ -113,7 +127,7 @@ function EpisPage() {
 
   const handleNewEpi = () => {
     setEditingEpi(null);
-    setForm({ tipo: "EPI", estoque_atual: 0, estoque_minimo: 0, nome: "", ca: "", validade_meses: "" });
+    setForm({ tipo: "EPI", estoque_atual: 0, estoque_minimo: 0, nome: "", ca: "", validade_meses: "", obra_id: obraId ?? "" });
     setOpen(true);
   };
 
@@ -126,6 +140,7 @@ function EpisPage() {
       estoque_atual: epi.estoque_atual ?? 0,
       estoque_minimo: epi.estoque_minimo ?? 0,
       validade_meses: epi.validade_meses ?? "",
+      obra_id: (epi as any).obra_id ?? "",
     });
     setOpen(true);
   };
@@ -139,6 +154,7 @@ function EpisPage() {
         estoque_atual: Number(form.estoque_atual) || 0,
         estoque_minimo: Number(form.estoque_minimo) || 0,
         validade_meses: form.validade_meses ? Number(form.validade_meses) : null,
+        obra_id: form.obra_id || null,
       };
 
       if (editingEpi) {
@@ -180,7 +196,8 @@ function EpisPage() {
 
   const handleNewMov = () => {
     setEditingMov(null);
-    setMovForm({ tipo: "entrada", quantidade: 1, epi_id: epis[0]?.id ?? "", funcionario_id: "", motivo_retirada: "", observacoes: "" });
+    const firstEpi = (epis as any[])[0];
+    setMovForm({ tipo: "entrada", quantidade: 1, epi_id: firstEpi?.id ?? "", funcionario_id: "", motivo_retirada: "", observacoes: "", obra_id: (firstEpi as any)?.obra_id ?? obraId ?? "" });
     setMovOpen(true);
   };
 
@@ -193,6 +210,7 @@ function EpisPage() {
       funcionario_id: mov.funcionario_id ?? "",
       motivo_retirada: mov.motivo_retirada ?? "",
       observacoes: mov.observacoes ?? "",
+      obra_id: mov.obra_id ?? "",
     });
     setMovOpen(true);
   };
@@ -215,6 +233,7 @@ function EpisPage() {
             quantidade: qtd,
             observacoes: movForm.observacoes || null,
             motivo_retirada: movForm.motivo_retirada || null,
+            obra_id: movForm.obra_id || null,
           })
           .eq("id", editingMov.id);
 
@@ -254,6 +273,7 @@ function EpisPage() {
           data_vencimento: null,
           observacoes: movForm.observacoes || null,
           motivo_retirada: movForm.motivo_retirada || null,
+          obra_id: movForm.obra_id || (epis as any[]).find((e: any) => e.id === movForm.epi_id)?.obra_id || obraId || null,
         });
         if (error) throw error;
 
@@ -374,6 +394,25 @@ function EpisPage() {
                 />
               </div>
             </div>
+            <div className="space-y-1">
+              <Label>Obra (inventário)</Label>
+              <Select
+                value={form.obra_id ?? ""}
+                onValueChange={(v) => setForm({ ...form, obra_id: v === "__geral" ? "" : v })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Geral (todas as obras)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__geral">Geral (todas as obras)</SelectItem>
+                  {(obras as any[]).map((o: any) => (
+                    <SelectItem key={o.id} value={o.id}>
+                      {o.nome}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="grid grid-cols-3 gap-3">
               <div className="space-y-1">
                 <Label>Estoque atual</Label>
@@ -432,7 +471,14 @@ function EpisPage() {
               <Label>EPI / EPC *</Label>
               <Select
                 value={movForm.epi_id ?? ""}
-                onValueChange={(v) => setMovForm({ ...movForm, epi_id: v })}
+                onValueChange={(v) => {
+                  const epi = (epis as any[]).find((e: any) => e.id === v);
+                  setMovForm({
+                    ...movForm,
+                    epi_id: v,
+                    obra_id: (epi as any)?.obra_id ?? movForm.obra_id ?? obraId ?? "",
+                  });
+                }}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione" />
@@ -441,6 +487,25 @@ function EpisPage() {
                   {epis.map((e: any) => (
                     <SelectItem key={e.id} value={e.id}>
                       {e.nome} ({e.tipo})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label>Obra</Label>
+              <Select
+                value={movForm.obra_id ?? ""}
+                onValueChange={(v) => setMovForm({ ...movForm, obra_id: v === "__geral" ? "" : v })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Geral (todas as obras)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__geral">Geral (todas as obras)</SelectItem>
+                  {(obras as any[]).map((o: any) => (
+                    <SelectItem key={o.id} value={o.id}>
+                      {o.nome}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -564,6 +629,7 @@ function EpisPage() {
                   <TableHead>Nome</TableHead>
                   <TableHead>Tipo</TableHead>
                   <TableHead>CA</TableHead>
+                  <TableHead>Obra</TableHead>
                   <TableHead>Estoque</TableHead>
                   <TableHead>Mínimo</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
@@ -579,6 +645,7 @@ function EpisPage() {
                         <span className="text-xs px-2 py-0.5 rounded bg-muted">{e.tipo}</span>
                       </TableCell>
                       <TableCell>{e.ca ?? "—"}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{obraNome((e as any).obra_id)}</TableCell>
                       <TableCell className={cn(baixo && "text-destructive font-semibold")}>
                         {e.estoque_atual}
                       </TableCell>
@@ -614,7 +681,7 @@ function EpisPage() {
                 })}
                 {epis.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                       Nenhum EPI cadastrado.
                     </TableCell>
                   </TableRow>
@@ -632,6 +699,7 @@ function EpisPage() {
                   <TableHead>EPI</TableHead>
                   <TableHead>Tipo</TableHead>
                   <TableHead>Qtd</TableHead>
+                  <TableHead>Obra</TableHead>
                   <TableHead>Funcionário</TableHead>
                   <TableHead>Motivo</TableHead>
                   {(canEdit || canDelete) && <TableHead className="text-right">Ações</TableHead>}
@@ -662,6 +730,7 @@ function EpisPage() {
                       </span>
                     </TableCell>
                     <TableCell>{m.quantidade}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{obraNome(m.obra_id)}</TableCell>
                     <TableCell>{m.funcionarios?.nome ?? "—"}</TableCell>
                     <TableCell className="text-sm">{m.motivo_retirada ?? "—"}</TableCell>
                     {(canEdit || canDelete) && (
@@ -696,7 +765,7 @@ function EpisPage() {
                 ))}
                 {movs.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                       Nenhuma movimentação registrada.
                     </TableCell>
                   </TableRow>

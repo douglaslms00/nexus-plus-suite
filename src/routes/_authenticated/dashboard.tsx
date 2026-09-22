@@ -231,9 +231,9 @@ function DashboardPage() {
       }, "dash-tarefas"),
   });
 
-  // 4. EPIs (estoque global, igual ao módulo)
+  // 4. EPIs (estoque por obra, igual ao módulo)
   const { data: epis = [], error: episError } = useQuery({
-    queryKey: ["dash-epis"],
+    queryKey: ["dash-epis", obraId],
     enabled: permEpi.can_view,
     staleTime: 1000 * 30,
     refetchOnMount: "always",
@@ -241,19 +241,21 @@ function DashboardPage() {
     retry: 1,
     queryFn: async () =>
       safeList(async () => {
-        const { data, error } = await supabase
+        let q = supabase
           .from("epis")
-          .select("id, nome, tipo, ca, estoque_atual, estoque_minimo, validade_meses")
+          .select("id, nome, tipo, ca, estoque_atual, estoque_minimo, validade_meses, obra_id")
           .eq("ativo", true)
           .order("nome")
           .limit(300);
+        if (obraId) q = q.eq("obra_id", obraId);
+        const { data, error } = await q;
         return { data, error };
       }, "dash-epis"),
   });
 
-  // 5. Materiais (estoque global, igual ao módulo)
+  // 5. Materiais (estoque por obra, igual ao módulo)
   const { data: materiais = [], error: matError } = useQuery({
-    queryKey: ["dash-mat"],
+    queryKey: ["dash-mat", obraId],
     enabled: permMat.can_view,
     staleTime: 1000 * 30,
     refetchOnMount: "always",
@@ -261,12 +263,14 @@ function DashboardPage() {
     retry: 1,
     queryFn: async () =>
       safeList(async () => {
-        const { data, error } = await supabase
+        let q = supabase
           .from("materiais")
-          .select("id, nome, codigo, unidade, preco_medio, estoque_atual, estoque_minimo")
+          .select("id, nome, codigo, unidade, preco_medio, estoque_atual, estoque_minimo, obra_id")
           .eq("ativo", true)
           .order("nome")
           .limit(300);
+        if (obraId) q = q.eq("obra_id", obraId);
+        const { data, error } = await q;
         return { data, error };
       }, "dash-materiais"),
   });
@@ -623,13 +627,14 @@ function DashboardPage() {
       if (!qtd || qtd <= 0) throw new Error("Informe uma quantidade válida para entrada.");
 
       if (selectedStockItem.tipoItem === "epi") {
-        // Registra movimento de EPI
+        // Registra movimento de EPI (obra do item, ou obra atual)
         const { error: movErr } = await supabase.from("epi_movimentos").insert({
           epi_id: selectedStockItem.id,
           tipo: "entrada",
           quantidade: qtd,
           observacoes: stockEntryObs || "Reabastecimento rápido via Dashboard",
-        });
+          obra_id: (selectedStockItem as any).obra_id ?? stockEntryObra ?? obraId ?? null,
+        } as any);
         if (movErr) throw movErr;
 
         // Atualiza estoque atual
@@ -1329,7 +1334,7 @@ function DashboardPage() {
                             <div className="truncate">
                               <span className="font-semibold">{item.nome}</span>
                               <span className="text-xs text-muted-foreground ml-1.5">
-                                ({item.tipoItem === "epi" ? "EPI" : "Material"})
+                                ({item.tipoItem === "epi" ? "EPI" : "Material"} &bull; {(obras as any[]).find((o: any) => o.id === (item as any).obra_id)?.nome ?? "Geral"})
                               </span>
                             </div>
                           </div>
@@ -1792,6 +1797,9 @@ function DashboardPage() {
                               <h4 className="font-bold text-sm tracking-tight text-foreground">
                                 {item.nome}
                               </h4>
+                              <span className="text-xs text-muted-foreground block">
+                                Obra: {(obras as any[]).find((o: any) => o.id === (item as any).obra_id)?.nome ?? "Geral"}
+                              </span>
                               {item.ca && (
                                 <span className="text-xs text-muted-foreground block">
                                   CA: {item.ca}

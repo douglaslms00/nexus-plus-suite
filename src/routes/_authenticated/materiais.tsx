@@ -59,9 +59,13 @@ function MateriaisPage() {
   const canDelete = perm.can_delete;
 
   const { data: materiais = [] } = useQuery({
-    queryKey: ["materiais"],
+    queryKey: ["materiais", obraId],
     enabled: perm.can_view,
-    queryFn: async () => (await supabase.from("materiais").select("*").order("nome")).data ?? [],
+    queryFn: async () => {
+      let q = supabase.from("materiais").select("*").order("nome");
+      if (obraId) q = q.eq("obra_id", obraId);
+      return (await q).data ?? [];
+    },
   });
   const { data: obras = [] } = useQuery({
     queryKey: ["obras-min2"],
@@ -81,6 +85,8 @@ function MateriaisPage() {
       return (await q).data ?? [];
     },
   });
+  const obraNome = (id: string | null | undefined) =>
+    (obras as any[]).find((o: any) => o.id === id)?.nome ?? "Geral";
 
   const [openM, setOpenM] = useState(false);
   const [editingM, setEditingM] = useState<any>(null);
@@ -111,7 +117,7 @@ function MateriaisPage() {
 
   const openNewM = () => {
     setEditingM(null);
-    setFM({ unidade: "un" });
+    setFM({ unidade: "un", obra_id: obraId ?? "" });
     setOpenM(true);
   };
   const openEditM = (m: any) => {
@@ -429,6 +435,25 @@ function MateriaisPage() {
                         onChange={(e) => setFM({ ...fM, preco_medio: e.target.value })}
                       />
                     </div>
+                    <div className="space-y-1 col-span-2">
+                      <Label>Obra (inventário)</Label>
+                      <Select
+                        value={fM.obra_id ?? ""}
+                        onValueChange={(v) => setFM({ ...fM, obra_id: v === "__geral" ? "" : v })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Geral (todas as obras)" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__geral">Geral (todas as obras)</SelectItem>
+                          {(obras as any[]).map((o: any) => (
+                            <SelectItem key={o.id} value={o.id}>
+                              {o.nome}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                   <div className="space-y-1">
                     <Label>Descrição</Label>
@@ -489,6 +514,7 @@ function MateriaisPage() {
                   <TableHead>Nome</TableHead>
                   <TableHead>Código</TableHead>
                   <TableHead>Unidade</TableHead>
+                  <TableHead>Obra</TableHead>
                   <TableHead>Estoque</TableHead>
                   <TableHead>Mínimo</TableHead>
                   <TableHead>Preço médio</TableHead>
@@ -503,6 +529,7 @@ function MateriaisPage() {
                       <TableCell className="font-medium">{m.nome}</TableCell>
                       <TableCell>{m.codigo ?? "—"}</TableCell>
                       <TableCell>{m.unidade}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{obraNome(m.obra_id)}</TableCell>
                       <TableCell className={cn(baixo && "text-destructive font-semibold")}>
                         <span className="inline-flex items-center gap-1">
                           {baixo && <AlertTriangle className="h-3 w-3" />}
@@ -536,7 +563,7 @@ function MateriaisPage() {
                 })}
                 {materiaisFiltrados.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                       {materiais.length === 0
                         ? "Nenhum material cadastrado."
                         : "Nenhum material no filtro."}
@@ -572,7 +599,14 @@ function MateriaisPage() {
                       <Label>Material *</Label>
                       <Select
                         value={fMv.material_id ?? ""}
-                        onValueChange={(v) => setFMv({ ...fMv, material_id: v })}
+                        onValueChange={(v) => {
+                          const mat = (materiais as any[]).find((m: any) => m.id === v);
+                          setFMv({
+                            ...fMv,
+                            material_id: v,
+                            obra_id: (mat as any)?.obra_id ?? fMv.obra_id ?? obraId ?? "",
+                          });
+                        }}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Selecione" />
