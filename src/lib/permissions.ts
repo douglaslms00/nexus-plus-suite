@@ -273,42 +273,82 @@ export function useMyCustomRoles() {
     enabled: !!user?.id,
     staleTime: 1000 * 60 * 5,
     retry: 1,
+    // Em 2 passos (sem embed `custom_role:custom_roles`): o embed quebra com
+    // PGRST200 quando o FK tem outro nome/está ausente no schema remoto, o que
+    // fazia cargos personalizados nunca aparecerem para o próprio usuário.
     queryFn: async (): Promise<CustomRole[]> => {
-      const { data, error } = await supabase
+      const { data: links, error: linkError } = await supabase
         .from("user_custom_roles")
-        .select("custom_role:custom_roles(id, name, label, description)")
+        .select("custom_role_id")
         .eq("user_id", user!.id);
+      if (linkError) {
+        if (isMissingSchemaError(linkError)) {
+          console.warn("[useMyCustomRoles] indisponível, retornando []:", linkError.message);
+          return [];
+        }
+        throw linkError;
+      }
+      const ids = [...new Set((links ?? []).map((r: any) => r.custom_role_id).filter(Boolean))];
+      if (ids.length === 0) return [];
+      const { data, error } = await (supabase as any)
+        .from("custom_roles")
+        .select("id, name, label, description, parent_role_id, template_role")
+        .in("id", ids);
       if (error) {
         if (isMissingSchemaError(error)) {
-          console.warn("[useMyCustomRoles] indisponível, retornando []:", error.message);
+          console.warn("[useMyCustomRoles] custom_roles indisponível, retornando []:", error.message);
           return [];
         }
         throw error;
       }
-      return (data ?? [])
-        .map((r: { custom_role: CustomRole | null }) => r.custom_role)
-        .filter((c): c is CustomRole => !!c);
+      return (data ?? []) as CustomRole[];
     },
   });
 }
 
 export function useAllCustomRolePerms() {
+  const { data: user } = useCurrentUser();
   return useQuery({
-    queryKey: ["all-custom-role-perms"],
+    queryKey: ["all-custom-role-perms", user?.id],
+    enabled: !!user?.id,
     staleTime: 1000 * 60 * 5,
     retry: 1,
     queryFn: async (): Promise<CustomRolePerm[]> => {
-      const { data, error } = await supabase
+      const full = await supabase
         .from("custom_role_module_permissions")
         .select("custom_role_id, module, can_view, can_edit, can_delete");
-      if (error) {
-        if (isMissingSchemaError(error)) {
-          console.warn("[useAllCustomRolePerms] indisponível, retornando []:", error.message);
+      if (!full.error) return (full.data ?? []) as CustomRolePerm[];
+      if (isMissingSchemaError(full.error)) {
+        console.warn("[useAllCustomRolePerms] indisponível, retornando []:", full.error.message);
+        return [];
+      }
+      // Leitura da tabela cheia negada (RLS para não-admins): tenta escopo
+      // restrito às permissões dos próprios cargos do usuário.
+      try {
+        const { data: links, error: linkError } = await supabase
+          .from("user_custom_roles")
+          .select("custom_role_id")
+          .eq("user_id", user!.id);
+        if (linkError) throw linkError;
+        const ids = [...new Set((links ?? []).map((r: any) => r.custom_role_id).filter(Boolean))];
+        if (ids.length === 0) return [];
+        const { data, error } = await supabase
+          .from("custom_role_module_permissions")
+          .select("custom_role_id, module, can_view, can_edit, can_delete")
+          .in("custom_role_id", ids);
+        if (error) throw error;
+        return (data ?? []) as CustomRolePerm[];
+      } catch (e) {
+        if (isMissingSchemaError(e)) {
+          console.warn("[useAllCustomRolePerms] indisponível, retornando []:", (e as Error)?.message);
           return [];
         }
-        throw error;
+        console.warn(
+          "[useAllCustomRolePerms] sem acesso às permissões custom (RLS?), cargos personalizados ignorados:",
+          (e as { message?: string })?.message ?? e,
+        );
+        return [];
       }
-      return (data ?? []) as CustomRolePerm[];
     },
   });
 }
@@ -332,6 +372,16 @@ function mergeCustomPerms(
 
 const DENY_ALL: ModulePerm = { can_view: false, can_edit: false, can_delete: false };
 
+/** `true` enquanto qualquer fonte de permissão ainda está carregando. */
+export function usePermissionsLoading(): boolean {
+  const { isLoading: a } = useUserRoles();
+  const { isLoading: b } = useMyModulePermissions();
+  const { isLoading: c } = useMyCustomRoles();
+  const { isLoading: d } = useAllCustomRolePerms();
+  const { isLoading: e } = useAllSystemRolePerms();
+  return a || b || c || d || e;
+}
+
 export function useModulePerm(module: AppModule): ModulePerm {
   const { data: roles, isLoading: rolesLoading } = useUserRoles();
   const { data: overrides, isLoading: overridesLoading } = useMyModulePermissions();
@@ -341,28 +391,25 @@ export function useModulePerm(module: AppModule): ModulePerm {
 
   if (roles?.includes("admin")) return { can_view: true, can_edit: true, can_delete: true };
 
-  const o = overrides?.find((x) => x.module === module);
+  const o = (overrides ?? []).find((x) => x.module === module);
   if (o) return { can_view: o.can_view, can_edit: o.can_edit, can_delete: o.can_delete };
 
   const fromCustom = mergeCustomPerms(
     module,
     (customRoles ?? []).map((c) => c.id),
-    customPerms,
+    customPerms ?? [],
   );
   if (fromCustom) return fromCustom;
 
-  // Nega por padrão enquanto as permissões ainda estão carregando.
-  // Antes, o fallback liberava `can_view: true` durante o loading e o
-  // dashboard disparava queries/exibia dados de módulos sem permissão.
+  // Nega por padrão SOMENTE enquanto as permissões ainda estão carregando
+  // (evita flash de dados sem permissão no dashboard). Após resolver — mesmo
+  // com erro em alguma query (RLS/tabela ausente) — degrada para as listas
+  // disponíveis (`?? []`) em vez de negar para sempre, senão cargos
+  // personalizados seriam ignorados quando uma leitura auxiliar falhasse.
   if (rolesLoading || overridesLoading || customRolesLoading || customPermsLoading || systemPermsLoading) {
     return DENY_ALL;
   }
-  if (!roles) return DENY_ALL;
-  // Se as listas de permissões ainda não resolveram, não usa fallback amplo.
-  if (overrides === undefined || customRoles === undefined || customPerms === undefined || systemPerms === undefined) {
-    return DENY_ALL;
-  }
-  return defaultPerm(module, roles, systemPerms);
+  return defaultPerm(module, roles ?? [], systemPerms ?? []);
 }
 
 export function effectivePerm(

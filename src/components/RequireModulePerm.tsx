@@ -3,7 +3,7 @@ import { ShieldAlert } from "lucide-react";
 import type { ReactNode } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { useModulePerm, useUserRoles, type AppModule } from "@/lib/permissions";
+import { useModulePerm, usePermissionsLoading, type AppModule } from "@/lib/permissions";
 
 /**
  * Barreira de permissão por módulo.
@@ -11,10 +11,10 @@ import { useModulePerm, useUserRoles, type AppModule } from "@/lib/permissions";
  * - Sem `can_view`, bloqueia a página mesmo com acesso via URL/dashboard.
  */
 export function RequireModulePerm({ module, children }: { module: AppModule; children: ReactNode }) {
-  const { isLoading: rolesLoading } = useUserRoles();
+  const permsLoading = usePermissionsLoading();
   const perm = useModulePerm(module);
 
-  if (rolesLoading) {
+  if (permsLoading) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center">
         <div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />

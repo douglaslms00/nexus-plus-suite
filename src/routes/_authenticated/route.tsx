@@ -2,7 +2,7 @@ import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { AppShell } from "@/components/AppShell";
 import { ObraProvider } from "@/lib/obra-context";
-import { useUserRoles } from "@/lib/permissions";
+import { useUserRoles, useMyCustomRoles, useMyModulePermissions } from "@/lib/permissions";
 import { Building2, Clock } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated")({
@@ -65,10 +65,12 @@ function PendingPermissionsScreen() {
 }
 
 function AuthenticatedLayout() {
-  const { data: roles, isLoading } = useUserRoles();
+  const { data: roles, isLoading: rolesLoading } = useUserRoles();
+  const { data: customRoles, isLoading: customLoading } = useMyCustomRoles();
+  const { data: overrides, isLoading: overridesLoading } = useMyModulePermissions();
 
-  // Enquanto carrega os roles, não renderiza nada para evitar flash
-  if (isLoading) {
+  // Enquanto carrega as permissões, não renderiza nada para evitar flash
+  if (rolesLoading || customLoading || overridesLoading) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
@@ -76,8 +78,12 @@ function AuthenticatedLayout() {
     );
   }
 
-  // Se o usuário não tem nenhum cargo atribuído, mostra tela de espera
-  if (roles && roles.length === 0) {
+  // Sem nenhum cargo (sistema ou personalizado) nem override: tela de espera.
+  // Antes só checava `user_roles`, então usuários SOMENTE com cargo
+  // personalizado ficavam presos nesta tela para sempre.
+  const hasAccess =
+    (roles?.length ?? 0) > 0 || (customRoles?.length ?? 0) > 0 || (overrides?.length ?? 0) > 0;
+  if (!hasAccess) {
     return <PendingPermissionsScreen />;
   }
 
