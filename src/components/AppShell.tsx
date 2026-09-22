@@ -36,6 +36,7 @@ import {
   Truck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Select,
   SelectContent,
@@ -50,6 +51,61 @@ import { useObraAtual } from "@/lib/obra-context.types";
 import { NotificationsBell } from "@/components/NotificationsBell";
 import { GlobalFloatingActions } from "@/components/GlobalFloatingActions";
 import { InstallAppButton } from "@/components/InstallAppButton";
+
+function UserHeaderProfile({
+  profile,
+  email,
+  compact = false,
+}: {
+  profile?: { nome?: string | null; avatar_url?: string | null } | null;
+  email?: string | null;
+  compact?: boolean;
+}) {
+  const displayName = profile?.nome || "Usuário";
+  const displayEmail = email || "";
+  const initials = (profile?.nome || email || "U").slice(0, 2).toUpperCase();
+
+  return (
+    <Link
+      to="/perfil"
+      className={cn(
+        "flex items-center rounded-full border border-border/60 bg-card/80 hover:bg-accent hover:border-border transition-all duration-150 group cursor-pointer shrink-0",
+        compact
+          ? "gap-1.5 p-1 pl-1 pr-2.5 max-w-[150px] sm:max-w-[220px]"
+          : "gap-2.5 p-1 px-2.5 max-w-[240px] xl:max-w-[300px]",
+      )}
+      title="Ir para o meu perfil"
+      aria-label={`Perfil de ${displayName}`}
+    >
+      <Avatar className={cn("shrink-0 ring-1 ring-border/50", compact ? "h-7 w-7" : "h-8 w-8")}>
+        {profile?.avatar_url && <AvatarImage src={profile.avatar_url} alt={displayName} />}
+        <AvatarFallback className="bg-primary/10 text-primary font-semibold text-xs">
+          {initials}
+        </AvatarFallback>
+      </Avatar>
+      <div className="flex flex-col min-w-0 text-left pr-0.5">
+        <span
+          className={cn(
+            "font-semibold leading-tight truncate text-foreground group-hover:text-primary transition-colors",
+            compact ? "text-[11px]" : "text-xs",
+          )}
+        >
+          {displayName}
+        </span>
+        {displayEmail && (
+          <span
+            className={cn(
+              "leading-tight text-muted-foreground truncate",
+              compact ? "text-[10px]" : "text-[11px]",
+            )}
+          >
+            {displayEmail}
+          </span>
+        )}
+      </div>
+    </Link>
+  );
+}
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { location } = useRouterState();
@@ -318,17 +374,10 @@ export function AppShell({ children }: { children: ReactNode }) {
               </SelectContent>
             </Select>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1.5">
             <InstallAppButton compact />
             <NotificationsBell />
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="Perfil"
-              onClick={() => navigate({ to: "/perfil" })}
-            >
-              <UserCog className="h-5 w-5" />
-            </Button>
+            <UserHeaderProfile profile={profile} email={authUser?.email} compact />
           </div>
         </header>
 
@@ -367,15 +416,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </Select>
             <InstallAppButton />
             <NotificationsBell />
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="Perfil"
-              onClick={() => navigate({ to: "/perfil" })}
-              title="Meu perfil"
-            >
-              <UserCog className="h-5 w-5" />
-            </Button>
+            <UserHeaderProfile profile={profile} email={authUser?.email} />
           </div>
         </div>
 
