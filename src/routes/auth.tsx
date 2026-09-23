@@ -4,12 +4,18 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Building2, Eye, EyeOff } from "lucide-react";
+import { getRememberMe, setRememberMe, touchActivity, clearActivity } from "@/lib/session-inactivity";
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
+  validateSearch: (search: Record<string, unknown>) => ({
+    expired: typeof search.expired === "string" ? search.expired : undefined,
+    reset: typeof search.reset === "string" ? search.reset : undefined,
+  }),
   component: AuthPage,
 });
 
@@ -66,16 +72,24 @@ async function resolveEmail(identifier: string): Promise<string | null> {
 
 function AuthPage() {
   const navigate = useNavigate();
+  const { expired } = Route.useSearch();
   const [loading, setLoading] = useState(false);
   const [loginId, setLoginId] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMeState] = useState<boolean>(() => getRememberMe());
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
       if (data.user) navigate({ to: "/dashboard", replace: true });
     });
   }, [navigate]);
+
+  useEffect(() => {
+    if (expired === "1") {
+      toast.info("Sessão encerrada após 1 hora de inatividade. Entre novamente.");
+    }
+  }, [expired]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -105,6 +119,12 @@ function AuthPage() {
         return toast.error(error.message);
       }
       toast.success("Bem-vindo!");
+      setRememberMe(rememberMe);
+      if (rememberMe) {
+        clearActivity();
+      } else {
+        touchActivity();
+      }
       navigate({ to: "/dashboard", replace: true });
     } finally {
       setLoading(false);
@@ -194,7 +214,21 @@ function AuthPage() {
                 </Button>
               </div>
             </div>
-            <div className="flex justify-end">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="remember-me"
+                  checked={rememberMe}
+                  onCheckedChange={(v) => setRememberMeState(v === true)}
+                />
+                <Label
+                  htmlFor="remember-me"
+                  className="text-xs font-normal cursor-pointer leading-tight"
+                  title="Se marcado, você não será desconectado automaticamente após 1 hora de inatividade."
+                >
+                  Permanecer conectado
+                </Label>
+              </div>
               <Button
                 type="button"
                 variant="link"
@@ -205,6 +239,11 @@ function AuthPage() {
                 Esqueci minha senha
               </Button>
             </div>
+            <p className="text-[11px] text-muted-foreground -mt-2">
+              {rememberMe
+                ? "Com esta opção, sua sessão não expira por inatividade."
+                : "Sem esta opção, você será desconectado após 1 hora sem atividade."}
+            </p>
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? "Entrando..." : "Entrar"}
             </Button>

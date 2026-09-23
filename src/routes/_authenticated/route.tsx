@@ -15,7 +15,7 @@ export const Route = createFileRoute("/_authenticated")({
       return { user: session.user };
     }
     const { data, error } = await supabase.auth.getUser();
-    if (error || !data.user) throw redirect({ to: "/auth" });
+    if (error || !data.user) throw redirect({ to: "/auth", search: { expired: undefined, reset: undefined } });
     return { user: data.user };
   },
   component: AuthenticatedLayout,

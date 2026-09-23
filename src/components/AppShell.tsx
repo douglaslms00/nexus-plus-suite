@@ -205,7 +205,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     await supabase.auth.signOut();
-    navigate({ to: "/auth", replace: true });
+    navigate({ to: "/auth", replace: true, search: { expired: undefined, reset: undefined } });
   };
 
   const items: {
