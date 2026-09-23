@@ -140,6 +140,14 @@ function FerramentasPage() {
   }, [ferramentas, buscaFer, estadoInv, obraInvFer, manutInv]);
 
   const exportInventarioFer = (kind: "csv" | "pdf") => {
+    if (kind === "pdf") {
+      if (
+        !confirm(
+          `Deseja baixar o PDF do inventário com ${ferramentasFiltradas.length} item(ns)?`,
+        )
+      )
+        return;
+    }
     const headers = ["Nome", "Código", "Estado", "Obra", "Próx. manutenção", "Descrição"];
     const rows = ferramentasFiltradas.map((f: any) => [
       f.nome ?? "",

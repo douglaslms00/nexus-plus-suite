@@ -395,6 +395,14 @@ function MateriaisPage() {
   };
 
   const exportInventario = (kind: "csv" | "pdf") => {
+    if (kind === "pdf") {
+      if (
+        !confirm(
+          `Deseja baixar o PDF do inventário com ${materiaisFiltrados.length} item(ns)?`,
+        )
+      )
+        return;
+    }
     const headers = ["Nome", "Código", "Unidade", "Obra", "Estoque", "Mínimo", "Preço médio"];
     const rows = materiaisFiltrados.map((m: any) => [
       m.nome ?? "",

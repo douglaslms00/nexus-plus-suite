@@ -159,6 +159,12 @@ function EpisPage() {
   };
 
   const exportInventarioEpi = (kind: "csv" | "pdf") => {
+    if (kind === "pdf") {
+      if (
+        !confirm(`Deseja baixar o PDF do inventário com ${episFiltrados.length} item(ns)?`)
+      )
+        return;
+    }
     const headers = ["Nome", "Tipo", "CA", "Obra", "Estoque", "Mínimo", "Validade (meses)"];
     const rows = episFiltrados.map((e: any) => [
       e.nome ?? "",
