@@ -743,6 +743,7 @@ export type Database = {
           data_devolucao: string | null
           data_emprestimo: string
           ferramenta_id: string
+          ficha_id: string | null
           funcionario_id: string | null
           id: string
           observacoes: string | null
@@ -755,6 +756,7 @@ export type Database = {
           data_devolucao?: string | null
           data_emprestimo?: string
           ferramenta_id: string
+          ficha_id?: string | null
           funcionario_id?: string | null
           id?: string
           observacoes?: string | null
@@ -767,6 +769,7 @@ export type Database = {
           data_devolucao?: string | null
           data_emprestimo?: string
           ferramenta_id?: string
+          ficha_id?: string | null
           funcionario_id?: string | null
           id?: string
           observacoes?: string | null
