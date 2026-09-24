@@ -222,14 +222,23 @@ function FrotaPage() {
   const [editTermoId, setEditTermoId] = useState<string | null>(null);
   const [termoAnexoFile, setTermoAnexoFile] = useState<File | null>(null);
   const [termoAnexoAtual, setTermoAnexoAtual] = useState<string | null>(null);
+  // Criação em lote: vários veículos (vários termos) para o mesmo motorista
+  const [fTermoVeiculos, setFTermoVeiculos] = useState<string[]>([]);
+  const [termoAnexoFiles, setTermoAnexoFiles] = useState<File[]>([]);
   const [openModeloDialog, setOpenModeloDialog] = useState(false);
 
-  const abrirNovoTermo = () => {
+  const abrirNovoTermo = (motoristaId?: string) => {
     setEditTermoId(null);
-    setFTermo(defaultTermoForm);
+    setFTermo({ ...defaultTermoForm, motorista_id: motoristaId ?? "" });
+    setFTermoVeiculos([]);
+    setTermoAnexoFiles([]);
     setTermoAnexoFile(null);
     setTermoAnexoAtual(null);
     setOpenTermo(true);
+  };
+
+  const toggleTermoVeiculo = (id: string) => {
+    setFTermoVeiculos((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   };
 
   const abrirEditTermo = (t: any) => {
@@ -241,6 +250,8 @@ function FrotaPage() {
       status: t.status ?? "ativo",
       observacoes: t.observacoes ?? "",
     });
+    setFTermoVeiculos([]);
+    setTermoAnexoFiles([]);
     setTermoAnexoFile(null);
     setTermoAnexoAtual(t.anexo_url ?? null);
     setOpenTermo(true);
@@ -248,38 +259,62 @@ function FrotaPage() {
 
   const saveTermo = useMutation({
     mutationFn: async () => {
-      if (!fTermo.veiculo_id || !fTermo.motorista_id) {
-        throw new Error("Selecione o Veículo e o Motorista.");
+      if (!fTermo.motorista_id) {
+        throw new Error("Selecione o Motorista.");
       }
-      let pathAnexo = termoAnexoAtual;
-      if (termoAnexoFile) {
-        pathAnexo = await uploadAnexo(termoAnexoFile, `frota/termos/${Date.now()}`);
+      // ---- EDIÇÃO: mantém 1 termo / 1 veículo / 1 anexo ----
+      if (editTermoId) {
+        if (!fTermo.veiculo_id) throw new Error("Selecione o Veículo.");
+        let pathAnexo = termoAnexoAtual;
+        if (termoAnexoFile) {
+          pathAnexo = await uploadAnexo(termoAnexoFile, `frota/termos/${Date.now()}`);
+        }
+        const payload = {
+          veiculo_id: fTermo.veiculo_id,
+          motorista_id: fTermo.motorista_id,
+          data_termo: fTermo.data_termo || new Date().toISOString().slice(0, 10),
+          status: fTermo.status || "ativo",
+          anexo_url: pathAnexo || null,
+          observacoes: fTermo.observacoes || null,
+          created_by: user?.id,
+        };
+        const { error } = await supabase.from("frota_termos").update(payload).eq("id", editTermoId);
+        if (error) throw error;
+        return { qtd: 1 };
       }
-
-      const payload = {
-        veiculo_id: fTermo.veiculo_id,
+      // ---- CRIAÇÃO EM LOTE: 1 motorista x N veículos = N termos ----
+      const veiculoIds = fTermoVeiculos.length > 0 ? fTermoVeiculos : (fTermo.veiculo_id ? [fTermo.veiculo_id] : []);
+      if (veiculoIds.length === 0) {
+        throw new Error("Selecione ao menos um Veículo.");
+      }
+      // Sobe os anexos (se N arquivos para N veículos, pareia 1:1 na mesma ordem;
+      // se 1 arquivo para N veículos, o mesmo anexo vai para todos).
+      const paths: (string | null)[] = [];
+      for (const file of termoAnexoFiles) {
+        paths.push(await uploadAnexo(file, `frota/termos/${Date.now()}`));
+      }
+      const payloads = veiculoIds.map((veiculo_id, i) => ({
+        veiculo_id,
         motorista_id: fTermo.motorista_id,
         data_termo: fTermo.data_termo || new Date().toISOString().slice(0, 10),
         status: fTermo.status || "ativo",
-        anexo_url: pathAnexo || null,
+        anexo_url: paths.length === 0 ? null : (paths.length === 1 ? paths[0] : (paths[i] ?? null)),
         observacoes: fTermo.observacoes || null,
         created_by: user?.id,
-      };
-
-      if (editTermoId) {
-        const { error } = await supabase.from("frota_termos").update(payload).eq("id", editTermoId);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.from("frota_termos").insert(payload);
-        if (error) throw error;
-      }
+      }));
+      const { error } = await supabase.from("frota_termos").insert(payloads);
+      if (error) throw error;
+      return { qtd: payloads.length };
     },
-    onSuccess: () => {
-      toast.success(editTermoId ? "Termo atualizado" : "Termo registrado com sucesso");
+    onSuccess: (res) => {
+      const qtd = (res as any)?.qtd ?? 1;
+      toast.success(editTermoId ? "Termo atualizado" : qtd > 1 ? `${qtd} termos registrados com sucesso` : "Termo registrado com sucesso");
       qc.invalidateQueries({ queryKey: ["frota-termos"] });
       setOpenTermo(false);
       setEditTermoId(null);
       setFTermo(defaultTermoForm);
+      setFTermoVeiculos([]);
+      setTermoAnexoFiles([]);
       setTermoAnexoFile(null);
       setTermoAnexoAtual(null);
     },
@@ -1705,7 +1740,7 @@ function FrotaPage() {
           </Dialog>
 
           {/* Modal Form Cadastro / Edição */}
-          <Dialog open={openTermo} onOpenChange={(v) => { setOpenTermo(v); if (!v) setEditTermoId(null); }}>
+          <Dialog open={openTermo} onOpenChange={(v) => { setOpenTermo(v); if (!v) { setEditTermoId(null); setFTermoVeiculos([]); setTermoAnexoFiles([]); setTermoAnexoFile(null); setTermoAnexoAtual(null); } }}>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>{editTermoId ? "Editar Termo de Responsabilidade" : "Novo Termo de Responsabilidade"}</DialogTitle>
@@ -1736,24 +1771,68 @@ function FrotaPage() {
                   </Select>
                 </div>
 
-                <div className="space-y-1">
-                  <Label>Veículo *</Label>
-                  <Select
-                    value={fTermo.veiculo_id ?? ""}
-                    onValueChange={(v) => setFTermo({ ...fTermo, veiculo_id: v })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione o veículo" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {veiculos.map((v: any) => (
-                        <SelectItem key={v.id} value={v.id}>
-                          {v.placa} — {v.modelo}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                {editTermoId ? (
+                  <div className="space-y-1">
+                    <Label>Veículo *</Label>
+                    <Select
+                      value={fTermo.veiculo_id ?? ""}
+                      onValueChange={(v) => setFTermo({ ...fTermo, veiculo_id: v })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione o veículo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {veiculos.map((v: any) => (
+                          <SelectItem key={v.id} value={v.id}>
+                            {v.placa} — {v.modelo}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ) : (
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <Label>Veículos * ({fTermoVeiculos.length} selecionado{fTermoVeiculos.length === 1 ? "" : "s"})</Label>
+                      <div className="flex gap-1">
+                        <Button type="button" variant="link" className="h-auto p-0 text-xs" onClick={() => setFTermoVeiculos((veiculos as any[]).map((v) => v.id))}>
+                          Todos
+                        </Button>
+                        <span className="text-xs text-muted-foreground">·</span>
+                        <Button type="button" variant="link" className="h-auto p-0 text-xs" onClick={() => setFTermoVeiculos([])}>
+                          Limpar
+                        </Button>
+                      </div>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      Um termo será criado por veículo para o mesmo motorista.
+                    </p>
+                    <div className="max-h-44 overflow-y-auto rounded-md border p-2 space-y-1">
+                      {(veiculos as any[]).length === 0 && (
+                        <p className="text-xs text-muted-foreground">Nenhum veículo cadastrado.</p>
+                      )}
+                      {(veiculos as any[]).map((v: any) => {
+                        const checked = fTermoVeiculos.includes(v.id);
+                        const jaTem = (termos as any[]).some(
+                          (t) => t.motorista_id === fTermo.motorista_id && t.veiculo_id === v.id && t.status === "ativo",
+                        );
+                        return (
+                          <label key={v.id} className="flex items-center gap-2 rounded px-1 py-1 text-sm hover:bg-muted/50 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => toggleTermoVeiculo(v.id)}
+                              className="h-3.5 w-3.5"
+                            />
+                            <span className="font-medium">{v.placa}</span>
+                            <span className="text-muted-foreground text-xs truncate">— {v.modelo}</span>
+                            {jaTem && <Badge variant="secondary" className="ml-auto text-[10px]">já tem ativo</Badge>}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
@@ -1782,19 +1861,53 @@ function FrotaPage() {
                   </div>
                 </div>
 
-                <div className="space-y-1">
-                  <Label>Anexo (Termo Assinado)</Label>
-                  <Input
-                    type="file"
-                    accept="application/pdf,image/*"
-                    onChange={(e) => {
-                      const f = e.target.files?.[0];
-                      if (f) setTermoAnexoFile(f);
-                    }}
-                  />
-                  {termoAnexoFile && <p className="text-xs text-success">Novo anexo selecionado: {termoAnexoFile.name}</p>}
-                  {!termoAnexoFile && termoAnexoAtual && <p className="text-xs text-muted-foreground">Anexo atual mantido</p>}
-                </div>
+                {editTermoId ? (
+                  <div className="space-y-1">
+                    <Label>Anexo (Termo Assinado)</Label>
+                    <Input
+                      type="file"
+                      accept="application/pdf,image/*"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) setTermoAnexoFile(f);
+                      }}
+                    />
+                    {termoAnexoFile && <p className="text-xs text-success">Novo anexo selecionado: {termoAnexoFile.name}</p>}
+                    {!termoAnexoFile && termoAnexoAtual && <p className="text-xs text-muted-foreground">Anexo atual mantido</p>}
+                  </div>
+                ) : (
+                  <div className="space-y-1.5">
+                    <Label>Anexos (Termos Assinados)</Label>
+                    <p className="text-[11px] text-muted-foreground">
+                      Opcional. Com 1 arquivo ele vai para todos os termos; com N arquivos para N veículos, cada arquivo vira o anexo de um termo na mesma ordem.
+                    </p>
+                    <Input
+                      type="file"
+                      multiple
+                      accept="application/pdf,image/*"
+                      onChange={(e) => {
+                        const files = Array.from(e.target.files ?? []);
+                        if (files.length) setTermoAnexoFiles((prev) => [...prev, ...files]);
+                        e.target.value = "";
+                      }}
+                    />
+                    {termoAnexoFiles.length > 0 && (
+                      <div className="space-y-1">
+                        {termoAnexoFiles.map((f, i) => (
+                          <div key={`${f.name}-${i}`} className="flex items-center justify-between gap-2 rounded-md border p-1.5 text-xs">
+                            <span className="truncate">{i + 1}. {f.name}</span>
+                            <Button type="button" size="icon" variant="ghost" className="h-6 w-6 shrink-0" onClick={() => setTermoAnexoFiles((prev) => prev.filter((_, idx) => idx !== i))}>
+                              <X className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        ))}
+                        <Button type="button" variant="link" className="h-auto p-0 text-xs" onClick={() => setTermoAnexoFiles([])}>
+                          Remover todos
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <div className="space-y-1">
                   <Label>Observações</Label>
@@ -1807,7 +1920,7 @@ function FrotaPage() {
 
                 <DialogFooter>
                   <Button type="submit" disabled={saveTermo.isPending}>
-                    {saveTermo.isPending ? "Salvando..." : editTermoId ? "Atualizar" : "Salvar"}
+                    {saveTermo.isPending ? "Salvando..." : editTermoId ? "Atualizar" : fTermoVeiculos.length > 1 ? `Salvar ${fTermoVeiculos.length} termos` : "Salvar"}
                   </Button>
                 </DialogFooter>
               </form>
@@ -1829,8 +1942,8 @@ function FrotaPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {(termos as any[])
-                  .filter((t) => {
+                {(() => {
+                  const filtrados = (termos as any[]).filter((t) => {
                     if (!search) return true;
                     const q = search.toLowerCase();
                     return (
@@ -1838,85 +1951,118 @@ function FrotaPage() {
                       t.veiculo?.placa?.toLowerCase().includes(q) ||
                       t.veiculo?.modelo?.toLowerCase().includes(q)
                     );
-                  })
-                  .map((t) => (
-                    <TableRow key={t.id}>
-                      <TableCell className="text-sm">
-                        {t.data_termo ? new Date(t.data_termo).toLocaleDateString("pt-BR") : "—"}
-                      </TableCell>
-                      <TableCell className="font-medium">{t.motorista?.nome ?? "—"}</TableCell>
-                      <TableCell className="text-sm">
-                        {t.veiculo ? `${t.veiculo.placa} (${t.veiculo.modelo})` : "—"}
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={
-                            t.status === "ativo"
-                              ? "default"
-                              : t.status === "pendente_assinatura"
-                              ? "secondary"
-                              : "outline"
-                          }
-                        >
-                          {t.status === "ativo"
-                            ? "Ativo"
-                            : t.status === "pendente_assinatura"
-                            ? "Pendente"
-                            : "Encerrado"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {t.anexo_url ? (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={async () => {
-                              const url = await getAnexoUrl(t.anexo_url);
-                              if (url) window.open(url, "_blank");
-                              else toast.error("Não foi possível carregar o anexo.");
-                            }}
-                            title="Ver anexo"
-                            className="h-8 px-2 text-xs"
+                  });
+                  const grupos = new Map<string, { motoristaId: string | null; nome: string; itens: any[] }>();
+                  for (const t of filtrados) {
+                    const key = t.motorista_id ?? "sem-motorista";
+                    if (!grupos.has(key)) {
+                      grupos.set(key, { motoristaId: t.motorista_id ?? null, nome: t.motorista?.nome ?? "Sem motorista", itens: [] });
+                    }
+                    grupos.get(key)!.itens.push(t);
+                  }
+                  const lista = [...grupos.values()].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+                  if (lista.length === 0) {
+                    return (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                          {(termos as any[]).length === 0 ? "Nenhum termo de responsabilidade cadastrado." : "Nenhum termo com a busca atual."}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  }
+                  return lista.flatMap((g) => {
+                    const ativos = g.itens.filter((t) => t.status === "ativo").length;
+                    const header = (
+                      <TableRow key={`mot-${g.motoristaId ?? "none"}`} className="bg-muted/60">
+                        <TableCell colSpan={6}>
+                          <span className="text-xs font-bold uppercase tracking-wide">{g.nome}</span>
+                          <span className="ml-2 text-xs text-muted-foreground">
+                            {g.itens.length} termo{g.itens.length === 1 ? "" : "s"} · {ativos} ativo{ativos === 1 ? "" : "s"}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {canEdit && g.motoristaId && (
+                            <Button size="sm" variant="outline" className="h-7 text-xs" title={`Adicionar termo para ${g.nome}`} onClick={() => abrirNovoTermo(g.motoristaId)}>
+                              <Plus className="h-3.5 w-3.5 mr-1" /> Termo
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                    const linhas = g.itens.map((t) => (
+                      <TableRow key={t.id}>
+                        <TableCell className="text-sm">
+                          {t.data_termo ? new Date(t.data_termo).toLocaleDateString("pt-BR") : "—"}
+                        </TableCell>
+                        <TableCell className="font-medium">{t.motorista?.nome ?? "—"}</TableCell>
+                        <TableCell className="text-sm">
+                          {t.veiculo ? `${t.veiculo.placa} (${t.veiculo.modelo})` : "—"}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={
+                              t.status === "ativo"
+                                ? "default"
+                                : t.status === "pendente_assinatura"
+                                ? "secondary"
+                                : "outline"
+                            }
                           >
-                            <Paperclip className="h-3.5 w-3.5 mr-1" /> Anexo
-                          </Button>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">Sem anexo</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">
-                        {t.observacoes ?? "—"}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-1">
-                          {canEdit && (
-                            <Button size="icon" variant="ghost" onClick={() => abrirEditTermo(t)} title="Editar termo">
-                              <PenLine className="h-4 w-4" />
-                            </Button>
-                          )}
-                          {canDelete && (
+                            {t.status === "ativo"
+                              ? "Ativo"
+                              : t.status === "pendente_assinatura"
+                              ? "Pendente"
+                              : "Encerrado"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {t.anexo_url ? (
                             <Button
-                              size="icon"
+                              size="sm"
                               variant="ghost"
-                              onClick={() => {
-                                if (confirm("Excluir este termo de responsabilidade?")) removeTermo.mutate(t.id);
+                              onClick={async () => {
+                                const url = await getAnexoUrl(t.anexo_url);
+                                if (url) window.open(url, "_blank");
+                                else toast.error("Não foi possível carregar o anexo.");
                               }}
-                              title="Excluir termo"
+                              title="Ver anexo"
+                              className="h-8 px-2 text-xs"
                             >
-                              <Trash2 className="h-4 w-4 text-destructive" />
+                              <Paperclip className="h-3.5 w-3.5 mr-1" /> Anexo
                             </Button>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">Sem anexo</span>
                           )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                {(termos as any[]).length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                      Nenhum termo de responsabilidade cadastrado.
-                    </TableCell>
-                  </TableRow>
-                )}
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">
+                          {t.observacoes ?? "—"}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-1">
+                            {canEdit && (
+                              <Button size="icon" variant="ghost" onClick={() => abrirEditTermo(t)} title="Editar termo">
+                                <PenLine className="h-4 w-4" />
+                              </Button>
+                            )}
+                            {canDelete && (
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => {
+                                  if (confirm("Excluir este termo de responsabilidade?")) removeTermo.mutate(t.id);
+                                }}
+                                title="Excluir termo"
+                              >
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ));
+                    return [header, ...linhas];
+                  });
+                })()}
               </TableBody>
             </Table>
           </Card>
