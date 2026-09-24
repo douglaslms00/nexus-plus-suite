@@ -128,13 +128,21 @@ function FrotaPage() {
       return data ?? [];
     },
   });
+  // Filtros da aba Combustível: placa (veículo), obra, pagamento e período
+  const [fAbastVeiculo, setFAbastVeiculo] = useState("all");
+  const [fAbastObra, setFAbastObra] = useState("all");
+  const [fAbastPagto, setFAbastPagto] = useState("all");
+  const [fAbastIni, setFAbastIni] = useState("");
+  const [fAbastFim, setFAbastFim] = useState("");
+  const [agruparPorObra, setAgruparPorObra] = useState(true);
+
   const { data: abastecimentos = [] } = useQuery({
     queryKey: ["frota-abastecimentos", obraId],
     enabled: perm.can_view,
     queryFn: async () => {
       let q = supabase
         .from("frota_abastecimentos")
-        .select("*, veiculo:frota_veiculos(placa, modelo), motorista:frota_motoristas(nome)")
+        .select("*, veiculo:frota_veiculos(placa, modelo), motorista:frota_motoristas(nome), obra:obras(nome)")
         .order("data", { ascending: false })
         .order("odometro", { ascending: false });
       if (obraId) q = q.eq("obra_id", obraId);
@@ -320,6 +328,73 @@ function FrotaPage() {
     }
     return map;
   }, [veiculos, abastecimentos]);
+
+  // ---- ABASTECIMENTOS: filtros + separação por obra ----
+  const nomeObraAbast = (a: any) => a.obra?.nome ?? "Sem obra";
+  const temFiltroAbast = fAbastVeiculo !== "all" || fAbastObra !== "all" || fAbastPagto !== "all" || fAbastIni !== "" || fAbastFim !== "" || !!search;
+
+  const abastecimentosFiltrados = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return (abastecimentos as any[]).filter((a) => {
+      if (fAbastVeiculo !== "all" && a.veiculo_id !== fAbastVeiculo) return false;
+      if (fAbastObra !== "all") {
+        if (fAbastObra === "none") {
+          if (a.obra_id) return false;
+        } else if (a.obra_id !== fAbastObra) return false;
+      }
+      if (fAbastPagto !== "all" && (a.forma_pagamento ?? "") !== fAbastPagto) return false;
+      if (fAbastIni && (a.data ?? "") < fAbastIni) return false;
+      if (fAbastFim && (a.data ?? "") > fAbastFim) return false;
+      if (q && !`${a.veiculo?.placa ?? ""} ${a.veiculo?.modelo ?? ""} ${a.motorista?.nome ?? ""} ${a.tipo_combustivel ?? ""} ${a.forma_pagamento ?? ""} ${a.posto ?? ""}`.toLowerCase().includes(q)) return false;
+      return true;
+    });
+  }, [abastecimentos, fAbastVeiculo, fAbastObra, fAbastPagto, fAbastIni, fAbastFim, search]);
+
+  const abastecimentosPorObra = useMemo(() => {
+    const groups = new Map<string, { obraId: string | null; nome: string; itens: any[]; totalLitros: number; totalValor: number }>();
+    const ordenados = [...abastecimentosFiltrados].sort((x, y) => (x.data ?? "").localeCompare(y.data ?? "") || (x.odometro ?? 0) - (y.odometro ?? 0));
+    for (const a of ordenados) {
+      const nome = nomeObraAbast(a);
+      const key = a.obra_id ?? "none";
+      if (!groups.has(key)) groups.set(key, { obraId: a.obra_id ?? null, nome, itens: [], totalLitros: 0, totalValor: 0 });
+      const g = groups.get(key)!;
+      g.itens.push(a);
+      g.totalLitros += Number(a.litros ?? 0);
+      g.totalValor += Number(a.valor_total ?? 0);
+    }
+    return [...groups.values()].sort((x, y) => x.nome.localeCompare(y.nome, "pt-BR"));
+  }, [abastecimentosFiltrados]);
+
+  const resumoAbastFiltrado = useMemo(() => ({
+    qtd: abastecimentosFiltrados.length,
+    litros: abastecimentosFiltrados.reduce((s: number, a: any) => s + Number(a.litros ?? 0), 0),
+    valor: abastecimentosFiltrados.reduce((s: number, a: any) => s + Number(a.valor_total ?? 0), 0),
+  }), [abastecimentosFiltrados]);
+
+  const limparFiltrosAbast = () => {
+    setFAbastVeiculo("all");
+    setFAbastObra("all");
+    setFAbastPagto("all");
+    setFAbastIni("");
+    setFAbastFim("");
+    setSearch("");
+  };
+
+  const descricaoFiltrosAbast = useMemo(() => {
+    const parts: string[] = [];
+    if (fAbastVeiculo !== "all") {
+      const v = (veiculos as any[]).find((x) => x.id === fAbastVeiculo);
+      parts.push(`Placa: ${v ? `${v.placa} — ${v.modelo}` : fAbastVeiculo}`);
+    }
+    if (fAbastObra !== "all") {
+      const o = (obras as any[]).find((x) => x.id === fAbastObra);
+      parts.push(`Obra: ${o ? o.nome : "Sem obra"}`);
+    }
+    if (fAbastPagto !== "all") parts.push(`Pagamento: ${fAbastPagto}`);
+    if (fAbastIni || fAbastFim) parts.push(`Período: ${fAbastIni || "…"} a ${fAbastFim || "…"}`);
+    if (search.trim()) parts.push(`Busca: "${search.trim()}"`);
+    return parts.length ? `Filtros — ${parts.join(" · ")}` : "Sem filtros (todos os registros)";
+  }, [fAbastVeiculo, fAbastObra, fAbastPagto, fAbastIni, fAbastFim, search, veiculos, obras]);
 
   // ---- FORMS STATE ----
   const defaultVeiculoForm = { status: "ativo", tipo: "leve", combustivel_padrao: "diesel", intervalo_revisao_km: 10000, intervalo_revisao_meses: 6 };
@@ -836,23 +911,27 @@ function FrotaPage() {
   };
 
   const exportAbast = (kind: "csv" | "pdf") => {
-    const headers = ["Data", "Veículo", "Motorista", "Odômetro", "Litros", "Combustível", "R$/L", "Total", "Pagamento", "km/L", "R$/km"];
-    // montar mapa veiculo_id -> lista ordenada para km/L por linha
+    if (abastecimentosFiltrados.length === 0) {
+      toast.warning("Nenhum abastecimento para exportar com os filtros atuais.");
+      return;
+    }
+    const headers = ["Obra", "Data", "Veículo", "Motorista", "Odômetro", "Litros", "Combustível", "R$/L", "Total", "Pagamento", "km/L", "R$/km"];
+    // montar mapa veiculo_id -> lista ordenada para km/L por linha (base completa, não só filtrada)
     const byVeic = new Map<string, any[]>();
-    for (const a of [...(abastecimentos as any[])].reverse()) {
+    for (const a of [...(abastecimentos as any[])].sort((x, y) => (x.data ?? "").localeCompare(y.data ?? "") || (x.odometro ?? 0) - (y.odometro ?? 0))) {
       const arr = byVeic.get(a.veiculo_id) ?? [];
       arr.push(a);
       byVeic.set(a.veiculo_id, arr);
     }
-    const sorted = [...(abastecimentos as any[])].sort((a, b) => a.data.localeCompare(b.data));
-    const rows = sorted.map((a) => {
+    const buildRow = (a: any) => {
       const list = byVeic.get(a.veiculo_id) ?? [];
       const idx = list.findIndex((x) => x.id === a.id);
       const prev = idx > 0 ? list[idx - 1] : null;
       const { mediaKml, custoPorKm } = calcLinhaConsumo(a, prev);
       return [
+        nomeObraAbast(a),
         a.data,
-        a.veiculo?.placa ?? a.veiculo_id.slice(0, 8),
+        `${a.veiculo?.placa ?? a.veiculo_id.slice(0, 8)}${a.veiculo?.modelo ? ` ${a.veiculo.modelo}` : ""}`,
         a.motorista?.nome ?? "—",
         String(a.odometro),
         Number(a.litros).toFixed(2),
@@ -863,9 +942,24 @@ function FrotaPage() {
         mediaKml != null ? mediaKml.toFixed(2) : "—",
         custoPorKm != null ? custoPorKm.toFixed(2) : "—",
       ];
-    });
-    if (kind === "csv") exportCSV(`frota-abastecimentos-${new Date().toISOString().slice(0, 10)}`, headers, rows);
-    else exportPDF("Frota — Abastecimentos", headers, rows);
+    };
+    if (kind === "csv") {
+      const rows: (string | number)[][] = [];
+      for (const g of abastecimentosPorObra) {
+        for (const a of g.itens) rows.push(buildRow(a));
+        rows.push([`SUBTOTAL — ${g.nome}`, "", "", "", "", g.totalLitros.toFixed(2), "", "", g.totalValor.toFixed(2), "", "", ""]);
+      }
+      rows.push([`TOTAL GERAL (${resumoAbastFiltrado.qtd} abastec.)`, "", "", "", "", resumoAbastFiltrado.litros.toFixed(2), "", "", resumoAbastFiltrado.valor.toFixed(2), "", "", ""]);
+      exportCSV(`frota-abastecimentos-${new Date().toISOString().slice(0, 10)}`, headers, rows);
+    } else {
+      const rows: (string | number)[][] = [];
+      for (const g of abastecimentosPorObra) {
+        for (const a of g.itens) rows.push(buildRow(a));
+        rows.push([`SUBTOTAL — ${g.nome} (${g.itens.length})`, "", "", "", "", g.totalLitros.toFixed(2), "", "", formatCurrency(g.totalValor), "", "", ""]);
+      }
+      const subtitle = `${descricaoFiltrosAbast} · ${resumoAbastFiltrado.qtd} abastec. · ${resumoAbastFiltrado.litros.toFixed(2)} L · Total ${formatCurrency(resumoAbastFiltrado.valor)} · Gerado em ${new Date().toLocaleString("pt-BR")}`;
+      exportPDF("Frota — Abastecimentos por Obra", headers, rows, `frota-abastecimentos-por-obra-${new Date().toISOString().slice(0, 10)}`, subtitle);
+    }
   };
 
   if (!perm.can_view) {
@@ -1158,8 +1252,11 @@ function FrotaPage() {
                       <div className="space-y-1"><Label>Valor por litro *</Label><Input type="number" step="0.01" required value={fA.valor_por_litro ?? ""} onChange={(e) => setFA({ ...fA, valor_por_litro: e.target.value })} /></div>
                       <div className="space-y-1"><Label>Total (auto)</Label><Input disabled value={fA.litros && fA.valor_por_litro ? (Number(fA.litros) * Number(fA.valor_por_litro)).toFixed(2) : ""} placeholder="litros × R$/L" /></div>
                       <div className="space-y-1 col-span-2"><Label>Posto</Label><Input value={fA.posto ?? ""} onChange={(e) => setFA({ ...fA, posto: e.target.value })} /></div>
-                      <div className="space-y-1 col-span-2"><Label>Meio de pagamento</Label>
+                      <div className="space-y-1"><Label>Meio de pagamento</Label>
                         <Select value={fA.forma_pagamento ?? "Dinheiro/PIX"} onValueChange={(v) => setFA({ ...fA, forma_pagamento: v })}><SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger><SelectContent>{MEIOS_PAGAMENTO_ABAST.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent></Select>
+                      </div>
+                      <div className="space-y-1"><Label>Obra</Label>
+                        <Select value={fA.obra_id ?? obraId ?? "none"} onValueChange={(v) => setFA({ ...fA, obra_id: v === "none" ? null : v })}><SelectTrigger><SelectValue placeholder="Selecione a obra" /></SelectTrigger><SelectContent><SelectItem value="none">Sem obra</SelectItem>{(obras as any[]).map((o) => <SelectItem key={o.id} value={o.id}>{o.nome}</SelectItem>)}</SelectContent></Select>
                       </div>
                       <div className="space-y-1 col-span-2">
                         <Label>Anexo da nota / cupom fiscal (imagem ou PDF)</Label>
@@ -1194,52 +1291,131 @@ function FrotaPage() {
             )}
             <Button variant="outline" size="sm" onClick={() => exportAbast("csv")}><FileDown className="h-4 w-4" /> CSV</Button>
             <Button variant="outline" size="sm" onClick={() => exportAbast("pdf")}><FileText className="h-4 w-4" /> PDF</Button>
+            <label className="flex items-center gap-1.5 text-xs text-muted-foreground ml-auto">
+              <input type="checkbox" checked={agruparPorObra} onChange={(e) => setAgruparPorObra(e.target.checked)} className="h-3.5 w-3.5" />
+              Agrupar por obra
+            </label>
           </div>
+          {/* Filtros: placa, obra, pagamento e período */}
+          <Card className="p-3">
+            <div className="grid gap-2 md:grid-cols-3 xl:grid-cols-6">
+              <div className="space-y-1">
+                <Label className="text-xs">Placa / Veículo</Label>
+                <Select value={fAbastVeiculo} onValueChange={setFAbastVeiculo}>
+                  <SelectTrigger className="h-9"><SelectValue placeholder="Todas" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas as placas</SelectItem>
+                    {(veiculos as any[]).map((v) => <SelectItem key={v.id} value={v.id}>{v.placa} — {v.modelo}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Obra</Label>
+                <Select value={fAbastObra} onValueChange={setFAbastObra} disabled={!!obraId}>
+                  <SelectTrigger className="h-9"><SelectValue placeholder="Todas" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas as obras</SelectItem>
+                    <SelectItem value="none">Sem obra</SelectItem>
+                    {(obras as any[]).map((o) => <SelectItem key={o.id} value={o.id}>{o.nome}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                {!!obraId && <p className="text-[10px] text-muted-foreground">Obra fixa pelo contexto global.</p>}
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Pagamento</Label>
+                <Select value={fAbastPagto} onValueChange={setFAbastPagto}>
+                  <SelectTrigger className="h-9"><SelectValue placeholder="Todos" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    {MEIOS_PAGAMENTO_ABAST.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">De</Label>
+                <Input type="date" value={fAbastIni} onChange={(e) => setFAbastIni(e.target.value)} className="h-9" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Até</Label>
+                <Input type="date" value={fAbastFim} onChange={(e) => setFAbastFim(e.target.value)} className="h-9" min={fAbastIni || undefined} />
+              </div>
+              <div className="flex items-end gap-2">
+                <Button variant="outline" size="sm" onClick={limparFiltrosAbast} disabled={!temFiltroAbast} className="h-9"><X className="h-3.5 w-3.5" /> Limpar</Button>
+              </div>
+            </div>
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+              <span>{descricaoFiltrosAbast}</span>
+              <Badge variant="secondary">{resumoAbastFiltrado.qtd} abastec.</Badge>
+              <Badge variant="outline">{resumoAbastFiltrado.litros.toFixed(2)} L</Badge>
+              <Badge variant="outline">{formatCurrency(resumoAbastFiltrado.valor)}</Badge>
+            </div>
+          </Card>
+          {/* Resumo separado por obra */}
+          {abastecimentosPorObra.length > 0 && (
+            <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
+              {abastecimentosPorObra.map((g) => (
+                <Card key={g.obraId ?? "none"} className="p-3">
+                  <p className="text-sm font-semibold truncate" title={g.nome}>{g.nome}</p>
+                  <p className="text-xs text-muted-foreground">{g.itens.length} abastec. · {g.totalLitros.toFixed(2)} L</p>
+                  <p className="text-base font-bold">{formatCurrency(g.totalValor)}</p>
+                </Card>
+              ))}
+            </div>
+          )}
           <Card>
             <div className="overflow-auto">
               <table className="w-full text-sm">
                 <thead className="bg-muted/50 text-xs">
-                  <tr><th className="text-left p-2">Data</th><th className="text-left p-2">Veículo</th><th className="text-left p-2">Motorista</th><th className="text-right p-2">Odômetro</th><th className="text-right p-2">Litros</th><th className="text-right p-2">R$/L</th><th className="text-right p-2">Total</th><th className="text-left p-2">Pagamento</th><th className="text-right p-2">km/L</th><th className="text-right p-2">R$/km</th><th className="p-2"></th></tr>
+                  <tr>{agruparPorObra ? null : <th className="text-left p-2">Obra</th>}<th className="text-left p-2">Data</th><th className="text-left p-2">Veículo</th><th className="text-left p-2">Motorista</th><th className="text-right p-2">Odômetro</th><th className="text-right p-2">Litros</th><th className="text-right p-2">R$/L</th><th className="text-right p-2">Total</th><th className="text-left p-2">Pagamento</th><th className="text-right p-2">km/L</th><th className="text-right p-2">R$/km</th><th className="p-2"></th></tr>
                 </thead>
                 <tbody>
                   {(() => {
                     const byVeic = new Map<string, any[]>();
-                    for (const a of [...(abastecimentos as any[])].sort((x, y) => x.data.localeCompare(y.data) || x.odometro - y.odometro)) {
+                    for (const a of [...(abastecimentos as any[])].sort((x, y) => (x.data ?? "").localeCompare(y.data ?? "") || (x.odometro ?? 0) - (y.odometro ?? 0))) {
                       const arr = byVeic.get(a.veiculo_id) ?? [];
                       arr.push(a);
                       byVeic.set(a.veiculo_id, arr);
                     }
-                    return (abastecimentos as any[])
-                      .filter((a) => !search || `${a.veiculo?.placa} ${a.motorista?.nome ?? ""} ${a.tipo_combustivel} ${(a as any).forma_pagamento ?? ""} ${a.posto ?? ""}`.toLowerCase().includes(search.toLowerCase()))
-                      .map((a) => {
-                        const list = byVeic.get(a.veiculo_id) ?? [];
-                        const idx = list.findIndex((x) => x.id === a.id);
-                        const prev = idx > 0 ? list[idx - 1] : null;
-                        const { kmRodados, mediaKml, custoPorKm } = calcLinhaConsumo(a, prev);
-                        return (
-                          <tr key={a.id} className="border-t">
-                            <td className="p-2 whitespace-nowrap">{a.data}</td>
-                            <td className="p-2">{a.veiculo?.placa ?? "—"} <span className="text-muted-foreground text-xs">{a.veiculo?.modelo}</span></td>
-                            <td className="p-2">{a.motorista?.nome ?? "—"}</td>
-                            <td className="p-2 text-right">{Number(a.odometro).toLocaleString("pt-BR")} {kmRodados != null && <span className="text-xs text-muted-foreground">(+{kmRodados})</span>}</td>
-                            <td className="p-2 text-right">{Number(a.litros).toFixed(2)}</td>
-                            <td className="p-2 text-right">{formatCurrency(a.valor_por_litro)}</td>
-                            <td className="p-2 text-right font-medium">{formatCurrency(a.valor_total)}</td>
-                            <td className="p-2">{(a as any).forma_pagamento ? <Badge variant="outline" className="whitespace-nowrap">{(a as any).forma_pagamento}</Badge> : <span className="text-muted-foreground">—</span>}</td>
-                            <td className="p-2 text-right">{mediaKml != null ? <Badge variant={mediaKml < 6 ? "destructive" : mediaKml < 9 ? "secondary" : "default"}>{mediaKml.toFixed(2)}</Badge> : "—"}</td>
-                            <td className="p-2 text-right">{custoPorKm != null ? formatCurrency(custoPorKm) : "—"}</td>
-                            <td className="p-2 text-right whitespace-nowrap">
-                              {a.comprovante_url && <Button size="icon" variant="ghost" title="Abrir nota/cupom anexado" onClick={() => abrirComprovanteAbast(a.comprovante_url)}><Paperclip className="h-3.5 w-3.5" /></Button>}
-                              {canEdit && <Button size="icon" variant="ghost" title="Editar abastecimento" onClick={() => abrirEditarAbast(a)}><PenLine className="h-3.5 w-3.5" /></Button>}
-                              {canDelete && <Button size="icon" variant="ghost" title="Excluir abastecimento" onClick={() => confirm("Excluir?") && removeAbast.mutate(a.id)}><Trash2 className="h-3.5 w-3.5" /></Button>}
-                            </td>
-                          </tr>
-                        );
-                      });
+                    const renderRow = (a: any) => {
+                      const list = byVeic.get(a.veiculo_id) ?? [];
+                      const idx = list.findIndex((x) => x.id === a.id);
+                      const prev = idx > 0 ? list[idx - 1] : null;
+                      const { kmRodados, mediaKml, custoPorKm } = calcLinhaConsumo(a, prev);
+                      return (
+                        <tr key={a.id} className="border-t">
+                          {agruparPorObra ? null : <td className="p-2 whitespace-nowrap"><Badge variant="outline">{nomeObraAbast(a)}</Badge></td>}
+                          <td className="p-2 whitespace-nowrap">{a.data}</td>
+                          <td className="p-2">{a.veiculo?.placa ?? "—"} <span className="text-muted-foreground text-xs">{a.veiculo?.modelo}</span></td>
+                          <td className="p-2">{a.motorista?.nome ?? "—"}</td>
+                          <td className="p-2 text-right">{Number(a.odometro).toLocaleString("pt-BR")} {kmRodados != null && <span className="text-xs text-muted-foreground">(+{kmRodados})</span>}</td>
+                          <td className="p-2 text-right">{Number(a.litros).toFixed(2)}</td>
+                          <td className="p-2 text-right">{formatCurrency(a.valor_por_litro)}</td>
+                          <td className="p-2 text-right font-medium">{formatCurrency(a.valor_total)}</td>
+                          <td className="p-2">{(a as any).forma_pagamento ? <Badge variant="outline" className="whitespace-nowrap">{(a as any).forma_pagamento}</Badge> : <span className="text-muted-foreground">—</span>}</td>
+                          <td className="p-2 text-right">{mediaKml != null ? <Badge variant={mediaKml < 6 ? "destructive" : mediaKml < 9 ? "secondary" : "default"}>{mediaKml.toFixed(2)}</Badge> : "—"}</td>
+                          <td className="p-2 text-right">{custoPorKm != null ? formatCurrency(custoPorKm) : "—"}</td>
+                          <td className="p-2 text-right whitespace-nowrap">
+                            {a.comprovante_url && <Button size="icon" variant="ghost" title="Abrir nota/cupom anexado" onClick={() => abrirComprovanteAbast(a.comprovante_url)}><Paperclip className="h-3.5 w-3.5" /></Button>}
+                            {canEdit && <Button size="icon" variant="ghost" title="Editar abastecimento" onClick={() => abrirEditarAbast(a)}><PenLine className="h-3.5 w-3.5" /></Button>}
+                            {canDelete && <Button size="icon" variant="ghost" title="Excluir abastecimento" onClick={() => confirm("Excluir?") && removeAbast.mutate(a.id)}><Trash2 className="h-3.5 w-3.5" /></Button>}
+                          </td>
+                        </tr>
+                      );
+                    };
+                    if (!agruparPorObra) return abastecimentosFiltrados.map(renderRow);
+                    return abastecimentosPorObra.flatMap((g) => [
+                      <tr key={`obra-${g.obraId ?? "none"}`} className="bg-muted/60 border-t">
+                        <td colSpan={11} className="p-2">
+                          <span className="text-xs font-bold uppercase tracking-wide">{g.nome}</span>
+                          <span className="ml-2 text-xs text-muted-foreground">{g.itens.length} abastec. · {g.totalLitros.toFixed(2)} L · {formatCurrency(g.totalValor)}</span>
+                        </td>
+                      </tr>,
+                      ...g.itens.map(renderRow),
+                    ]);
                   })()}
                 </tbody>
               </table>
-              {(abastecimentos as any[]).length === 0 && <p className="p-8 text-center text-sm text-muted-foreground">Nenhum abastecimento.</p>}
+              {abastecimentosFiltrados.length === 0 && <p className="p-8 text-center text-sm text-muted-foreground">{(abastecimentos as any[]).length === 0 ? "Nenhum abastecimento." : "Nenhum abastecimento com os filtros atuais."}</p>}
             </div>
           </Card>
         </TabsContent>
