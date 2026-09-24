@@ -44,8 +44,6 @@ import {
   RotateCcw,
   Pencil,
   Paperclip,
-  FileDown,
-  FileText,
   Printer,
   PackageOpen,
   UserCheck,
@@ -55,7 +53,7 @@ import {
 import { toast } from "sonner";
 import { differenceInDays } from "date-fns";
 import { safeParseISO } from "@/lib/utils";
-import { exportCSV, exportPDF } from "@/lib/exports";
+import { InventoryImportExport } from "@/components/InventoryImportExport";
 
 export const Route = createFileRoute("/_authenticated/ferramentas")({
   component: () => (
@@ -176,15 +174,7 @@ function FerramentasPage() {
     });
   }, [ferramentas, buscaFer, estadoInv, obraInvFer, manutInv]);
 
-  const exportInventarioFer = (kind: "csv" | "pdf") => {
-    if (kind === "pdf") {
-      if (
-        !confirm(
-          `Deseja baixar o PDF do inventário com ${ferramentasFiltradas.length} item(ns)?`,
-        )
-      )
-        return;
-    }
+  const exportInventarioFerSpec = useMemo(() => {
     const headers = ["Nome", "Código", "Estado", "Obra", "Próx. manutenção", "Descrição"];
     const rows = ferramentasFiltradas.map((f: any) => [
       f.nome ?? "",
@@ -194,33 +184,34 @@ function FerramentasPage() {
       f.proxima_manutencao ?? "",
       (f.descricao ?? "").replace(/\s+/g, " ").slice(0, 120),
     ]);
-    const fname = `inventario-ferramentas-${new Date().toISOString().slice(0, 10)}`;
-    if (kind === "csv") {
-      exportCSV(fname, headers, rows);
-    } else {
-      const estadoTxt = estadoInv === "all" ? "Todos os estados" : estadoInv;
-      const obraTxt =
-        obraInvFer === "all"
-          ? "Todas as obras"
-          : obraInvFer === "__geral"
-            ? "Geral (sem obra)"
-            : ((obras as any[]).find((o: any) => o.id === obraInvFer)?.nome ?? obraInvFer);
-      const manutTxt: Record<string, string> = {
-        all: "Todas",
-        vencida: "Manutenção vencida",
-        prox_15: "Manutenção próximos 15 dias",
-        sem_data: "Sem data de manutenção",
-        com_data: "Com data definida",
-      };
-      const parts: string[] = [];
-      if (buscaFer.trim()) parts.push(`Busca: "${buscaFer.trim()}"`);
-      parts.push(`Estado/Tipo: ${estadoTxt}`);
-      parts.push(`Obra: ${obraTxt}`);
-      parts.push(`Manutenção: ${manutTxt[manutInv] ?? manutInv}`);
-      parts.push(`${ferramentasFiltradas.length} item(ns) — cada ferramenta = 1 unidade`);
-      exportPDF("Inventário de ferramentas", headers, rows, fname, "Filtros — " + parts.join(" | "));
-    }
-  };
+    const estadoTxt = estadoInv === "all" ? "Todos os estados" : estadoInv;
+    const obraTxt =
+      obraInvFer === "all"
+        ? "Todas as obras"
+        : obraInvFer === "__geral"
+          ? "Geral (sem obra)"
+          : ((obras as any[]).find((o: any) => o.id === obraInvFer)?.nome ?? obraInvFer);
+    const manutTxt: Record<string, string> = {
+      all: "Todas",
+      vencida: "Manutenção vencida",
+      prox_15: "Manutenção próximos 15 dias",
+      sem_data: "Sem data de manutenção",
+      com_data: "Com data definida",
+    };
+    const parts: string[] = [];
+    if (buscaFer.trim()) parts.push(`Busca: "${buscaFer.trim()}"`);
+    parts.push(`Estado/Tipo: ${estadoTxt}`);
+    parts.push(`Obra: ${obraTxt}`);
+    parts.push(`Manutenção: ${manutTxt[manutInv] ?? manutInv}`);
+    parts.push(`${ferramentasFiltradas.length} item(ns) — cada ferramenta = 1 unidade`);
+    return {
+      headers,
+      rows,
+      filenameBase: `inventario-ferramentas-${new Date().toISOString().slice(0, 10)}`,
+      pdfTitle: "Inventário de ferramentas",
+      pdfSubtitle: "Filtros — " + parts.join(" | "),
+    };
+  }, [ferramentasFiltradas, obras, buscaFer, estadoInv, obraInvFer, manutInv]);
 
   const openNewF = () => {
     setEditing(null);
@@ -919,12 +910,17 @@ function FerramentasPage() {
               </div>
             </div>
             <div className="flex flex-wrap gap-2 items-center mt-3">
-              <Button variant="outline" size="sm" onClick={() => exportInventarioFer("csv")}>
-                <FileDown className="h-4 w-4" /> CSV inventário
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => exportInventarioFer("pdf")}>
-                <FileText className="h-4 w-4" /> PDF inventário
-              </Button>
+              <InventoryImportExport
+                kind="ferramentas"
+                obras={obras as any[]}
+                exportSpec={exportInventarioFerSpec}
+                defaultObraId={obraId}
+                canImport={canEdit}
+                onImported={() => {
+                  qc.invalidateQueries({ queryKey: ["ferramentas"] });
+                  qc.invalidateQueries({ queryKey: ["dash-ferramentas"] });
+                }}
+              />
               {(buscaFer || estadoInv !== "all" || obraInvFer !== "all" || manutInv !== "all") && (
                 <Button
                   variant="ghost"

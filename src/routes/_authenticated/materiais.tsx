@@ -45,6 +45,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { exportCSV, exportPDF } from "@/lib/exports";
+import { InventoryImportExport } from "@/components/InventoryImportExport";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/materiais")({ component: MateriaisPage });
@@ -394,15 +395,7 @@ function MateriaisPage() {
     return "Filtros — " + parts.join(" | ");
   };
 
-  const exportInventario = (kind: "csv" | "pdf") => {
-    if (kind === "pdf") {
-      if (
-        !confirm(
-          `Deseja baixar o PDF do inventário com ${materiaisFiltrados.length} item(ns)?`,
-        )
-      )
-        return;
-    }
+  const exportInventarioSpec = useMemo(() => {
     const headers = ["Nome", "Código", "Unidade", "Obra", "Estoque", "Mínimo", "Preço médio"];
     const rows = materiaisFiltrados.map((m: any) => [
       m.nome ?? "",
@@ -413,13 +406,14 @@ function MateriaisPage() {
       Number(m.estoque_minimo ?? 0).toFixed(2),
       m.preco_medio != null ? Number(m.preco_medio).toFixed(2) : "",
     ]);
-    const fname = `inventario-materiais-${new Date().toISOString().slice(0, 10)}`;
-    if (kind === "csv") {
-      exportCSV(fname, headers, rows);
-    } else {
-      exportPDF("Inventário de materiais", headers, rows, fname, describeInventarioFilter());
-    }
-  };
+    return {
+      headers,
+      rows,
+      filenameBase: `inventario-materiais-${new Date().toISOString().slice(0, 10)}`,
+      pdfTitle: "Inventário de materiais",
+      pdfSubtitle: describeInventarioFilter(),
+    };
+  }, [materiaisFiltrados, obras]);
 
   if (!perm.can_view) {
     return (
@@ -606,12 +600,17 @@ function MateriaisPage() {
               </div>
             </div>
             <div className="flex flex-wrap gap-2 items-center mt-3">
-              <Button variant="outline" size="sm" onClick={() => exportInventario("csv")}>
-                <FileDown className="h-4 w-4" /> CSV inventário
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => exportInventario("pdf")}>
-                <FileText className="h-4 w-4" /> PDF inventário
-              </Button>
+              <InventoryImportExport
+                kind="materiais"
+                obras={obras as any[]}
+                exportSpec={exportInventarioSpec}
+                defaultObraId={obraId}
+                canImport={canCreate}
+                onImported={() => {
+                  qc.invalidateQueries({ queryKey: ["materiais"] });
+                  qc.invalidateQueries({ queryKey: ["dash-mat"] });
+                }}
+              />
               {(busca || estoqueInv !== "all" || unidadeInv !== "all" || obraInv !== "all") && (
                 <Button
                   variant="ghost"

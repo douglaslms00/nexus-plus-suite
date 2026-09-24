@@ -38,12 +38,10 @@ import {
   ArrowDownToLine,
   ArrowUpFromLine,
   Pencil,
-  FileDown,
-  FileText,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { exportCSV, exportPDF } from "@/lib/exports";
+import { InventoryImportExport } from "@/components/InventoryImportExport";
 
 export const Route = createFileRoute("/_authenticated/epis")({
   component: () => (
@@ -158,13 +156,7 @@ function EpisPage() {
     baixo: "Abaixo do mínimo",
   };
 
-  const exportInventarioEpi = (kind: "csv" | "pdf") => {
-    if (kind === "pdf") {
-      if (
-        !confirm(`Deseja baixar o PDF do inventário com ${episFiltrados.length} item(ns)?`)
-      )
-        return;
-    }
+  const exportInventarioEpiSpec = useMemo(() => {
     const headers = ["Nome", "Tipo", "CA", "Obra", "Estoque", "Mínimo", "Validade (meses)"];
     const rows = episFiltrados.map((e: any) => [
       e.nome ?? "",
@@ -175,19 +167,20 @@ function EpisPage() {
       String(e.estoque_minimo ?? 0),
       e.validade_meses != null ? String(e.validade_meses) : "",
     ]);
-    const fname = `inventario-epis-${new Date().toISOString().slice(0, 10)}`;
-    if (kind === "csv") {
-      exportCSV(fname, headers, rows);
-    } else {
-      const parts: string[] = [];
-      if (busca.trim()) parts.push(`Busca: "${busca.trim()}"`);
-      parts.push(`Estoque: ${estoqueEpiLabel[estoqueInv] ?? estoqueInv}`);
-      parts.push(`Tipo: ${tipoInv === "all" ? "Todos (EPI + EPC)" : tipoInv}`);
-      if (obraInv !== "all") parts.push(`Obra: ${obraInv === "__geral" ? "Geral" : obraNome(obraInv)}`);
-      parts.push(`${episFiltrados.length} item(ns)`);
-      exportPDF("Inventário de EPI / EPC", headers, rows, fname, "Filtros — " + parts.join(" | "));
-    }
-  };
+    const parts: string[] = [];
+    if (busca.trim()) parts.push(`Busca: "${busca.trim()}"`);
+    parts.push(`Estoque: ${estoqueEpiLabel[estoqueInv] ?? estoqueInv}`);
+    parts.push(`Tipo: ${tipoInv === "all" ? "Todos (EPI + EPC)" : tipoInv}`);
+    if (obraInv !== "all") parts.push(`Obra: ${obraInv === "__geral" ? "Geral" : obraNome(obraInv)}`);
+    parts.push(`${episFiltrados.length} item(ns)`);
+    return {
+      headers,
+      rows,
+      filenameBase: `inventario-epis-${new Date().toISOString().slice(0, 10)}`,
+      pdfTitle: "Inventário de EPI / EPC",
+      pdfSubtitle: "Filtros — " + parts.join(" | "),
+    };
+  }, [episFiltrados, obras, busca, estoqueInv, tipoInv, obraInv]);
 
   const handleNewEpi = () => {
     setEditingEpi(null);
@@ -716,12 +709,17 @@ function EpisPage() {
               </div>
             </div>
             <div className="flex flex-wrap gap-2 items-center mt-3">
-              <Button variant="outline" size="sm" onClick={() => exportInventarioEpi("csv")}>
-                <FileDown className="h-4 w-4" /> CSV inventário
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => exportInventarioEpi("pdf")}>
-                <FileText className="h-4 w-4" /> PDF inventário
-              </Button>
+              <InventoryImportExport
+                kind="epis"
+                obras={obras as any[]}
+                exportSpec={exportInventarioEpiSpec}
+                defaultObraId={obraId}
+                canImport={canEdit}
+                onImported={() => {
+                  qc.invalidateQueries({ queryKey: ["epis"] });
+                  qc.invalidateQueries({ queryKey: ["dash-epis"] });
+                }}
+              />
               {busca || estoqueInv !== "all" || tipoInv !== "all" || obraInv !== "all" ? (
                 <Button
                   variant="ghost"

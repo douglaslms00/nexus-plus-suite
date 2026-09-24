@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useCurrentUser, useModulePerm } from "@/lib/permissions";
 import { RequireModulePerm } from "@/components/RequireModulePerm";
@@ -28,6 +28,7 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Plus, Trash2, Wrench, ArrowRightLeft, Check, X, Pencil } from "lucide-react";
 import { toast } from "sonner";
+import { InventoryImportExport } from "@/components/InventoryImportExport";
 
 export const Route = createFileRoute("/_authenticated/ativos")({
   component: () => (
@@ -95,6 +96,42 @@ function AtivosPage() {
   const [fT, setFT] = useState<any>({});
 
   const [editingAtivo, setEditingAtivo] = useState<any>(null);
+
+  const [buscaAtivo, setBuscaAtivo] = useState("");
+  const ativosFiltrados = useMemo(() => {
+    const q = buscaAtivo.trim().toLowerCase();
+    if (!q) return ativos as any[];
+    return (ativos as any[]).filter(
+      (a: any) =>
+        (a.nome ?? "").toLowerCase().includes(q) ||
+        (a.codigo ?? "").toLowerCase().includes(q) ||
+        (a.categoria ?? "").toLowerCase().includes(q),
+    );
+  }, [ativos, buscaAtivo]);
+
+  const exportAtivosSpec = useMemo(() => {
+    const headers = ["Nome", "Código", "Categoria", "Estado", "Obra", "Valor (R$)", "Aquisição", "Descrição"];
+    const rows = ativosFiltrados.map((a: any) => [
+      a.nome ?? "",
+      a.codigo ?? "",
+      a.categoria ?? "",
+      a.estado ?? "",
+      a.obra?.nome ?? "",
+      a.valor != null ? Number(a.valor).toFixed(2) : "",
+      a.data_aquisicao ?? "",
+      (a.descricao ?? "").replace(/\s+/g, " ").slice(0, 120),
+    ]);
+    const parts: string[] = [];
+    if (buscaAtivo.trim()) parts.push(`Busca: "${buscaAtivo.trim()}"`);
+    parts.push(`${ativosFiltrados.length} item(ns)`);
+    return {
+      headers,
+      rows,
+      filenameBase: `inventario-ativos-${new Date().toISOString().slice(0, 10)}`,
+      pdfTitle: "Inventário de ativos",
+      pdfSubtitle: "Filtros — " + parts.join(" | "),
+    };
+  }, [ativosFiltrados, buscaAtivo]);
 
   const openNewAtivo = () => {
     setEditingAtivo(null);
@@ -354,8 +391,31 @@ function AtivosPage() {
               </DialogContent>
             </Dialog>
           )}
+          <Card className="p-3">
+            <div className="grid gap-2 md:grid-cols-[1fr_auto] items-end">
+              <div>
+                <Label className="text-xs">Buscar (nome, código ou categoria)</Label>
+                <Input
+                  value={buscaAtivo}
+                  onChange={(e) => setBuscaAtivo(e.target.value)}
+                  placeholder="Digite para filtrar..."
+                />
+              </div>
+              <InventoryImportExport
+                kind="ativos"
+                obras={obras as any[]}
+                exportSpec={exportAtivosSpec}
+                defaultObraId={obraId}
+                canImport={canCreate}
+                onImported={() => qc.invalidateQueries({ queryKey: ["ativos"] })}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              {ativosFiltrados.length} de {ativos.length} — a exportação e o PDF usam o filtro atual.
+            </p>
+          </Card>
           <div className="grid gap-3 md:grid-cols-2">
-            {ativos.map((a: any) => (
+            {ativosFiltrados.map((a: any) => (
               <Card key={a.id} className="p-4">
                 <div className="flex justify-between items-start">
                   <div>
@@ -395,9 +455,9 @@ function AtivosPage() {
                 </div>
               </Card>
             ))}
-            {ativos.length === 0 && (
+            {ativosFiltrados.length === 0 && (
               <Card className="p-8 text-center text-muted-foreground md:col-span-2">
-                Nenhum ativo cadastrado.
+                {ativos.length === 0 ? "Nenhum ativo cadastrado." : "Nenhum ativo no filtro atual."}
               </Card>
             )}
           </div>
