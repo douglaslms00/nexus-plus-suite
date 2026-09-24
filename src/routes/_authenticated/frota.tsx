@@ -375,7 +375,7 @@ function FrotaPage() {
 
   const abastecimentosFiltrados = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return (abastecimentos as any[]).filter((a) => {
+    const filtrados = (abastecimentos as any[]).filter((a) => {
       if (fAbastVeiculo !== "all" && a.veiculo_id !== fAbastVeiculo) return false;
       if (fAbastObra !== "all") {
         if (fAbastObra === "none") {
@@ -388,11 +388,13 @@ function FrotaPage() {
       if (q && !`${a.veiculo?.placa ?? ""} ${a.veiculo?.modelo ?? ""} ${a.motorista?.nome ?? ""} ${a.tipo_combustivel ?? ""} ${a.forma_pagamento ?? ""} ${a.posto ?? ""}`.toLowerCase().includes(q)) return false;
       return true;
     });
+    // Mais recente primeiro (data desc, desempate por odômetro desc)
+    return filtrados.sort((x, y) => (y.data ?? "").localeCompare(x.data ?? "") || (y.odometro ?? 0) - (x.odometro ?? 0));
   }, [abastecimentos, fAbastVeiculo, fAbastObra, fAbastPagto, fAbastIni, fAbastFim, search]);
 
   const abastecimentosPorObra = useMemo(() => {
     const groups = new Map<string, { obraId: string | null; nome: string; itens: any[]; totalLitros: number; totalValor: number }>();
-    const ordenados = [...abastecimentosFiltrados].sort((x, y) => (x.data ?? "").localeCompare(y.data ?? "") || (x.odometro ?? 0) - (y.odometro ?? 0));
+    const ordenados = [...abastecimentosFiltrados].sort((x, y) => (y.data ?? "").localeCompare(x.data ?? "") || (y.odometro ?? 0) - (x.odometro ?? 0));
     for (const a of ordenados) {
       const nome = nomeObraAbast(a);
       const key = a.obra_id ?? "none";
