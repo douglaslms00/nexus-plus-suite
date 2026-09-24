@@ -58,7 +58,10 @@ import { toast } from "sonner";
 import { exportCSV, exportPDF } from "@/lib/exports";
 import { formatCurrency } from "@/lib/utils";
 import { uploadAnexo, getAnexoUrl } from "@/lib/upload";
-import { safeList } from "@/lib/supabase-safe";
+import { safeList, isMissingSchemaError } from "@/lib/supabase-safe";
+
+const MSG_TERMO_SEM_TABELA =
+  "Tabela frota_termos não existe no banco. Rode a migration 20260925000000_frota_termos_apply.sql no SQL Editor do Supabase e aguarde ~1 min.";
 import { lerNotaAbastecimento, lerNotaAbastecimentoPdf } from "@/lib/ocr.functions";
 import {
   calcConsumo,
@@ -227,7 +230,7 @@ function FrotaPage() {
   const [termoAnexoFiles, setTermoAnexoFiles] = useState<File[]>([]);
   const [openModeloDialog, setOpenModeloDialog] = useState(false);
 
-  const abrirNovoTermo = (motoristaId?: string) => {
+  const abrirNovoTermo = (motoristaId?: string | null) => {
     setEditTermoId(null);
     setFTermo({ ...defaultTermoForm, motorista_id: motoristaId ?? "" });
     setFTermoVeiculos([]);
@@ -318,7 +321,8 @@ function FrotaPage() {
       setTermoAnexoFile(null);
       setTermoAnexoAtual(null);
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: any) =>
+      toast.error(isMissingSchemaError(e) ? MSG_TERMO_SEM_TABELA : (e.message ?? "Erro ao salvar termo")),
   });
 
   const removeTermo = useMutation({
@@ -330,7 +334,8 @@ function FrotaPage() {
       toast.success("Termo removido");
       qc.invalidateQueries({ queryKey: ["frota-termos"] });
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: any) =>
+      toast.error(isMissingSchemaError(e) ? MSG_TERMO_SEM_TABELA : (e.message ?? "Erro ao remover termo")),
   });
 
   // ---- KPIs ----
@@ -1705,7 +1710,7 @@ function FrotaPage() {
                 <FileText className="h-4 w-4 mr-1" /> Modelo Padrão
               </Button>
               {canEdit && (
-                <Button size="sm" onClick={abrirNovoTermo}>
+                <Button size="sm" onClick={() => abrirNovoTermo()}>
                   <Plus className="h-4 w-4 mr-1" /> Novo Termo
                 </Button>
               )}

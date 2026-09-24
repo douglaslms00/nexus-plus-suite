@@ -1160,6 +1160,60 @@ export type Database = {
           },
         ]
       }
+      frota_termos: {
+        Row: {
+          anexo_url: string | null
+          created_at: string
+          created_by: string | null
+          data_termo: string
+          id: string
+          motorista_id: string
+          observacoes: string | null
+          status: string
+          updated_at: string
+          veiculo_id: string
+        }
+        Insert: {
+          anexo_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          data_termo?: string
+          id?: string
+          motorista_id: string
+          observacoes?: string | null
+          status?: string
+          updated_at?: string
+          veiculo_id: string
+        }
+        Update: {
+          anexo_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          data_termo?: string
+          id?: string
+          motorista_id?: string
+          observacoes?: string | null
+          status?: string
+          updated_at?: string
+          veiculo_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "frota_termos_veiculo_id_fkey"
+            columns: ["veiculo_id"]
+            isOneToOne: false
+            referencedRelation: "frota_veiculos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "frota_termos_motorista_id_fkey"
+            columns: ["motorista_id"]
+            isOneToOne: false
+            referencedRelation: "frota_motoristas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       frota_veiculos: {
         Row: {
           ano: number | null
