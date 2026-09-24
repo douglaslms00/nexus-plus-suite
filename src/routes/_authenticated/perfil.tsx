@@ -11,6 +11,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Upload } from "lucide-react";
 import { toast } from "sonner";
+import { MAX_UPLOAD_BYTES, MAX_UPLOAD_LABEL, formatFileSize } from "@/lib/upload";
 
 export const Route = createFileRoute("/_authenticated/perfil")({ component: PerfilPage });
 
@@ -224,6 +225,12 @@ function PerfilPage() {
   });
 
   const onAvatar = async (file: File) => {
+    if (file.size > MAX_UPLOAD_BYTES) {
+      toast.error(
+        `Arquivo "${file.name}" (${formatFileSize(file.size)}) excede o limite de ${MAX_UPLOAD_LABEL} por arquivo.`,
+      );
+      return;
+    }
     const ext = file.name.split(".").pop();
     const path = `avatars/${user!.id}/${crypto.randomUUID()}.${ext}`;
     const { error } = await supabase.storage.from("anexos").upload(path, file, { upsert: true });

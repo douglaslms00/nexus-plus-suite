@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { safeFormatDate } from "@/lib/utils";
+import { MAX_UPLOAD_BYTES, MAX_UPLOAD_LABEL, formatFileSize } from "@/lib/upload";
 
 export const Route = createFileRoute("/_authenticated/documentos")({ component: DocumentosPage });
 
@@ -188,6 +189,11 @@ function Browser({
 
   const upload = useMutation({
     mutationFn: async (file: File) => {
+      if (file.size > MAX_UPLOAD_BYTES) {
+        throw new Error(
+          `Arquivo "${file.name}" (${formatFileSize(file.size)}) excede o limite de ${MAX_UPLOAD_LABEL} por arquivo.`,
+        );
+      }
       const prefix =
         escopo === "obra" ? `documentos/obra/${obraId}` : `documentos/pessoal/${user!.id}`;
       const ext = file.name.split(".").pop();
@@ -305,13 +311,22 @@ function Browser({
                 className="hidden"
                 onChange={(e) => {
                   const f = e.target.files?.[0];
-                  if (f) upload.mutate(f);
+                  if (f) {
+                    if (f.size > MAX_UPLOAD_BYTES) {
+                      toast.error(
+                        `Arquivo "${f.name}" (${formatFileSize(f.size)}) excede o limite de ${MAX_UPLOAD_LABEL} por arquivo.`,
+                      );
+                      e.target.value = "";
+                      return;
+                    }
+                    upload.mutate(f);
+                  }
                   e.target.value = "";
                 }}
               />
-              <Button asChild size="sm">
+              <Button asChild size="sm" title={`Limite de ${MAX_UPLOAD_LABEL} por arquivo`}>
                 <span>
-                  <Upload className="h-4 w-4" /> Enviar arquivo
+                  <Upload className="h-4 w-4" /> Enviar arquivo (máx. {MAX_UPLOAD_LABEL})
                 </span>
               </Button>
             </label>

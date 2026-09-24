@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useCurrentUser, useModulePerm } from "@/lib/permissions";
 import { RequireModulePerm } from "@/components/RequireModulePerm";
 import { useObraAtual } from "@/lib/obra-context.types";
-import { uploadAnexo, getAnexoUrl } from "@/lib/upload";
+import { uploadAnexo, getAnexoUrl, MAX_UPLOAD_BYTES, MAX_UPLOAD_LABEL, formatFileSize } from "@/lib/upload";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -1192,13 +1192,22 @@ function FerramentasPage() {
                       </div>
                     )}
                     <div className="space-y-1">
-                      <Label>Anexo (arquivo)</Label>
+                      <Label>Anexo (arquivo — máx. {MAX_UPLOAD_LABEL})</Label>
                       <Input
                         type="file"
                         disabled={uploading}
                         onChange={(e) => {
                           const f = e.target.files?.[0];
-                          if (f) onUpload(f);
+                          if (f) {
+                            if (f.size > MAX_UPLOAD_BYTES) {
+                              toast.error(
+                                `Arquivo "${f.name}" (${formatFileSize(f.size)}) excede o limite de ${MAX_UPLOAD_LABEL} por arquivo.`,
+                              );
+                              e.target.value = "";
+                              return;
+                            }
+                            onUpload(f);
+                          }
                         }}
                       />
                       {fE.anexo_url && <p className="text-xs text-success">✓ anexo carregado</p>}

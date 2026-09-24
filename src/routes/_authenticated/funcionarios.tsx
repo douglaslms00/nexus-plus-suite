@@ -57,7 +57,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { toast } from "sonner";
-import { uploadAnexo, getAnexoUrl } from "@/lib/upload";
+import { uploadAnexo, getAnexoUrl, MAX_UPLOAD_BYTES, MAX_UPLOAD_LABEL, formatFileSize } from "@/lib/upload";
 import {
   useDocumentRequirements,
   requirementsForFuncao,
@@ -1428,6 +1428,13 @@ function DocumentosDialog({
               onChange={(e) => {
                 const f = e.target.files?.[0];
                 if (f) {
+                  if (f.size > MAX_UPLOAD_BYTES) {
+                    toast.error(
+                      `Arquivo "${f.name}" (${formatFileSize(f.size)}) excede o limite de ${MAX_UPLOAD_LABEL} por arquivo.`,
+                    );
+                    e.target.value = "";
+                    return;
+                  }
                   addDoc.mutate(f);
                   e.target.value = "";
                 }
@@ -1435,7 +1442,7 @@ function DocumentosDialog({
               disabled={addDoc.isPending}
             />
             <p className="text-xs text-muted-foreground mt-1">
-              PDF, imagem ou qualquer arquivo até 50MB.
+              PDF, imagem ou qualquer arquivo até {MAX_UPLOAD_LABEL}.
             </p>
           </div>
         )}

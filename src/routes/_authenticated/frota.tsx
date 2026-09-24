@@ -57,7 +57,7 @@ import {
 import { toast } from "sonner";
 import { exportCSV, exportPDF } from "@/lib/exports";
 import { formatCurrency } from "@/lib/utils";
-import { uploadAnexo, getAnexoUrl } from "@/lib/upload";
+import { uploadAnexo, getAnexoUrl, MAX_UPLOAD_BYTES, MAX_UPLOAD_LABEL, formatFileSize } from "@/lib/upload";
 import { safeList, isMissingSchemaError } from "@/lib/supabase-safe";
 
 const MSG_TERMO_SEM_TABELA =
@@ -526,8 +526,10 @@ function FrotaPage() {
       toast.error("Envie a nota em JPG, PNG, WEBP ou PDF.");
       return;
     }
-    if (file.size > (isPdf ? 50 : 5) * 1024 * 1024) {
-      toast.error(isPdf ? "O PDF deve ter no máximo 50 MB." : "A imagem deve ter no máximo 5 MB.");
+    if (file.size > MAX_UPLOAD_BYTES) {
+      toast.error(
+        `Arquivo "${file.name}" (${formatFileSize(file.size)}) excede o limite de ${MAX_UPLOAD_LABEL} por arquivo.`,
+      );
       return;
     }
     setLendoNotaAbast(true);
@@ -922,6 +924,13 @@ function FrotaPage() {
   const handleImportPedagio = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (file.size > MAX_UPLOAD_BYTES) {
+      toast.error(
+        `Arquivo "${file.name}" (${formatFileSize(file.size)}) excede o limite de ${MAX_UPLOAD_LABEL} por arquivo.`,
+      );
+      e.target.value = "";
+      return;
+    }
     const text = await file.text();
     const rows = parseCSVPedagio(text);
     if (rows.length === 0) {
@@ -1217,7 +1226,7 @@ function FrotaPage() {
                         <Sparkles className="h-4 w-4 text-primary" />
                         <span className="text-xs font-bold">Preenchimento automático por IA</span>
                       </div>
-                      <p className="text-[11px] text-muted-foreground">Fotografe a nota ou cupom fiscal do posto (imagem ou PDF) e a IA preenche data, posto, placa do veículo, litros, valores e pagamento.</p>
+                      <p className="text-[11px] text-muted-foreground">Fotografe a nota ou cupom fiscal do posto (imagem ou PDF, máx. {MAX_UPLOAD_LABEL}) e a IA preenche data, posto, placa do veículo, litros, valores e pagamento.</p>
                       <div className="flex items-center gap-2">
                         <Input
                           type="file"
@@ -1301,7 +1310,7 @@ function FrotaPage() {
                         <Select value={fA.obra_id ?? obraId ?? "none"} onValueChange={(v) => setFA({ ...fA, obra_id: v === "none" ? null : v })}><SelectTrigger><SelectValue placeholder="Selecione a obra" /></SelectTrigger><SelectContent><SelectItem value="none">Sem obra</SelectItem>{(obras as any[]).map((o) => <SelectItem key={o.id} value={o.id}>{o.nome}</SelectItem>)}</SelectContent></Select>
                       </div>
                       <div className="space-y-1 col-span-2">
-                        <Label>Anexo da nota / cupom fiscal (imagem ou PDF)</Label>
+                        <Label>Anexo da nota / cupom fiscal (imagem ou PDF — máx. {MAX_UPLOAD_LABEL})</Label>
                         {abastComprovante ? (
                           <div className="flex items-center justify-between gap-2 rounded-md border p-2 text-xs">
                             <span className="flex items-center gap-1.5 truncate"><Paperclip className="h-3.5 w-3.5 shrink-0 text-muted-foreground" /><span className="truncate">{abastComprovante.name}</span><span className="text-muted-foreground shrink-0">({(abastComprovante.size / 1024).toFixed(0)} KB)</span></span>
@@ -1318,7 +1327,20 @@ function FrotaPage() {
                             <Input
                               type="file"
                               accept="image/*,.pdf,application/pdf"
-                              onChange={(e) => { const f = e.target.files?.[0]; if (f) setAbastComprovante(f); e.target.value = ""; }}
+                              onChange={(e) => {
+                                const f = e.target.files?.[0];
+                                if (f) {
+                                  if (f.size > MAX_UPLOAD_BYTES) {
+                                    toast.error(
+                                      `Arquivo "${f.name}" (${formatFileSize(f.size)}) excede o limite de ${MAX_UPLOAD_LABEL} por arquivo.`,
+                                    );
+                                    e.target.value = "";
+                                    return;
+                                  }
+                                  setAbastComprovante(f);
+                                }
+                                e.target.value = "";
+                              }}
                               className="h-9 text-xs"
                             />
                           </>
@@ -1870,13 +1892,22 @@ function FrotaPage() {
 
                 {editTermoId ? (
                   <div className="space-y-1">
-                    <Label>Anexo (Termo Assinado)</Label>
+                    <Label>Anexo (Termo Assinado — máx. {MAX_UPLOAD_LABEL})</Label>
                     <Input
                       type="file"
                       accept="application/pdf,image/*"
                       onChange={(e) => {
                         const f = e.target.files?.[0];
-                        if (f) setTermoAnexoFile(f);
+                        if (f) {
+                          if (f.size > MAX_UPLOAD_BYTES) {
+                            toast.error(
+                              `Arquivo "${f.name}" (${formatFileSize(f.size)}) excede o limite de ${MAX_UPLOAD_LABEL} por arquivo.`,
+                            );
+                            e.target.value = "";
+                            return;
+                          }
+                          setTermoAnexoFile(f);
+                        }
                       }}
                     />
                     {termoAnexoFile && <p className="text-xs text-success">Novo anexo selecionado: {termoAnexoFile.name}</p>}
@@ -1884,7 +1915,7 @@ function FrotaPage() {
                   </div>
                 ) : (
                   <div className="space-y-1.5">
-                    <Label>Anexos (Termos Assinados)</Label>
+                    <Label>Anexos (Termos Assinados — máx. {MAX_UPLOAD_LABEL} cada)</Label>
                     <p className="text-[11px] text-muted-foreground">
                       Opcional. Com 1 arquivo ele vai para todos os termos; com N arquivos para N veículos, cada arquivo vira o anexo de um termo na mesma ordem.
                     </p>
@@ -1894,7 +1925,18 @@ function FrotaPage() {
                       accept="application/pdf,image/*"
                       onChange={(e) => {
                         const files = Array.from(e.target.files ?? []);
-                        if (files.length) setTermoAnexoFiles((prev) => [...prev, ...files]);
+                        if (files.length) {
+                          const valid = files.filter((f) => {
+                            if (f.size > MAX_UPLOAD_BYTES) {
+                              toast.error(
+                                `Arquivo "${f.name}" (${formatFileSize(f.size)}) excede o limite de ${MAX_UPLOAD_LABEL} por arquivo e foi ignorado.`,
+                              );
+                              return false;
+                            }
+                            return true;
+                          });
+                          if (valid.length) setTermoAnexoFiles((prev) => [...prev, ...valid]);
+                        }
                         e.target.value = "";
                       }}
                     />
