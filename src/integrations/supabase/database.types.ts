@@ -18,6 +18,10 @@ export type Ferramenta = Tables["ferramentas"]["Row"];
 export type FerramentaInsert = Tables["ferramentas"]["Insert"];
 export type FerramentaUpdate = Tables["ferramentas"]["Update"];
 
+export type FerramentaTransferencia = Tables["ferramenta_transferencias"]["Row"];
+export type FerramentaTransferenciaInsert = Tables["ferramenta_transferencias"]["Insert"];
+export type FerramentaTransferenciaUpdate = Tables["ferramenta_transferencias"]["Update"];
+
 export type Material = Tables["materiais"]["Row"];
 export type MaterialInsert = Tables["materiais"]["Insert"];
 export type MaterialUpdate = Tables["materiais"]["Update"];

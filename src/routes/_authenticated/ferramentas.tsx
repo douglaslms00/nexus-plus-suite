@@ -50,6 +50,7 @@ import {
   PackageOpen,
   UserCheck,
   Undo2,
+  ArrowRightLeft,
 } from "lucide-react";
 import { toast } from "sonner";
 import { differenceInDays } from "date-fns";
@@ -104,6 +105,26 @@ function FerramentasPage() {
           .order("created_at", { ascending: false })
       ).data ?? [],
   });
+  const { data: transferencias = [] } = useQuery({
+    queryKey: ["ferramenta-transferencias"],
+    enabled: perm.can_view,
+    queryFn: async () => {
+      try {
+        const { data, error } = await supabase
+          .from("ferramenta_transferencias" as any)
+          .select(
+            "*, ferramenta:ferramentas(nome, codigo), origem:obras!ferramenta_transferencias_obra_origem_id_fkey(nome), destino:obras!ferramenta_transferencias_obra_destino_id_fkey(nome)",
+          )
+          .order("created_at", { ascending: false })
+          .limit(500);
+        if (error) throw error;
+        return (data as any[]) ?? [];
+      } catch {
+        // Tabela ainda sem migration aplicada: histórico vazio, transferência direta continua funcionando
+        return [];
+      }
+    },
+  });
 
   const [openF, setOpenF] = useState(false);
   const [editing, setEditing] = useState<any>(null);
@@ -111,6 +132,16 @@ function FerramentasPage() {
   const [fF, setFF] = useState<any>({ estado: "disponivel" });
   const [fE, setFE] = useState<any>({});
   const [uploading, setUploading] = useState(false);
+
+  // ---- Transferência entre obras (uma ou várias ferramentas) ----
+  const [openT, setOpenT] = useState(false);
+  const [transfOrigem, setTransfOrigem] = useState("all");
+  const [transfBusca, setTransfBusca] = useState("");
+  const [transfIds, setTransfIds] = useState<string[]>([]);
+  const [transfDestino, setTransfDestino] = useState("");
+  const [transfMotivo, setTransfMotivo] = useState("");
+  // Seleção no catálogo para atalho de transferência
+  const [selCatalogo, setSelCatalogo] = useState<string[]>([]);
 
   // Filtros do inventário — valem para a tabela e para impressão/PDF
   const [buscaFer, setBuscaFer] = useState("");
@@ -354,6 +385,140 @@ function FerramentasPage() {
     );
   }, [ferramentasDisponiveis, buscaFerrLote]);
 
+  // ---- Transferência: lista filtrada por obra de origem + busca ----
+  const ferramentasTransferiveis = useMemo(() => {
+    const q = transfBusca.trim().toLowerCase();
+    return (ferramentas as any[]).filter((f: any) => {
+      if (transfOrigem !== "all") {
+        if (transfOrigem === "__geral") {
+          if ((f as any).obra_id) return false;
+        } else if ((f as any).obra_id !== transfOrigem) return false;
+      }
+      if (!q) return true;
+      return (
+        (f.nome ?? "").toLowerCase().includes(q) ||
+        (f.codigo ?? "").toLowerCase().includes(q)
+      );
+    });
+  }, [ferramentas, transfOrigem, transfBusca]);
+
+  const toggleTransfId = (id: string) => {
+    setTransfIds((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
+  };
+
+  const toggleSelCatalogo = (id: string) => {
+    setSelCatalogo((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
+  };
+
+  const openTransferDialog = (ids?: string[]) => {
+    const alvo = ids ?? selCatalogo;
+    if (alvo.length === 0) {
+      toast.error("Selecione ao menos uma ferramenta.");
+      return;
+    }
+    setTransfIds(alvo);
+    // Pré-preenche destino vazio e abre o dialog
+    setTransfDestino("");
+    setOpenT(true);
+  };
+
+  const transferir = useMutation({
+    mutationFn: async () => {
+      const ids = transfIds;
+      if (ids.length === 0) throw new Error("Selecione ao menos uma ferramenta.");
+      if (!transfDestino) throw new Error("Selecione a obra de destino.");
+      const destino: string | null = transfDestino === "__geral" ? null : transfDestino;
+      const mapa = new Map((ferramentas as any[]).map((f: any) => [f.id, f]));
+      const itens = ids.map((id) => mapa.get(id)).filter(Boolean);
+      if (itens.length === 0) throw new Error("Ferramentas não encontradas.");
+      const jaNoDestino = itens.filter((f: any) => (f.obra_id ?? null) === destino);
+      if (jaNoDestino.length === itens.length) throw new Error("Todas já estão nesta obra/destino.");
+      // Bloqueia itens emprestados para evitar divergência com a ficha do colaborador
+      const emprestadas = itens.filter((f: any) => f.estado === "emprestada");
+      if (emprestadas.length > 0) {
+        throw new Error(
+          `${emprestadas.length} item(ns) emprestado(s) — devolva antes de transferir (${emprestadas.slice(0, 3).map((f: any) => f.nome).join(", ")}${emprestadas.length > 3 ? "…" : ""}).`,
+        );
+      }
+      const { error: upErr } = await supabase
+        .from("ferramentas")
+        .update({ obra_id: destino })
+        .in("id", ids);
+      if (upErr) throw upErr;
+      // Histórico (não bloqueia se a migration ainda não foi aplicada)
+      try {
+        const lote_id = crypto.randomUUID();
+        const rows = itens.map((f: any) => ({
+          lote_id,
+          ferramenta_id: f.id,
+          obra_origem_id: f.obra_id ?? null,
+          obra_destino_id: destino,
+          motivo: transfMotivo || null,
+          solicitado_por: user?.id ?? null,
+        }));
+        const { error: hErr } = await supabase
+          .from("ferramenta_transferencias" as any)
+          .insert(rows as any);
+        if (hErr) throw hErr;
+      } catch (e: any) {
+        // Se for falta da tabela/coluna, ignora (transferência já foi efetivada)
+        if (!/ferramenta_transferencias|column|relation|schema cache/i.test(String(e?.message ?? e))) throw e;
+      }
+    },
+    onSuccess: () => {
+      toast.success(`Transferência concluída (${transfIds.length} item(ns))`);
+      qc.invalidateQueries({ queryKey: ["ferramentas"] });
+      qc.invalidateQueries({ queryKey: ["ferramenta-transferencias"] });
+      qc.invalidateQueries({ queryKey: ["dash-ferramentas"] });
+      setOpenT(false);
+      setTransfIds([]);
+      setSelCatalogo([]);
+      setTransfMotivo("");
+      setTransfDestino("");
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const lotesTransferencia = useMemo(() => {
+    const map = new Map<string, any>();
+    for (const t of transferencias as any[]) {
+      const key = t.lote_id ?? t.id;
+      if (!map.has(key)) {
+        map.set(key, {
+          key,
+          lote_id: t.lote_id ?? t.id,
+          created_at: t.created_at,
+          obra_origem_id: t.obra_origem_id,
+          obra_destino_id: t.obra_destino_id,
+          origem_nome: t.origem?.nome ?? "Geral",
+          destino_nome: t.destino?.nome ?? "Geral",
+          motivo: t.motivo,
+          itens: [],
+        });
+      }
+      map.get(key).itens.push(t);
+    }
+    const arr = [...map.values()];
+    arr.sort((a, b) => String(b.created_at ?? "").localeCompare(String(a.created_at ?? "")));
+    return arr.slice(0, 100);
+  }, [transferencias]);
+
+  const removeLoteTransferencia = useMutation({
+    mutationFn: async (lote: any) => {
+      const ids = lote.itens.map((i: any) => i.id);
+      const { error } = await supabase
+        .from("ferramenta_transferencias" as any)
+        .delete()
+        .in("id", ids);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Histórico de transferência excluído");
+      qc.invalidateQueries({ queryKey: ["ferramenta-transferencias"] });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
   const saveEmprestimo = useMutation({
     mutationFn: async () => {
       // Edição de um item específico da ficha
@@ -586,13 +751,14 @@ function FerramentasPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Ferramentas</h1>
-        <p className="text-muted-foreground">Catálogo, empréstimos e manutenções.</p>
+        <p className="text-muted-foreground">Catálogo, empréstimos, transferências e manutenções.</p>
       </div>
 
       <Tabs defaultValue="cat">
         <TabsList>
           <TabsTrigger value="cat">Catálogo</TabsTrigger>
           <TabsTrigger value="emp">Empréstimos</TabsTrigger>
+          <TabsTrigger value="transf">Transferências</TabsTrigger>
         </TabsList>
 
         <TabsContent value="cat" className="space-y-3">
@@ -780,9 +946,39 @@ function FerramentasPage() {
           </Card>
 
           <Card>
+            {canEdit && selCatalogo.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b bg-muted/40">
+                <span className="text-xs font-medium">
+                  {selCatalogo.length} ferramenta(s) selecionada(s)
+                </span>
+                <Button size="sm" onClick={() => openTransferDialog()}>
+                  <ArrowRightLeft className="h-3 w-3 mr-1" /> Transferir de obra
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setSelCatalogo([])}>
+                  Limpar
+                </Button>
+              </div>
+            )}
             <Table>
               <TableHeader>
                 <TableRow>
+                  {canEdit && (
+                    <TableHead className="w-10">
+                      <Checkbox
+                        checked={
+                          ferramentasFiltradas.length > 0 &&
+                          ferramentasFiltradas.every((f: any) => selCatalogo.includes(f.id))
+                        }
+                        onCheckedChange={(v) =>
+                          setSelCatalogo(
+                            v
+                              ? ferramentasFiltradas.map((f: any) => f.id)
+                              : [],
+                          )
+                        }
+                      />
+                    </TableHead>
+                  )}
                   <TableHead>Nome</TableHead>
                   <TableHead>Código</TableHead>
                   <TableHead>Estado</TableHead>
@@ -797,8 +993,17 @@ function FerramentasPage() {
                     ? differenceInDays(safeParseISO(f.proxima_manutencao), new Date())
                     : null;
                   const alerta = dias !== null && dias <= 15;
+                  const checked = selCatalogo.includes(f.id);
                   return (
                     <TableRow key={f.id}>
+                      {canEdit && (
+                        <TableCell>
+                          <Checkbox
+                            checked={checked}
+                            onCheckedChange={() => toggleSelCatalogo(f.id)}
+                          />
+                        </TableCell>
+                      )}
                       <TableCell className="font-medium">{f.nome}</TableCell>
                       <TableCell className="text-xs">{f.codigo ?? "—"}</TableCell>
                       <TableCell>
@@ -816,6 +1021,16 @@ function FerramentasPage() {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
+                          {canEdit && (
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              title="Transferir esta ferramenta de obra"
+                              onClick={() => openTransferDialog([f.id])}
+                            >
+                              <ArrowRightLeft className="h-4 w-4" />
+                            </Button>
+                          )}
                           {canEdit && (
                             <Button size="icon" variant="ghost" onClick={() => openEditF(f)}>
                               <Pencil className="h-4 w-4" />
@@ -837,7 +1052,7 @@ function FerramentasPage() {
                 })}
                 {ferramentasFiltradas.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                       {ferramentas.length === 0
                         ? "Nenhuma ferramenta cadastrada."
                         : "Nenhuma ferramenta no filtro atual."}
@@ -1169,6 +1384,184 @@ function FerramentasPage() {
                       Adicionar
                     </Button>
                   </DialogFooter>
+                </div>
+              </DialogContent>
+            </Dialog>
+          )}
+        </TabsContent>
+
+        <TabsContent value="transf" className="space-y-3">
+          <Card className="p-3 space-y-3">
+            <div className="grid gap-2 md:grid-cols-3 items-end">
+              <div>
+                <Label className="text-xs">Obra de origem</Label>
+                <Select value={transfOrigem} onValueChange={(v) => { setTransfOrigem(v); setTransfIds([]); }}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas</SelectItem>
+                    <SelectItem value="__geral">Geral (sem obra)</SelectItem>
+                    {(obras as any[]).map((o: any) => (
+                      <SelectItem key={o.id} value={o.id}>
+                        {o.nome}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="md:col-span-2">
+                <Label className="text-xs">Buscar ferramenta (nome ou código)</Label>
+                <Input
+                  value={transfBusca}
+                  onChange={(e) => setTransfBusca(e.target.value)}
+                  placeholder="Digite para filtrar..."
+                />
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2 items-center">
+              <span className="text-xs text-muted-foreground">
+                {ferramentasTransferiveis.length} ferramenta(s) · {transfIds.length} selecionada(s)
+              </span>
+              <div className="ml-auto flex gap-2">
+                {transfIds.length > 0 && (
+                  <Button variant="ghost" size="sm" onClick={() => setTransfIds([])}>
+                    Limpar seleção
+                  </Button>
+                )}
+                {canEdit && (
+                  <Button
+                    size="sm"
+                    disabled={transfIds.length === 0}
+                    onClick={() => setOpenT(true)}
+                  >
+                    <ArrowRightLeft className="h-3 w-3 mr-1" /> Transferir ({transfIds.length})
+                  </Button>
+                )}
+              </div>
+            </div>
+            <div className="border rounded-md max-h-72 overflow-y-auto divide-y">
+              {ferramentasTransferiveis.map((f: any) => {
+                const checked = transfIds.includes(f.id);
+                return (
+                  <label
+                    key={f.id}
+                    className="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-muted/50"
+                  >
+                    {canEdit ? (
+                      <Checkbox checked={checked} onCheckedChange={() => toggleTransfId(f.id)} />
+                    ) : null}
+                    <span className="font-medium">{f.nome}</span>
+                    {f.codigo && <span className="text-xs text-muted-foreground">{f.codigo}</span>}
+                    <span className="text-xs px-2 py-0.5 rounded bg-muted ml-1">{f.estado}</span>
+                    <span className="text-xs text-muted-foreground ml-auto">
+                      {(f as any).obra?.nome ?? "Geral"}
+                    </span>
+                  </label>
+                );
+              })}
+              {ferramentasTransferiveis.length === 0 && (
+                <p className="p-3 text-sm text-muted-foreground">
+                  Nenhuma ferramenta para esta origem/busca.
+                </p>
+              )}
+            </div>
+          </Card>
+
+          <div className="grid gap-2">
+            {lotesTransferencia.map((lote: any) => (
+              <Card key={lote.key} className="p-3">
+                <div className="flex flex-wrap items-start gap-2">
+                  <ArrowRightLeft className="h-4 w-4 mt-0.5 shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium">
+                      {lote.origem_nome} → {lote.destino_nome} · {lote.itens.length} item(ns)
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {lote.created_at ? new Date(lote.created_at).toLocaleString("pt-BR") : "—"}
+                      {lote.motivo ? ` · ${lote.motivo}` : ""}
+                    </p>
+                    <p className="text-xs mt-1">
+                      {lote.itens.map((i: any) => i.ferramenta?.nome ?? "—").join(", ")}
+                    </p>
+                  </div>
+                  {canDelete && (
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      title="Excluir histórico"
+                      onClick={() => confirm("Excluir este histórico de transferência? (não desfaz a obra atual)") && removeLoteTransferencia.mutate(lote)}
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  )}
+                </div>
+              </Card>
+            ))}
+            {lotesTransferencia.length === 0 && (
+              <Card className="p-8 text-center text-muted-foreground">
+                Nenhuma transferência registrada ainda. Selecione uma ou mais ferramentas acima para transferir de obra.
+              </Card>
+            )}
+          </div>
+
+          {canEdit && (
+            <Dialog open={openT} onOpenChange={setOpenT}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Transferir {transfIds.length} ferramenta(s) de obra</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-3">
+                  <div className="border rounded-md max-h-40 overflow-y-auto divide-y text-sm">
+                    {transfIds.map((id) => {
+                      const f = (ferramentas as any[]).find((x: any) => x.id === id);
+                      if (!f) return null;
+                      return (
+                        <div key={id} className="px-3 py-1.5 flex items-center gap-2">
+                          <span className="font-medium">{f.nome}</span>
+                          {f.codigo && <span className="text-xs text-muted-foreground">{f.codigo}</span>}
+                          <span className="text-xs text-muted-foreground ml-auto">
+                            {(f as any).obra?.nome ?? "Geral"}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="space-y-1">
+                    <Label>Obra de destino *</Label>
+                    <Select value={transfDestino} onValueChange={setTransfDestino}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione a obra destino" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__geral">Geral (sem obra)</SelectItem>
+                        {(obras as any[]).map((o: any) => (
+                          <SelectItem key={o.id} value={o.id}>
+                            {o.nome}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label>Motivo / observações</Label>
+                    <Textarea
+                      value={transfMotivo}
+                      onChange={(e) => setTransfMotivo(e.target.value)}
+                      placeholder="Ex.: remanejamento, fim de etapa, reforço de equipe..."
+                    />
+                  </div>
+                  <DialogFooter>
+                    <Button
+                      disabled={transferir.isPending || transfIds.length === 0}
+                      onClick={() => transferir.mutate()}
+                    >
+                      {transferir.isPending ? "Transferindo..." : `Confirmar transferência (${transfIds.length})`}
+                    </Button>
+                  </DialogFooter>
+                  <p className="text-[11px] text-muted-foreground">
+                    Ferramentas emprestadas precisam ser devolvidas antes da transferência.
+                  </p>
                 </div>
               </DialogContent>
             </Dialog>

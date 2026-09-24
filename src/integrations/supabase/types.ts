@@ -792,6 +792,61 @@ export type Database = {
           },
         ]
       }
+      ferramenta_transferencias: {
+        Row: {
+          created_at: string
+          ferramenta_id: string
+          id: string
+          lote_id: string
+          motivo: string | null
+          obra_destino_id: string | null
+          obra_origem_id: string | null
+          solicitado_por: string | null
+        }
+        Insert: {
+          created_at?: string
+          ferramenta_id: string
+          id?: string
+          lote_id?: string
+          motivo?: string | null
+          obra_destino_id?: string | null
+          obra_origem_id?: string | null
+          solicitado_por?: string | null
+        }
+        Update: {
+          created_at?: string
+          ferramenta_id?: string
+          id?: string
+          lote_id?: string
+          motivo?: string | null
+          obra_destino_id?: string | null
+          obra_origem_id?: string | null
+          solicitado_por?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ferramenta_transferencias_ferramenta_id_fkey"
+            columns: ["ferramenta_id"]
+            isOneToOne: false
+            referencedRelation: "ferramentas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ferramenta_transferencias_obra_destino_id_fkey"
+            columns: ["obra_destino_id"]
+            isOneToOne: false
+            referencedRelation: "obras"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ferramenta_transferencias_obra_origem_id_fkey"
+            columns: ["obra_origem_id"]
+            isOneToOne: false
+            referencedRelation: "obras"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ferramentas: {
         Row: {
           codigo: string | null
