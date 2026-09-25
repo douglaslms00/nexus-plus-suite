@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+﻿import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -50,24 +50,10 @@ import {
   ArrowRight,
   MoreVertical,
   Check,
-  FileUp,
-  FileDown,
-  Send,
-  Timer,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn, safeParseISO, safeFormatDate } from "@/lib/utils";
 import { differenceInCalendarDays } from "date-fns";
-import {
-  listarMinhasSolicitacoes,
-  criarSolicitacaoArquivo,
-  enviarArquivoSolicitado,
-  getArquivoUrlSeguro,
-  cancelarSolicitacao,
-  formatarTempoRestante,
-  type SolicitacaoComArquivo,
-} from "@/lib/tarefas-solicitacoes";
-import { MAX_UPLOAD_LABEL } from "@/lib/upload";
 import { DataPagination, usePagination } from "@/components/DataPagination";
 
 export const Route = createFileRoute("/_authenticated/tarefas")({
@@ -80,11 +66,11 @@ export const Route = createFileRoute("/_authenticated/tarefas")({
 
 type TaskStatus = "pendente" | "em_andamento" | "concluida";
 
-const PRIO_LABEL: Record<string, string> = { baixa: "Baixa", media: "Média", alta: "Alta" };
+const PRIO_LABEL: Record<string, string> = { baixa: "Baixa", media: "MÃ©dia", alta: "Alta" };
 const STATUS_LABEL: Record<TaskStatus, string> = {
   pendente: "Pendente",
   em_andamento: "Em andamento",
-  concluida: "Concluída",
+  concluida: "ConcluÃ­da",
 };
 
 const KANBAN_COLUMNS: {
@@ -116,12 +102,12 @@ const KANBAN_COLUMNS: {
   },
   {
     id: "concluida",
-    label: "Concluída",
+    label: "ConcluÃ­da",
     badgeClass: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30",
     columnBg: "bg-muted/30 border-border/70",
     headerBorder: "border-b-emerald-500/40 text-emerald-600 dark:text-emerald-400",
     icon: CheckCircle2,
-    emptyText: "Nenhuma tarefa concluída",
+    emptyText: "Nenhuma tarefa concluÃ­da",
   },
 ];
 
@@ -137,18 +123,18 @@ function TarefasPage() {
   const qc = useQueryClient();
   const { data: user } = useCurrentUser();
   const { data: roles } = useUserRoles();
-  const canCreate = true; // qualquer usuário pode criar/atribuir tarefas
+  const canCreate = true; // qualquer usuÃ¡rio pode criar/atribuir tarefas
   const permTarefas = useModulePerm("tarefas");
   const canDelete = permTarefas.can_delete;
   const isGestor = canManage(roles) || permTarefas.can_edit;
 
   const canEditTask = (t: any) => {
     if (!user?.id || !t) return false;
-    // Permissão global por perfil/cargo (Admin, Gestor ou módulo tarefas can_edit)
+    // PermissÃ£o global por perfil/cargo (Admin, Gestor ou mÃ³dulo tarefas can_edit)
     if (canManage(roles) || permTarefas.can_edit) return true;
     // Criador da tarefa
     if (t.created_by === user.id) return true;
-    // Responsável ou pessoa atribuída à tarefa
+    // ResponsÃ¡vel ou pessoa atribuÃ­da Ã  tarefa
     if (t.responsavel_id === user.id || t.assigned_to === user.id) return true;
     return false;
   };
@@ -184,12 +170,12 @@ function TarefasPage() {
           const profs = (allProfs ?? []).filter((p: any) => ids.includes(p.id));
           nameMap = new Map((profs ?? []).map((p: any) => [p.id, p.nome]));
         } catch (e: any) {
-          console.warn("[tarefas] diretório de perfis indisponível:", e?.message ?? e);
+          console.warn("[tarefas] diretÃ³rio de perfis indisponÃ­vel:", e?.message ?? e);
         }
       }
       return (data ?? []).map((t: any) => ({
         ...t,
-        responsavel: t.responsavel_id ? { nome: nameMap.get(t.responsavel_id) ?? "—" } : null,
+        responsavel: t.responsavel_id ? { nome: nameMap.get(t.responsavel_id) ?? "â€”" } : null,
       }));
     },
   });
@@ -243,7 +229,7 @@ function TarefasPage() {
 
   const openEdit = (t: any) => {
     if (!canEditTask(t)) {
-      toast.error("Você não possui permissão para editar esta tarefa.");
+      toast.error("VocÃª nÃ£o possui permissÃ£o para editar esta tarefa.");
       return;
     }
     setEditingId(t.id);
@@ -264,7 +250,7 @@ function TarefasPage() {
       if (editingId) {
         const original = tarefas.find((x: any) => x.id === editingId);
         if (!original || !canEditTask(original)) {
-          throw new Error("Você não possui permissão para editar esta tarefa.");
+          throw new Error("VocÃª nÃ£o possui permissÃ£o para editar esta tarefa.");
         }
         const assignedChanged = original && original.assigned_to !== assigned;
         const patch: any = {
@@ -366,7 +352,7 @@ function TarefasPage() {
       if (error) throw error;
     },
     onSuccess: (_d, v) => {
-      toast.success(v.concluida ? "Tarefa concluída!" : "Tarefa reaberta para 'Em andamento'");
+      toast.success(v.concluida ? "Tarefa concluÃ­da!" : "Tarefa reaberta para 'Em andamento'");
       qc.invalidateQueries({ queryKey: ["tarefas"] });
       qc.invalidateQueries({ queryKey: ["dash-tarefas"] });
     },
@@ -400,7 +386,7 @@ function TarefasPage() {
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Tarefa excluída");
+      toast.success("Tarefa excluÃ­da");
       qc.invalidateQueries({ queryKey: ["tarefas"] });
       qc.invalidateQueries({ queryKey: ["dash-tarefas"] });
     },
@@ -474,7 +460,7 @@ function TarefasPage() {
         <Card className="p-3 border-destructive/40 bg-destructive/10 flex items-center gap-2 text-destructive">
           <AlertTriangle className="h-4 w-4 shrink-0" />
           <span className="text-sm font-medium">
-            {overdueCount} tarefa(s) vencida(s) sem conclusão.
+            {overdueCount} tarefa(s) vencida(s) sem conclusÃ£o.
           </span>
         </Card>
       )}
@@ -483,7 +469,7 @@ function TarefasPage() {
       <Card className="p-3">
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
           <Input
-            placeholder="Buscar por título ou descrição..."
+            placeholder="Buscar por tÃ­tulo ou descriÃ§Ã£o..."
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
           />
@@ -495,7 +481,7 @@ function TarefasPage() {
               <SelectItem value="todos">Todos status</SelectItem>
               <SelectItem value="pendente">Pendente</SelectItem>
               <SelectItem value="em_andamento">Em andamento</SelectItem>
-              <SelectItem value="concluida">Concluída</SelectItem>
+              <SelectItem value="concluida">ConcluÃ­da</SelectItem>
             </SelectContent>
           </Select>
           <Select value={fPrio} onValueChange={setFPrio}>
@@ -505,7 +491,7 @@ function TarefasPage() {
             <SelectContent>
               <SelectItem value="todos">Todas prioridades</SelectItem>
               <SelectItem value="alta">Alta</SelectItem>
-              <SelectItem value="media">Média</SelectItem>
+              <SelectItem value="media">MÃ©dia</SelectItem>
               <SelectItem value="baixa">Baixa</SelectItem>
             </SelectContent>
           </Select>
@@ -527,9 +513,6 @@ function TarefasPage() {
           </Button>
         </div>
       </Card>
-
-      {/* Solicitações de arquivos P2P (TTL 48h) */}
-      <SolicitacoesArquivosPanel tarefas={tarefas} pessoas={pessoas} />
 
       {/* MAIN VIEW: KANBAN OR LIST */}
       {viewMode === "kanban" ? (
@@ -700,7 +683,7 @@ function TarefasPage() {
                                     }
                                   >
                                     <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 mr-2" />
-                                    <span>Concluída</span>
+                                    <span>ConcluÃ­da</span>
                                     {t.status === "concluida" && (
                                       <Check className="h-3.5 w-3.5 ml-auto" />
                                     )}
@@ -722,7 +705,7 @@ function TarefasPage() {
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
                                 <DropdownMenuItem onClick={() => setDetailId(t.id)}>
-                                  <History className="h-3.5 w-3.5 mr-2" /> Detalhes & Histórico
+                                  <History className="h-3.5 w-3.5 mr-2" /> Detalhes & HistÃ³rico
                                 </DropdownMenuItem>
                                 {canEditTask(t) && (
                                   <DropdownMenuItem onClick={() => openEdit(t)}>
@@ -776,7 +759,7 @@ function TarefasPage() {
                             )}
                             {t.assignment_status === "aceita" && (
                               <span className="text-[10px] uppercase font-medium px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 inline-flex items-center gap-1">
-                                <Check className="h-2.5 w-2.5" /> Atribuição aceita
+                                <Check className="h-2.5 w-2.5" /> AtribuiÃ§Ã£o aceita
                               </span>
                             )}
                             {t.assignment_status === "recusada" && (
@@ -812,14 +795,14 @@ function TarefasPage() {
                           </div>
                         )}
 
-                        {/* Footer info: Responsável & Vencimento */}
+                        {/* Footer info: ResponsÃ¡vel & Vencimento */}
                         <div className="flex items-center justify-between gap-2 mt-3 pt-2 border-t text-[11px] text-muted-foreground">
                           <div
                             className="flex items-center gap-1 truncate max-w-[130px]"
-                            title={t.responsavel?.nome ?? "Sem responsável"}
+                            title={t.responsavel?.nome ?? "Sem responsÃ¡vel"}
                           >
                             <User className="h-3 w-3 shrink-0" />
-                            <span className="truncate">{t.responsavel?.nome ?? "—"}</span>
+                            <span className="truncate">{t.responsavel?.nome ?? "â€”"}</span>
                           </div>
 
                           {t.data_vencimento && (
@@ -943,7 +926,7 @@ function TarefasPage() {
                       </p>
                     )}
                     <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground flex-wrap">
-                      <span>Responsável: {t.responsavel?.nome ?? "—"}</span>
+                      <span>ResponsÃ¡vel: {t.responsavel?.nome ?? "â€”"}</span>
                       {t.data_vencimento && (
                         <span>Vence: {safeFormatDate(t.data_vencimento, "dd/MM/yyyy")}</span>
                       )}
@@ -963,7 +946,7 @@ function TarefasPage() {
                         <SelectContent>
                           <SelectItem value="pendente">Pendente</SelectItem>
                           <SelectItem value="em_andamento">Em andamento</SelectItem>
-                          <SelectItem value="concluida">Concluída</SelectItem>
+                          <SelectItem value="concluida">ConcluÃ­da</SelectItem>
                         </SelectContent>
                       </Select>
                     ) : (
@@ -1073,7 +1056,7 @@ function TarefasPage() {
             className="space-y-4 pt-2"
           >
             <div className="space-y-1.5">
-              <Label>Título *</Label>
+              <Label>TÃ­tulo *</Label>
               <Input
                 required
                 value={form.titulo ?? ""}
@@ -1082,12 +1065,12 @@ function TarefasPage() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label>Descrição</Label>
+              <Label>DescriÃ§Ã£o</Label>
               <Textarea
                 rows={3}
                 value={form.descricao ?? ""}
                 onChange={(e) => setForm({ ...form, descricao: e.target.value })}
-                placeholder="Instruções ou detalhes adicionais..."
+                placeholder="InstruÃ§Ãµes ou detalhes adicionais..."
               />
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -1103,7 +1086,7 @@ function TarefasPage() {
                   <SelectContent>
                     <SelectItem value="pendente">Pendente</SelectItem>
                     <SelectItem value="em_andamento">Em andamento</SelectItem>
-                    <SelectItem value="concluida">Concluída</SelectItem>
+                    <SelectItem value="concluida">ConcluÃ­da</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -1118,7 +1101,7 @@ function TarefasPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="baixa">Baixa</SelectItem>
-                    <SelectItem value="media">Média</SelectItem>
+                    <SelectItem value="media">MÃ©dia</SelectItem>
                     <SelectItem value="alta">Alta</SelectItem>
                   </SelectContent>
                 </Select>
@@ -1139,7 +1122,7 @@ function TarefasPage() {
                 onValueChange={(v) => setForm({ ...form, assigned_to: v })}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Ninguém (eu mesmo)" />
+                  <SelectValue placeholder="NinguÃ©m (eu mesmo)" />
                 </SelectTrigger>
                 <SelectContent>
                   {pessoas.map((p: any) => (
@@ -1151,7 +1134,7 @@ function TarefasPage() {
               </Select>
               {editingId && form.assigned_to && (
                 <p className="text-[11px] text-muted-foreground">
-                  Alterar o destinatário reenvia a tarefa para aceitar/recusar.
+                  Alterar o destinatÃ¡rio reenvia a tarefa para aceitar/recusar.
                 </p>
               )}
             </div>
@@ -1168,7 +1151,7 @@ function TarefasPage() {
                 Cancelar
               </Button>
               <Button type="submit" disabled={create.isPending}>
-                {create.isPending ? "Salvando..." : editingId ? "Salvar alterações" : "Criar tarefa"}
+                {create.isPending ? "Salvando..." : editingId ? "Salvar alteraÃ§Ãµes" : "Criar tarefa"}
               </Button>
             </DialogFooter>
           </form>
@@ -1306,19 +1289,19 @@ function TarefaDetailDialog({
               {safeFormatDate(tarefa.data_vencimento, "dd/MM/yyyy")}
             </div>
             <div>
-              <span className="text-muted-foreground">Concluída em:</span>{" "}
+              <span className="text-muted-foreground">ConcluÃ­da em:</span>{" "}
               {safeFormatDate(tarefa.concluida_em, "dd/MM/yyyy HH:mm")}
             </div>
           </div>
           {od?.kind === "overdue" && (
             <div className="rounded-md border border-destructive/50 bg-destructive/10 text-destructive p-2 text-xs flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4" /> Tarefa vencida há {od.days} dia(s).
+              <AlertTriangle className="h-4 w-4" /> Tarefa vencida hÃ¡ {od.days} dia(s).
             </div>
           )}
 
           <div className="pt-3 border-t">
             <div className="flex items-center justify-between mb-2">
-              <h4 className="font-medium">Histórico de execução</h4>
+              <h4 className="font-medium">HistÃ³rico de execuÃ§Ã£o</h4>
             </div>
 
             {canEdit && (
@@ -1356,7 +1339,7 @@ function TarefaDetailDialog({
                   />
                 </div>
                 <div className="space-y-1 sm:col-span-2">
-                  <Label className="text-xs">Observação</Label>
+                  <Label className="text-xs">ObservaÃ§Ã£o</Label>
                   <Textarea
                     value={execForm.observacao ?? ""}
                     onChange={(e) => setExecForm({ ...execForm, observacao: e.target.value })}
@@ -1388,7 +1371,7 @@ function TarefaDetailDialog({
               )}
               {execs.map((e: any) => {
                 const nome =
-                  e.executor_nome ?? pessoas.find((p: any) => p.id === e.executor_id)?.nome ?? "—";
+                  e.executor_nome ?? pessoas.find((p: any) => p.id === e.executor_id)?.nome ?? "â€”";
                 const mine = e.created_by === user?.id;
                 return (
                   <div key={e.id} className="rounded-md border p-2 text-xs flex items-start gap-2">
@@ -1396,7 +1379,7 @@ function TarefaDetailDialog({
                       <div className="font-medium">
                         {nome}{" "}
                         <span className="text-muted-foreground font-normal">
-                          — {safeFormatDate(e.executado_em, "dd/MM/yyyy HH:mm")}
+                          â€” {safeFormatDate(e.executado_em, "dd/MM/yyyy HH:mm")}
                         </span>
                       </div>
                       {e.observacao && (
@@ -1443,275 +1426,5 @@ function TarefaDetailDialog({
         </div>
       </DialogContent>
     </Dialog>
-  );
-}
-
-const SOLIC_STATUS_LABEL: Record<string, { label: string; cls: string }> = {
-  pendente: { label: "Aguardando envio", cls: "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30" },
-  enviada: { label: "Enviado", cls: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30" },
-  excluida: { label: "Expirado / Excluído (48h)", cls: "bg-muted text-muted-foreground border-border" },
-  cancelada: { label: "Cancelada", cls: "bg-muted text-muted-foreground border-border" },
-};
-
-/**
- * Painel P2P: A solicita arquivo a B, B envia em campo dedicado,
- * arquivo expira automaticamente 48h após o envio.
- */
-function SolicitacoesArquivosPanel({ tarefas, pessoas }: { tarefas: any[]; pessoas: any[] }) {
-  const qc = useQueryClient();
-  const { data: user } = useCurrentUser();
-  const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ remetente_id: "", tarefa_id: "", nome: "", descricao: "" });
-  const [uploadingId, setUploadingId] = useState<string | null>(null);
-
-  const { data: solicitacoes = [], isError } = useQuery({
-    queryKey: ["tarefas-solicitacoes"],
-    queryFn: listarMinhasSolicitacoes,
-    retry: 1,
-  });
-
-  const nomeDe = (id: string) =>
-    id === user?.id ? "Você" : (pessoas.find((p: any) => p.id === id)?.nome ?? id.slice(0, 8));
-
-  const criar = useMutation({
-    mutationFn: () =>
-      criarSolicitacaoArquivo({
-        tarefa_id: form.tarefa_id || null,
-        remetente_id: form.remetente_id,
-        nome_arquivo_esperado: form.nome,
-        descricao: form.descricao,
-      }),
-    onSuccess: () => {
-      toast.success("Solicitação enviada! O destinatário foi notificado.");
-      qc.invalidateQueries({ queryKey: ["tarefas-solicitacoes"] });
-      setOpen(false);
-      setForm({ remetente_id: "", tarefa_id: "", nome: "", descricao: "" });
-    },
-    onError: (e: any) => toast.error(e.message ?? "Erro ao solicitar arquivo"),
-  });
-
-  const enviar = async (solicitacaoId: string, file: File | undefined) => {
-    if (!file) return;
-    setUploadingId(solicitacaoId);
-    try {
-      await enviarArquivoSolicitado(solicitacaoId, file);
-      toast.success("Arquivo enviado! Expira automaticamente em 48h.");
-      qc.invalidateQueries({ queryKey: ["tarefas-solicitacoes"] });
-    } catch (e: any) {
-      toast.error(e.message ?? "Erro no upload");
-    } finally {
-      setUploadingId(null);
-    }
-  };
-
-  const baixar = async (s: SolicitacaoComArquivo) => {
-    try {
-      const { url } = await getArquivoUrlSeguro(s.id);
-      window.open(url, "_blank", "noopener");
-    } catch (e: any) {
-      toast.error(e.message ?? "Arquivo indisponível");
-      qc.invalidateQueries({ queryKey: ["tarefas-solicitacoes"] });
-    }
-  };
-
-  const cancelar = useMutation({
-    mutationFn: (id: string) => cancelarSolicitacao(id),
-    onSuccess: () => {
-      toast.success("Solicitação cancelada");
-      qc.invalidateQueries({ queryKey: ["tarefas-solicitacoes"] });
-    },
-    onError: (e: any) => toast.error(e.message ?? "Erro ao cancelar"),
-  });
-
-  return (
-    <Card className="p-4 space-y-3">
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div>
-          <h2 className="font-semibold text-sm flex items-center gap-2">
-            <Send className="h-4 w-4 text-primary" />
-            Solicitações de arquivos entre usuários
-            <Badge variant="outline" className="text-[11px]">
-              TTL 48h
-            </Badge>
-          </h2>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Solicite um arquivo a um colega. Ele recebe notificação e envia no campo dedicado.
-            O arquivo é excluído automaticamente 48h após o envio.
-          </p>
-        </div>
-        <Button size="sm" onClick={() => setOpen(true)}>
-          <Plus className="h-3.5 w-3.5" /> Solicitar arquivo
-        </Button>
-      </div>
-
-      {isError ? (
-        <p className="text-xs text-muted-foreground">
-          Aplique a migration <code>20260927000000_tarefas_solicitacoes_arquivos.sql</code> no
-          Supabase para ativar este painel.
-        </p>
-      ) : solicitacoes.length === 0 ? (
-        <p className="text-xs text-muted-foreground border border-dashed rounded-md p-4 text-center">
-          Nenhuma solicitação. Clique em “Solicitar arquivo” para pedir um arquivo a outro usuário.
-        </p>
-      ) : (
-        <div className="grid gap-2">
-          {solicitacoes.map((s: SolicitacaoComArquivo) => {
-            const st = SOLIC_STATUS_LABEL[s.status] ?? SOLIC_STATUS_LABEL.pendente;
-            const souRemetente = s.remetente_id === user?.id;
-            const souSolicitante = s.solicitante_id === user?.id;
-            const arq = s.arquivos_enviados;
-            const tarefaTitulo = tarefas.find((t: any) => t.id === s.tarefa_id)?.titulo;
-            return (
-              <div key={s.id} className="rounded-md border p-3 text-sm space-y-2">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-medium">{s.nome_arquivo_esperado}</span>
-                  <Badge variant="outline" className={cn("text-[11px]", st.cls)}>
-                    {st.label}
-                  </Badge>
-                  {arq?.status === "ativo" && (
-                    <span className="text-[11px] text-muted-foreground inline-flex items-center gap-1">
-                      <Timer className="h-3 w-3" />
-                      {formatarTempoRestante(arq.expira_em)}
-                    </span>
-                  )}
-                </div>
-                <div className="text-xs text-muted-foreground flex flex-wrap gap-x-3 gap-y-0.5">
-                  <span>
-                    De: {nomeDe(s.solicitante_id)} → Para: {nomeDe(s.remetente_id)}
-                  </span>
-                  {tarefaTitulo && <span>Tarefa: {tarefaTitulo}</span>}
-                  <span>Solicitado em: {safeFormatDate(s.created_at, "dd/MM/yyyy HH:mm")}</span>
-                  {arq && <span>Enviado em: {safeFormatDate(arq.enviado_em, "dd/MM/yyyy HH:mm")}</span>}
-                </div>
-                {s.descricao && <p className="text-xs text-muted-foreground">{s.descricao}</p>}
-
-                <div className="flex items-center gap-2 flex-wrap pt-1">
-                  {/* Campo de upload dedicado: só B, só pendente */}
-                  {souRemetente && s.status === "pendente" && (
-                    <label className="inline-flex items-center gap-1.5 text-xs font-medium rounded-md border px-2.5 py-1.5 cursor-pointer hover:bg-muted">
-                      <FileUp className="h-3.5 w-3.5" />
-                      {uploadingId === s.id ? "Enviando..." : `Enviar arquivo (máx. ${MAX_UPLOAD_LABEL})`}
-                      <input
-                        type="file"
-                        className="hidden"
-                        disabled={uploadingId === s.id}
-                        onChange={(e) => {
-                          const f = e.target.files?.[0];
-                          void enviar(s.id, f);
-                          e.target.value = "";
-                        }}
-                      />
-                    </label>
-                  )}
-                  {/* Download seguro: só A ou B, só ativo e dentro das 48h */}
-                  {arq?.status === "ativo" && (souRemetente || souSolicitante) && s.status === "enviada" && (
-                    <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => void baixar(s)}>
-                      <FileDown className="h-3.5 w-3.5" /> Baixar ({arq.nome_original})
-                    </Button>
-                  )}
-                  {souSolicitante && s.status === "pendente" && (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-8 text-xs text-destructive"
-                      onClick={() => {
-                        if (confirm("Cancelar esta solicitação?")) cancelar.mutate(s.id);
-                      }}
-                    >
-                      Cancelar
-                    </Button>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-[480px]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-base">
-              <Send className="h-4 w-4 text-primary" /> Solicitar arquivo a um usuário
-            </DialogTitle>
-          </DialogHeader>
-          <form
-            className="space-y-3 pt-1"
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (!form.remetente_id) return toast.error("Selecione o destinatário");
-              criar.mutate();
-            }}
-          >
-            <div className="space-y-1.5">
-              <Label>Destinatário (Usuário B) *</Label>
-              <Select
-                value={form.remetente_id}
-                onValueChange={(v) => setForm({ ...form, remetente_id: v })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Quem deve enviar o arquivo?" />
-                </SelectTrigger>
-                <SelectContent>
-                  {pessoas
-                    .filter((p: any) => p.id !== user?.id)
-                    .map((p: any) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.nome}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Arquivo solicitado *</Label>
-              <Input
-                required
-                value={form.nome}
-                onChange={(e) => setForm({ ...form, nome: e.target.value })}
-                placeholder='Ex: "RG frente.pdf", "Nota fiscal 123"'
-                maxLength={200}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Tarefa vinculada (opcional)</Label>
-              <Select
-                value={form.tarefa_id || "__none"}
-                onValueChange={(v) => setForm({ ...form, tarefa_id: v === "__none" ? "" : v })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Vincular a uma tarefa" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none">Sem vínculo</SelectItem>
-                  {tarefas.slice(0, 100).map((t: any) => (
-                    <SelectItem key={t.id} value={t.id}>
-                      {t.titulo}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Mensagem (opcional)</Label>
-              <Textarea
-                rows={2}
-                value={form.descricao}
-                onChange={(e) => setForm({ ...form, descricao: e.target.value })}
-                placeholder="Instruções para quem vai enviar..."
-              />
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-                Fechar
-              </Button>
-              <Button type="submit" disabled={criar.isPending}>
-                {criar.isPending ? "Enviando..." : "Enviar solicitação"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-    </Card>
   );
 }

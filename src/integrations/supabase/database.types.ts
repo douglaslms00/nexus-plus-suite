@@ -42,14 +42,6 @@ export type TarefaExecucao = Tables["tarefa_execucoes"]["Row"];
 export type TarefaExecucaoInsert = Tables["tarefa_execucoes"]["Insert"];
 export type TarefaExecucaoUpdate = Tables["tarefa_execucoes"]["Update"];
 
-export type TarefaSolicitacao = Tables["tarefas_solicitacoes"]["Row"];
-export type TarefaSolicitacaoInsert = Tables["tarefas_solicitacoes"]["Insert"];
-export type TarefaSolicitacaoUpdate = Tables["tarefas_solicitacoes"]["Update"];
-
-export type ArquivoEnviado = Tables["arquivos_enviados"]["Row"];
-export type ArquivoEnviadoInsert = Tables["arquivos_enviados"]["Insert"];
-export type ArquivoEnviadoUpdate = Tables["arquivos_enviados"]["Update"];
-
 export type ContaFinanceira = Tables["contas_financeiras"]["Row"];
 export type ContaFinanceiraInsert = Tables["contas_financeiras"]["Insert"];
 export type ContaFinanceiraUpdate = Tables["contas_financeiras"]["Update"];

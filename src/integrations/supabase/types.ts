@@ -129,56 +129,6 @@ export type Database = {
           },
         ]
       }
-      arquivos_enviados: {
-        Row: {
-          created_by: string | null
-          excluido_em: string | null
-          enviado_em: string
-          expira_em: string
-          id: string
-          mime_type: string | null
-          nome_original: string
-          solicitacao_id: string
-          status: string
-          storage_path: string
-          tamanho_bytes: number
-        }
-        Insert: {
-          created_by?: string | null
-          excluido_em?: string | null
-          enviado_em?: string
-          expira_em?: string
-          id?: string
-          mime_type?: string | null
-          nome_original: string
-          solicitacao_id: string
-          status?: string
-          storage_path: string
-          tamanho_bytes: number
-        }
-        Update: {
-          created_by?: string | null
-          excluido_em?: string | null
-          enviado_em?: string
-          expira_em?: string
-          id?: string
-          mime_type?: string | null
-          nome_original?: string
-          solicitacao_id?: string
-          status?: string
-          storage_path?: string
-          tamanho_bytes?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "arquivos_enviados_solicitacao_id_fkey"
-            columns: ["solicitacao_id"]
-            isOneToOne: true
-            referencedRelation: "tarefas_solicitacoes"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       ativo_emprestimos: {
         Row: {
           anexo_url: string | null
@@ -2074,50 +2024,6 @@ export type Database = {
         }
         Relationships: []
       }
-      tarefas_solicitacoes: {
-        Row: {
-          created_at: string
-          descricao: string | null
-          id: string
-          nome_arquivo_esperado: string
-          remetente_id: string
-          solicitante_id: string
-          status: string
-          tarefa_id: string | null
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          descricao?: string | null
-          id?: string
-          nome_arquivo_esperado: string
-          remetente_id: string
-          solicitante_id: string
-          status?: string
-          tarefa_id?: string | null
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          descricao?: string | null
-          id?: string
-          nome_arquivo_esperado?: string
-          remetente_id?: string
-          solicitante_id?: string
-          status?: string
-          tarefa_id?: string | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "tarefas_solicitacoes_tarefa_id_fkey"
-            columns: ["tarefa_id"]
-            isOneToOne: false
-            referencedRelation: "tarefas"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       user_custom_roles: {
         Row: {
           created_at: string
@@ -2364,14 +2270,6 @@ export type Database = {
         Returns: undefined
       }
       promote_to_admin_if_no_admin: { Args: never; Returns: string }
-      purgar_arquivos_expirados: {
-        Args: never
-        Returns: {
-          arquivo_id: string
-          solicitacao_id: string
-          storage_path: string
-        }[]
-      }
       seed_default_perms_for_role: {
         Args: {
           _custom_role_id: string
