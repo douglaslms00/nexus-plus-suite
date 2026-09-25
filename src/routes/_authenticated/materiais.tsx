@@ -58,6 +58,7 @@ function MateriaisPage() {
   const perm = useModulePerm("materiais");
   const canCreate = perm.can_edit;
   const canDelete = perm.can_delete;
+  const canImport = perm.can_import;
 
   const { data: materiais = [] } = useQuery({
     queryKey: ["materiais", obraId],
@@ -605,7 +606,7 @@ function MateriaisPage() {
                 obras={obras as any[]}
                 exportSpec={exportInventarioSpec}
                 defaultObraId={obraId}
-                canImport={canCreate}
+                canImport={canImport}
                 onImported={() => {
                   qc.invalidateQueries({ queryKey: ["materiais"] });
                   qc.invalidateQueries({ queryKey: ["dash-mat"] });

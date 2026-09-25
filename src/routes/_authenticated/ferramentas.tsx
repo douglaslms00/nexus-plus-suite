@@ -70,6 +70,7 @@ function FerramentasPage() {
   const perm = useModulePerm("ferramentas");
   const canEdit = perm.can_edit;
   const canDelete = perm.can_delete;
+  const canImport = perm.can_import;
 
   const { data: ferramentas = [] } = useQuery({
     queryKey: ["ferramentas", obraId],
@@ -915,7 +916,7 @@ function FerramentasPage() {
                 obras={obras as any[]}
                 exportSpec={exportInventarioFerSpec}
                 defaultObraId={obraId}
-                canImport={canEdit}
+                canImport={canImport}
                 onImported={() => {
                   qc.invalidateQueries({ queryKey: ["ferramentas"] });
                   qc.invalidateQueries({ queryKey: ["dash-ferramentas"] });

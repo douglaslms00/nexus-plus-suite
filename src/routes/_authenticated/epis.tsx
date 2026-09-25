@@ -56,6 +56,7 @@ function EpisPage() {
   const perm = useModulePerm("epis");
   const canEdit = perm.can_edit;
   const canDelete = perm.can_delete;
+  const canImport = perm.can_import;
   const { obraId } = useObraAtual();
 
   const { data: obras = [] } = useQuery({
@@ -714,7 +715,7 @@ function EpisPage() {
                 obras={obras as any[]}
                 exportSpec={exportInventarioEpiSpec}
                 defaultObraId={obraId}
-                canImport={canEdit}
+                canImport={canImport}
                 onImported={() => {
                   qc.invalidateQueries({ queryKey: ["epis"] });
                   qc.invalidateQueries({ queryKey: ["dash-epis"] });

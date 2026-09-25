@@ -44,6 +44,7 @@ function AtivosPage() {
   const perm = useModulePerm("ativos");
   const canCreate = perm.can_edit;
   const canDelete = perm.can_delete;
+  const canImport = perm.can_import;
 
   const { obraId } = useObraAtual();
   const { data: ativos = [] } = useQuery({
@@ -406,7 +407,7 @@ function AtivosPage() {
                 obras={obras as any[]}
                 exportSpec={exportAtivosSpec}
                 defaultObraId={obraId}
-                canImport={canCreate}
+                canImport={canImport}
                 onImported={() => qc.invalidateQueries({ queryKey: ["ativos"] })}
               />
             </div>

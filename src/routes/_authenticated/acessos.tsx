@@ -121,9 +121,15 @@ function AcessosPage() {
       ] = await Promise.all([
         (supabase as any).rpc("list_profile_directory"),
         supabase.from("user_roles").select("user_id, role"),
-        supabase
-          .from("user_module_permissions")
-          .select("user_id, module, can_view, can_edit, can_delete"),
+        (async () => {
+          const withImport = await supabase
+            .from("user_module_permissions")
+            .select("user_id, module, can_view, can_edit, can_delete, can_import");
+          if (!withImport.error) return withImport;
+          return await supabase
+            .from("user_module_permissions")
+            .select("user_id, module, can_view, can_edit, can_delete");
+        })(),
         supabase.from("user_obras").select("user_id, obra_id"),
         (supabase as any).from("user_custom_roles").select("user_id, custom_role_id"),
         (supabase as any).rpc("admin_list_profile_emails"),
@@ -135,9 +141,15 @@ function AcessosPage() {
         roles: (r ?? [])
           .filter((x: any) => x.user_id === p.id)
           .map((x: any) => x.role) as AppRole[],
-        perms: (perms ?? []).filter((x: any) => x.user_id === p.id) as ({
-          module: AppModule;
-        } & ModulePerm)[],
+        perms: (perms ?? [])
+          .filter((x: any) => x.user_id === p.id)
+          .map((x: any) => ({
+            module: x.module as AppModule,
+            can_view: !!x.can_view,
+            can_edit: !!x.can_edit,
+            can_delete: !!x.can_delete,
+            can_import: typeof x.can_import === "boolean" ? x.can_import : false,
+          })) as ({ module: AppModule } & ModulePerm)[],
         obras: (uobras ?? [])
           .filter((x: any) => x.user_id === p.id)
           .map((x: any) => x.obra_id) as string[],
@@ -173,6 +185,10 @@ function AcessosPage() {
     enabled: canManage(roles),
     staleTime: 1000 * 60 * 2,
     queryFn: async (): Promise<CustomRolePerm[]> => {
+      const withImport = await (supabase as any)
+        .from("custom_role_module_permissions")
+        .select("custom_role_id, module, can_view, can_edit, can_delete, can_import");
+      if (!withImport.error) return withImport.data ?? [];
       const { data } = await (supabase as any)
         .from("custom_role_module_permissions")
         .select("custom_role_id, module, can_view, can_edit, can_delete");
@@ -185,6 +201,10 @@ function AcessosPage() {
     enabled: canManage(roles),
     staleTime: 1000 * 60 * 2,
     queryFn: async (): Promise<SystemRolePerm[]> => {
+      const withImport = await (supabase as any)
+        .from("system_role_module_permissions")
+        .select("role, module, can_view, can_edit, can_delete, can_import");
+      if (!withImport.error) return withImport.data ?? [];
       const { data } = await (supabase as any)
         .from("system_role_module_permissions")
         .select("role, module, can_view, can_edit, can_delete");
@@ -354,13 +374,27 @@ function AcessosPage() {
 
   const setPerm = useMutation({
     mutationFn: async (p: { user_id: string; module: AppModule; perm: ModulePerm }) => {
-      const { error } = await supabase
+      const full = await supabase
         .from("user_module_permissions")
         .upsert(
           { user_id: p.user_id, module: p.module, ...p.perm },
           { onConflict: "user_id,module" },
         );
-      if (error) throw error;
+      if (!full.error) return;
+      const msg = String((full.error as any)?.message ?? "");
+      if (/can_import/i.test(msg)) {
+        const { can_import: _drop, ...legacyPerm } = p.perm;
+        const retry = await supabase
+          .from("user_module_permissions")
+          .upsert(
+            { user_id: p.user_id, module: p.module, ...legacyPerm },
+            { onConflict: "user_id,module" },
+          );
+        if (retry.error) throw retry.error;
+        toast.warning("Coluna can_import ainda não existe no banco — aplique a migration 20260928. Importação não foi salva.");
+        return;
+      }
+      throw full.error;
     },
     onSuccess: invalidateAll,
     onError: (e: any) => toast.error(e.message),
@@ -489,13 +523,27 @@ function AcessosPage() {
 
   const setCustomRolePerm = useMutation({
     mutationFn: async (p: { custom_role_id: string; module: AppModule; perm: ModulePerm }) => {
-      const { error } = await (supabase as any)
+      const full = await (supabase as any)
         .from("custom_role_module_permissions")
         .upsert(
           { custom_role_id: p.custom_role_id, module: p.module, ...p.perm },
           { onConflict: "custom_role_id,module" },
         );
-      if (error) throw error;
+      if (!full.error) return;
+      const msg = String((full.error as any)?.message ?? "");
+      if (/can_import/i.test(msg)) {
+        const { can_import: _drop, ...legacyPerm } = p.perm;
+        const retry = await (supabase as any)
+          .from("custom_role_module_permissions")
+          .upsert(
+            { custom_role_id: p.custom_role_id, module: p.module, ...legacyPerm },
+            { onConflict: "custom_role_id,module" },
+          );
+        if (retry.error) throw retry.error;
+        toast.warning("Coluna can_import ainda não existe no banco — aplique a migration 20260928. Importação não foi salva.");
+        return;
+      }
+      throw full.error;
     },
     onSuccess: invalidateAll,
     onError: (e: any) => toast.error(e.message),
@@ -503,14 +551,32 @@ function AcessosPage() {
 
   const setSystemRolePerm = useMutation({
     mutationFn: async (p: { role: AppRole; module: AppModule; perm: ModulePerm }) => {
-      const { error } = await (supabase as any).rpc("admin_set_system_role_perm", {
+      const full = await (supabase as any).rpc("admin_set_system_role_perm", {
         _role: p.role,
         _module: p.module,
         _can_view: p.perm.can_view,
         _can_edit: p.perm.can_edit,
         _can_delete: p.perm.can_delete,
+        _can_import: p.perm.can_import,
       });
-      if (error) throw error;
+      if (!full.error) return;
+      const msg = String((full.error as any)?.message ?? "");
+      const code = String((full.error as any)?.code ?? "");
+      const missingFn = code === "PGRST202" || /Could not find the function|schema cache/i.test(msg);
+      if (missingFn) {
+        // RPC antiga (5 args) — banco sem a migration 20260928.
+        const legacy = await (supabase as any).rpc("admin_set_system_role_perm", {
+          _role: p.role,
+          _module: p.module,
+          _can_view: p.perm.can_view,
+          _can_edit: p.perm.can_edit,
+          _can_delete: p.perm.can_delete,
+        });
+        if (legacy.error) throw legacy.error;
+        toast.warning("RPC sem suporte a can_import — aplique a migration 20260928. Importação não foi salva.");
+        return;
+      }
+      throw full.error;
     },
     onSuccess: invalidateAll,
     onError: (e: any) => toast.error(e.message),
@@ -918,6 +984,9 @@ function AcessosPage() {
                               <th className="px-3 font-medium text-center">Visualizar</th>
                               <th className="px-3 font-medium text-center">Editar</th>
                               <th className="px-3 font-medium text-center">Excluir</th>
+                              <th className="px-3 font-medium text-center" title="Ver o botão Importar CSV e concluir importações">
+                                Importar
+                              </th>
                               <th className="px-3 font-medium">Origem</th>
                               <th className="px-3"></th>
                             </tr>
@@ -966,6 +1035,13 @@ function AcessosPage() {
                                     <Checkbox
                                       checked={eff.can_delete}
                                       onCheckedChange={(v) => update({ can_delete: !!v })}
+                                    />
+                                  </td>
+                                  <td className="px-3 text-center">
+                                    <Checkbox
+                                      checked={!!eff.can_import}
+                                      onCheckedChange={(v) => update({ can_import: !!v })}
+                                      title="Permite ver o botão Importar CSV e importar dados neste módulo"
                                     />
                                   </td>
                                   <td className="px-3 text-xs">
@@ -1241,17 +1317,27 @@ function UnifiedCargoCard({
     if (isSystem && cargo.systemKey) {
       const found = systemRolePerms.find((p) => p.role === cargo.systemKey && p.module === m);
       if (found)
-        return { can_view: found.can_view, can_edit: found.can_edit, can_delete: found.can_delete };
+        return {
+          can_view: found.can_view,
+          can_edit: found.can_edit,
+          can_delete: found.can_delete,
+          can_import: (found as any).can_import ?? false,
+        };
       return effectivePerm(m, [cargo.systemKey], [], [], [], []);
     } else if (cargo.customRoleId) {
       const found = customRolePerms.find(
         (p) => p.custom_role_id === cargo.customRoleId && p.module === m,
       );
       return found
-        ? { can_view: found.can_view, can_edit: found.can_edit, can_delete: found.can_delete }
-        : { can_view: false, can_edit: false, can_delete: false };
+        ? {
+            can_view: found.can_view,
+            can_edit: found.can_edit,
+            can_delete: found.can_delete,
+            can_import: (found as any).can_import ?? false,
+          }
+        : { can_view: false, can_edit: false, can_delete: false, can_import: false };
     }
-    return { can_view: false, can_edit: false, can_delete: false };
+    return { can_view: false, can_edit: false, can_delete: false, can_import: false };
   };
 
   const updatePermForModule = (m: AppModule, patch: Partial<ModulePerm>) => {
@@ -1423,6 +1509,9 @@ function UnifiedCargoCard({
                   <th className="px-3 font-medium text-center w-24">Visualizar</th>
                   <th className="px-3 font-medium text-center w-24">Editar</th>
                   <th className="px-3 font-medium text-center w-24">Excluir</th>
+                  <th className="px-3 font-medium text-center w-24" title="Ver o botão Importar CSV e concluir importações">
+                    Importar
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -1459,6 +1548,14 @@ function UnifiedCargoCard({
                           checked={p.can_delete}
                           disabled={lockedAcessosAdmin}
                           onCheckedChange={(v) => updatePermForModule(m.key, { can_delete: !!v })}
+                        />
+                      </td>
+                      <td className="px-3 text-center">
+                        <Checkbox
+                          checked={!!p.can_import}
+                          disabled={lockedAcessosAdmin}
+                          onCheckedChange={(v) => updatePermForModule(m.key, { can_import: !!v })}
+                          title="Permite ver o botão Importar CSV e importar dados neste módulo"
                         />
                       </td>
                     </tr>
@@ -1870,11 +1967,11 @@ function AuditPanel({
       case "custom_role_unassign":
         return `Removeu cargo "${cargo}" de ${target}`;
       case "override_set":
-        return `Override em "${r.module}" para ${target} (V:${d.can_view ? "✓" : "✗"} E:${d.can_edit ? "✓" : "✗"} X:${d.can_delete ? "✓" : "✗"})`;
+        return `Override em "${r.module}" para ${target} (V:${d.can_view ? "✓" : "✗"} E:${d.can_edit ? "✓" : "✗"} X:${d.can_delete ? "✓" : "✗"} I:${d.can_import ? "✓" : "✗"})`;
       case "override_clear":
         return `Removeu override de "${r.module}" para ${target}`;
       case "custom_role_perm_set":
-        return `Cargo "${cargo}" módulo "${r.module}" (V:${d.can_view ? "✓" : "✗"} E:${d.can_edit ? "✓" : "✗"} X:${d.can_delete ? "✓" : "✗"})`;
+        return `Cargo "${cargo}" módulo "${r.module}" (V:${d.can_view ? "✓" : "✗"} E:${d.can_edit ? "✓" : "✗"} X:${d.can_delete ? "✓" : "✗"} I:${d.can_import ? "✓" : "✗"})`;
       case "custom_role_created":
         return `Criou cargo "${d.label}"`;
       case "custom_role_deleted":

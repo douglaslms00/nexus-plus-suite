@@ -496,6 +496,7 @@ export type Database = {
         Row: {
           can_delete: boolean
           can_edit: boolean
+          can_import: boolean
           can_view: boolean
           created_at: string
           custom_role_id: string
@@ -506,6 +507,7 @@ export type Database = {
         Insert: {
           can_delete?: boolean
           can_edit?: boolean
+          can_import?: boolean
           can_view?: boolean
           created_at?: string
           custom_role_id: string
@@ -516,6 +518,7 @@ export type Database = {
         Update: {
           can_delete?: boolean
           can_edit?: boolean
+          can_import?: boolean
           can_view?: boolean
           created_at?: string
           custom_role_id?: string
@@ -1944,6 +1947,7 @@ export type Database = {
         Row: {
           can_delete: boolean
           can_edit: boolean
+          can_import: boolean
           can_view: boolean
           module: string
           role: Database["public"]["Enums"]["app_role"]
@@ -1952,6 +1956,7 @@ export type Database = {
         Insert: {
           can_delete?: boolean
           can_edit?: boolean
+          can_import?: boolean
           can_view?: boolean
           module: string
           role: Database["public"]["Enums"]["app_role"]
@@ -1960,6 +1965,7 @@ export type Database = {
         Update: {
           can_delete?: boolean
           can_edit?: boolean
+          can_import?: boolean
           can_view?: boolean
           module?: string
           role?: Database["public"]["Enums"]["app_role"]
@@ -2145,6 +2151,7 @@ export type Database = {
         Row: {
           can_delete: boolean
           can_edit: boolean
+          can_import: boolean
           can_view: boolean
           created_at: string
           id: string
@@ -2155,6 +2162,7 @@ export type Database = {
         Insert: {
           can_delete?: boolean
           can_edit?: boolean
+          can_import?: boolean
           can_view?: boolean
           created_at?: string
           id?: string
@@ -2165,6 +2173,7 @@ export type Database = {
         Update: {
           can_delete?: boolean
           can_edit?: boolean
+          can_import?: boolean
           can_view?: boolean
           created_at?: string
           id?: string

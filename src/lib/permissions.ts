@@ -202,7 +202,41 @@ export function useProfile() {
   });
 }
 
-export type ModulePerm = { can_view: boolean; can_edit: boolean; can_delete: boolean };
+export type ModulePerm = {
+  can_view: boolean;
+  can_edit: boolean;
+  can_delete: boolean;
+  can_import: boolean;
+};
+
+/**
+ * Normaliza uma linha de permissão vinda do banco.
+ * Antes da migration 20260928 a coluna `can_import` não existe: nesse caso
+ * herda `can_edit` para não quebrar quem já importava (transição).
+ * Após a migration, vale o valor explícito (padrão false = opt-in).
+ */
+export function normalizeModulePerm(row: {
+  can_view: boolean;
+  can_edit: boolean;
+  can_delete: boolean;
+  can_import?: boolean;
+}): ModulePerm {
+  return {
+    can_view: !!row.can_view,
+    can_edit: !!row.can_edit,
+    can_delete: !!row.can_delete,
+    can_import:
+      typeof row.can_import === "boolean" ? row.can_import : !!row.can_edit,
+  };
+}
+
+function isMissingCanImportColumn(error: unknown): boolean {
+  const msg = String((error as { message?: string })?.message ?? error ?? "");
+  return (
+    (error as { code?: string })?.code === "PGRST204" &&
+    /can_import/i.test(msg)
+  );
+}
 
 export function useMyModulePermissions() {
   const { data: user } = useCurrentUser();
@@ -212,18 +246,35 @@ export function useMyModulePermissions() {
     staleTime: 1000 * 60 * 5,
     retry: 1,
     queryFn: async () => {
-      const { data, error } = await supabase
+      const withImport = await supabase
+        .from("user_module_permissions")
+        .select("module, can_view, can_edit, can_delete, can_import")
+        .eq("user_id", user!.id);
+      if (!withImport.error) {
+        return ((withImport.data ?? []) as ({ module: AppModule } & ModulePerm)[]).map(
+          (r: any) => ({ module: r.module as AppModule, ...normalizeModulePerm(r) }),
+        );
+      }
+      if (isMissingSchemaError(withImport.error) && !isMissingCanImportColumn(withImport.error)) {
+        console.warn("[useMyModulePermissions] indisponível, retornando []:", withImport.error.message);
+        return [];
+      }
+      // Coluna can_import ainda não existe no banco: busca sem ela e herda can_edit.
+      const legacy = await supabase
         .from("user_module_permissions")
         .select("module, can_view, can_edit, can_delete")
         .eq("user_id", user!.id);
-      if (error) {
-        if (isMissingSchemaError(error)) {
-          console.warn("[useMyModulePermissions] indisponível, retornando []:", error.message);
+      if (legacy.error) {
+        if (isMissingSchemaError(legacy.error)) {
+          console.warn("[useMyModulePermissions] indisponível, retornando []:", legacy.error.message);
           return [];
         }
-        throw error;
+        throw legacy.error;
       }
-      return (data ?? []) as ({ module: AppModule } & ModulePerm)[];
+      return ((legacy.data ?? []) as any[]).map((r: any) => ({
+        module: r.module as AppModule,
+        ...normalizeModulePerm(r),
+      }));
     },
   });
 }
@@ -288,29 +339,47 @@ export function useAllSystemRolePerms() {
     staleTime: 1000 * 60 * 5,
     retry: 1,
     queryFn: async (): Promise<SystemRolePerm[]> => {
-      const { data, error } = await supabase
+      const withImport = await supabase
+        .from("system_role_module_permissions")
+        .select("role, module, can_view, can_edit, can_delete, can_import");
+      if (!withImport.error) {
+        return ((withImport.data ?? []) as any[]).map((r: any) => ({
+          role: r.role,
+          module: r.module,
+          ...normalizeModulePerm(r),
+        })) as SystemRolePerm[];
+      }
+      if (isMissingSchemaError(withImport.error) && !isMissingCanImportColumn(withImport.error)) {
+        console.warn("[useAllSystemRolePerms] indisponível, usando fallback:", withImport.error.message);
+        return [];
+      }
+      const legacy = await supabase
         .from("system_role_module_permissions")
         .select("role, module, can_view, can_edit, can_delete");
-      if (error) {
-        if (isMissingSchemaError(error)) {
-          console.warn("[useAllSystemRolePerms] indisponível, usando fallback:", error.message);
+      if (legacy.error) {
+        if (isMissingSchemaError(legacy.error)) {
+          console.warn("[useAllSystemRolePerms] indisponível, usando fallback:", legacy.error.message);
           return [];
         }
-        throw error;
+        throw legacy.error;
       }
-      return (data ?? []) as SystemRolePerm[];
+      return ((legacy.data ?? []) as any[]).map((r: any) => ({
+        role: r.role,
+        module: r.module,
+        ...normalizeModulePerm(r),
+      })) as SystemRolePerm[];
     },
   });
 }
 
 function fallbackPerm(module: AppModule, roles: AppRole[] | undefined): ModulePerm {
   const r = roles ?? [];
-  if (r.includes("admin")) return { can_view: true, can_edit: true, can_delete: true };
-  if (module === "acessos") return { can_view: false, can_edit: false, can_delete: false };
-  if (r.includes("gestor")) return { can_view: true, can_edit: true, can_delete: false };
+  if (r.includes("admin")) return { can_view: true, can_edit: true, can_delete: true, can_import: true };
+  if (module === "acessos") return { can_view: false, can_edit: false, can_delete: false, can_import: false };
+  if (r.includes("gestor")) return { can_view: true, can_edit: true, can_delete: false, can_import: false };
   if (r.includes("financeiro")) {
-    if (module === "financeiro") return { can_view: true, can_edit: true, can_delete: false };
-    return { can_view: true, can_edit: false, can_delete: false };
+    if (module === "financeiro") return { can_view: true, can_edit: true, can_delete: false, can_import: false };
+    return { can_view: true, can_edit: false, can_delete: false, can_import: false };
   }
   const baseView: AppModule[] = [
     "dashboard",
@@ -324,6 +393,7 @@ function fallbackPerm(module: AppModule, roles: AppRole[] | undefined): ModulePe
     can_view: baseView.includes(module),
     can_edit: module === "prestacao",
     can_delete: false,
+    can_import: false,
   };
 }
 
@@ -335,13 +405,14 @@ function defaultPerm(
   const r = roles ?? [];
   if (!systemPerms?.length) return fallbackPerm(module, r);
   // admin sempre tem tudo (guarda-corpo no servidor também)
-  if (r.includes("admin")) return { can_view: true, can_edit: true, can_delete: true };
+  if (r.includes("admin")) return { can_view: true, can_edit: true, can_delete: true, can_import: true };
   const matches = systemPerms.filter((p) => p.module === module && r.includes(p.role));
   if (!matches.length) return fallbackPerm(module, r);
   return {
     can_view: matches.some((m) => m.can_view),
     can_edit: matches.some((m) => m.can_edit),
     can_delete: matches.some((m) => m.can_delete),
+    can_import: matches.some((m) => normalizeModulePerm(m).can_import),
   };
 }
 
@@ -406,9 +477,35 @@ export function useAllCustomRolePerms() {
     queryFn: async (): Promise<CustomRolePerm[]> => {
       const full = await supabase
         .from("custom_role_module_permissions")
-        .select("custom_role_id, module, can_view, can_edit, can_delete");
-      if (!full.error) return (full.data ?? []) as CustomRolePerm[];
-      if (isMissingSchemaError(full.error)) {
+        .select("custom_role_id, module, can_view, can_edit, can_delete, can_import");
+      if (!full.error) {
+        return ((full.data ?? []) as any[]).map((r: any) => ({
+          custom_role_id: r.custom_role_id,
+          module: r.module,
+          ...normalizeModulePerm(r),
+        })) as CustomRolePerm[];
+      }
+      if (!isMissingSchemaError(full.error) || isMissingCanImportColumn(full.error)) {
+        // Coluna can_import ainda não existe: tenta leitura legada e herda can_edit.
+        try {
+          const legacy = await supabase
+            .from("custom_role_module_permissions")
+            .select("custom_role_id, module, can_view, can_edit, can_delete");
+          if (!legacy.error) {
+            return ((legacy.data ?? []) as any[]).map((r: any) => ({
+              custom_role_id: r.custom_role_id,
+              module: r.module,
+              ...normalizeModulePerm(r),
+            })) as CustomRolePerm[];
+          }
+          if (isMissingSchemaError(legacy.error)) {
+            console.warn("[useAllCustomRolePerms] indisponível, retornando []:", legacy.error.message);
+            return [];
+          }
+        } catch {
+          // cai no fluxo abaixo
+        }
+      } else if (isMissingSchemaError(full.error)) {
         console.warn("[useAllCustomRolePerms] indisponível, retornando []:", full.error.message);
         return [];
       }
@@ -422,12 +519,30 @@ export function useAllCustomRolePerms() {
         if (linkError) throw linkError;
         const ids = [...new Set((links ?? []).map((r: any) => r.custom_role_id).filter(Boolean))];
         if (ids.length === 0) return [];
-        const { data, error } = await supabase
+        const scoped = await supabase
           .from("custom_role_module_permissions")
-          .select("custom_role_id, module, can_view, can_edit, can_delete")
+          .select("custom_role_id, module, can_view, can_edit, can_delete, can_import")
           .in("custom_role_id", ids);
-        if (error) throw error;
-        return (data ?? []) as CustomRolePerm[];
+        if (!scoped.error) {
+          return ((scoped.data ?? []) as any[]).map((r: any) => ({
+            custom_role_id: r.custom_role_id,
+            module: r.module,
+            ...normalizeModulePerm(r),
+          })) as CustomRolePerm[];
+        }
+        if (isMissingCanImportColumn(scoped.error)) {
+          const legacyScoped = await supabase
+            .from("custom_role_module_permissions")
+            .select("custom_role_id, module, can_view, can_edit, can_delete")
+            .in("custom_role_id", ids);
+          if (legacyScoped.error) throw legacyScoped.error;
+          return ((legacyScoped.data ?? []) as any[]).map((r: any) => ({
+            custom_role_id: r.custom_role_id,
+            module: r.module,
+            ...normalizeModulePerm(r),
+          })) as CustomRolePerm[];
+        }
+        throw scoped.error;
       } catch (e) {
         if (isMissingSchemaError(e)) {
           console.warn("[useAllCustomRolePerms] indisponível, retornando []:", (e as Error)?.message);
@@ -457,10 +572,11 @@ function mergeCustomPerms(
     can_view: matches.some((m) => m.can_view),
     can_edit: matches.some((m) => m.can_edit),
     can_delete: matches.some((m) => m.can_delete),
+    can_import: matches.some((m) => normalizeModulePerm(m).can_import),
   };
 }
 
-const DENY_ALL: ModulePerm = { can_view: false, can_edit: false, can_delete: false };
+const DENY_ALL: ModulePerm = { can_view: false, can_edit: false, can_delete: false, can_import: false };
 
 /** `true` enquanto qualquer fonte de permissão ainda está carregando. */
 export function usePermissionsLoading(): boolean {
@@ -479,10 +595,10 @@ export function useModulePerm(module: AppModule): ModulePerm {
   const { data: customPerms, isLoading: customPermsLoading } = useAllCustomRolePerms();
   const { data: systemPerms, isLoading: systemPermsLoading } = useAllSystemRolePerms();
 
-  if (roles?.includes("admin")) return { can_view: true, can_edit: true, can_delete: true };
+  if (roles?.includes("admin")) return { can_view: true, can_edit: true, can_delete: true, can_import: true };
 
   const o = (overrides ?? []).find((x) => x.module === module);
-  if (o) return { can_view: o.can_view, can_edit: o.can_edit, can_delete: o.can_delete };
+  if (o) return normalizeModulePerm(o as any);
 
   const fromCustom = mergeCustomPerms(
     module,
@@ -510,9 +626,9 @@ export function effectivePerm(
   customPerms: CustomRolePerm[] = [],
   systemPerms: SystemRolePerm[] = [],
 ): ModulePerm {
-  if (roles?.includes("admin")) return { can_view: true, can_edit: true, can_delete: true };
+  if (roles?.includes("admin")) return { can_view: true, can_edit: true, can_delete: true, can_import: true };
   const o = overrides?.find((x) => x.module === module);
-  if (o) return { can_view: o.can_view, can_edit: o.can_edit, can_delete: o.can_delete };
+  if (o) return normalizeModulePerm(o as any);
   const fromCustom = mergeCustomPerms(module, customRoleIds, customPerms);
   if (fromCustom) return fromCustom;
   return defaultPerm(module, roles, systemPerms);

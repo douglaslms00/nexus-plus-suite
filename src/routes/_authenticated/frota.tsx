@@ -106,6 +106,7 @@ function FrotaPage() {
   const perm = useModulePerm("frota");
   const canEdit = perm.can_edit;
   const canDelete = perm.can_delete;
+  const canImport = perm.can_import;
 
   const [activeTab, setActiveTab] = useState("visao");
   const [search, setSearch] = useState("");
@@ -920,9 +921,9 @@ function FrotaPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["frota-motoristas"] }),
   });
 
-  // CSV import — somente quem tem permissão de edição (can_edit) no módulo frota
+  // CSV import — somente quem tem permissão de importação (can_import) no módulo frota
   const handleImportPedagio = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!canEdit) {
+    if (!canImport) {
       toast.error("Você não tem permissão para importar dados.");
       if (e.target) e.target.value = "";
       return;
@@ -1614,7 +1615,7 @@ function FrotaPage() {
               </Dialog>
             )}
             <input ref={fileRef} type="file" accept=".csv,.txt" className="hidden" onChange={handleImportPedagio} />
-            {canEdit && (
+            {canImport && (
               <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()}><Upload className="h-4 w-4" /> Importar CSV (Sem Parar/ConectCar/Veloe)</Button>
             )}
             <span className="text-xs text-muted-foreground">CSV com colunas: data, praça, valor, rota, placa (opcional)</span>
