@@ -89,7 +89,6 @@ export function DataPagination({
   onPageChange,
   onPageSizeChange,
   itemLabel = "itens",
-  pageSizeKey,
 }: {
   page: number;
   totalPages: number;
@@ -98,12 +97,9 @@ export function DataPagination({
   onPageChange: (p: number) => void;
   onPageSizeChange: (n: number) => void;
   itemLabel?: string;
-  /** exibe "Página X de Y" + seletor mesmo quando cabe em 1 página */
-  pageSizeKey?: string;
 }) {
   const from = total === 0 ? 0 : (page - 1) * pageSize + 1;
   const to = Math.min(page * pageSize, total);
-  void pageSizeKey;
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-2 pt-1">

@@ -117,7 +117,7 @@ function FrotaPage() {
     queryKey: ["frota-veiculos", obraId],
     enabled: perm.can_view,
     queryFn: async () => {
-      let q = supabase.from("frota_veiculos").select("*, obra:obras(nome)").order("placa");
+      let q = supabase.from("frota_veiculos").select("*, obra:obras(nome)").order("placa").limit(1000);
       if (obraId) q = q.eq("obra_id", obraId);
       const { data, error } = await q;
       if (error) throw error;
@@ -128,7 +128,7 @@ function FrotaPage() {
     queryKey: ["frota-motoristas"],
     enabled: perm.can_view,
     queryFn: async () => {
-      const { data, error } = await supabase.from("frota_motoristas").select("*").order("nome");
+      const { data, error } = await supabase.from("frota_motoristas").select("*").order("nome").limit(1000);
       if (error) throw error;
       return data ?? [];
     },
@@ -149,7 +149,8 @@ function FrotaPage() {
         .from("frota_abastecimentos")
         .select("*, veiculo:frota_veiculos(placa, modelo), motorista:frota_motoristas(nome), obra:obras(nome)")
         .order("data", { ascending: false })
-        .order("odometro", { ascending: false });
+        .order("odometro", { ascending: false })
+        .limit(2000);
       if (obraId) q = q.eq("obra_id", obraId);
       const { data, error } = await q;
       if (error) throw error;
@@ -163,7 +164,8 @@ function FrotaPage() {
       let q = supabase
         .from("frota_manutencoes")
         .select("*, veiculo:frota_veiculos(placa, modelo)")
-        .order("data", { ascending: false });
+        .order("data", { ascending: false })
+        .limit(2000);
       if (obraId) q = q.eq("obra_id", obraId);
       const { data, error } = await q;
       if (error) throw error;
@@ -177,7 +179,8 @@ function FrotaPage() {
       let q = supabase
         .from("frota_gastos_avulsos")
         .select("*, veiculo:frota_veiculos(placa, modelo), motorista:frota_motoristas(nome)")
-        .order("data", { ascending: false });
+        .order("data", { ascending: false })
+        .limit(2000);
       if (obraId) q = q.eq("obra_id", obraId);
       const { data, error } = await q;
       if (error) throw error;
@@ -191,7 +194,8 @@ function FrotaPage() {
       let q = supabase
         .from("frota_pedagios")
         .select("*, veiculo:frota_veiculos(placa, modelo), motorista:frota_motoristas(nome)")
-        .order("data_hora", { ascending: false });
+        .order("data_hora", { ascending: false })
+        .limit(2000);
       if (obraId) q = q.eq("obra_id", obraId);
       const { data, error } = await q;
       if (error) throw error;
@@ -211,7 +215,8 @@ function FrotaPage() {
         const { data, error } = await supabase
           .from("frota_termos")
           .select("*, veiculo:frota_veiculos(placa, modelo), motorista:frota_motoristas(nome)")
-          .order("data_termo", { ascending: false });
+          .order("data_termo", { ascending: false })
+          .limit(2000);
         return { data, error };
       }, "frota_termos"),
   });

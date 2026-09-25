@@ -55,7 +55,8 @@ function AtivosPage() {
       let q = supabase
         .from("ativos")
         .select("*, obra:obras(nome)")
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .limit(5000);
       if (obraId) q = q.eq("obra_id", obraId);
       return (await q).data ?? [];
     },
@@ -74,6 +75,7 @@ function AtivosPage() {
           .from("ativo_manutencoes")
           .select("*, ativo:ativos(nome)")
           .order("data", { ascending: false })
+          .limit(2000)
       ).data ?? [],
   });
   const { data: transferencias = [] } = useQuery({
@@ -87,6 +89,7 @@ function AtivosPage() {
             "*, ativo:ativos(nome), origem:obras!ativo_transferencias_obra_origem_id_fkey(nome), destino:obras!ativo_transferencias_obra_destino_id_fkey(nome)",
           )
           .order("created_at", { ascending: false })
+          .limit(1000)
       ).data ?? [],
   });
 

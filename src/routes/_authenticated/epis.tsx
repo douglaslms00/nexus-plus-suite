@@ -72,7 +72,7 @@ function EpisPage() {
     queryKey: ["epis", obraId],
     enabled: perm.can_view,
     queryFn: async () => {
-      let q = supabase.from("epis").select("*").order("nome");
+      let q = supabase.from("epis").select("*").order("nome").limit(5000);
       if (obraId) q = q.eq("obra_id", obraId);
       const { data, error } = await q;
       if (error) throw error;
@@ -88,7 +88,7 @@ function EpisPage() {
         .from("epi_movimentos")
         .select("*, epis(nome,tipo), funcionarios(nome)")
         .order("data_movimento", { ascending: false })
-        .limit(200);
+        .limit(2000);
       if (obraId) q = q.eq("obra_id", obraId);
       const { data, error } = await q;
       if (error) throw error;

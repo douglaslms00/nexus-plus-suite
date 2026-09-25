@@ -65,7 +65,7 @@ function MateriaisPage() {
     queryKey: ["materiais", obraId],
     enabled: perm.can_view,
     queryFn: async () => {
-      let q = supabase.from("materiais").select("*").order("nome");
+      let q = supabase.from("materiais").select("*").order("nome").limit(5000);
       if (obraId) q = q.eq("obra_id", obraId);
       return (await q).data ?? [];
     },
@@ -83,7 +83,7 @@ function MateriaisPage() {
         .from("material_movimentos")
         .select("*, material:materiais(nome, unidade), obra:obras(nome)")
         .order("data", { ascending: false })
-        .limit(500);
+        .limit(2000);
       if (obraId) q = q.eq("obra_id", obraId);
       return (await q).data ?? [];
     },

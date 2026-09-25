@@ -382,89 +382,105 @@ function DashboardPage() {
   }, [stockFilter, permEpi.can_view, permMat.can_view]);
 
   // Sincronismo em tempo real: qualquer mudança no banco invalida o dashboard.
+  // Debounce de 800ms: operações em lote (ex.: importação CSV com 100 linhas)
+  // geram dezenas de eventos por segundo — sem coalescer, cada um dispara um
+  // refetch e o painel entra em storm de requisições.
   useEffect(() => {
+    const pending = new Set<string>();
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const schedule = (key: string) => {
+      pending.add(key);
+      if (timer) return;
+      timer = setTimeout(() => {
+        timer = null;
+        const keys = [...pending];
+        pending.clear();
+        for (const k of keys) qc.invalidateQueries({ queryKey: [k] });
+      }, 800);
+    };
     const channel = supabase
       .channel("dashboard-sync")
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "funcionarios" },
         () => {
-          qc.invalidateQueries({ queryKey: ["dash-funcionarios"] });
+          schedule("dash-funcionarios");
         },
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "funcionario_treinamentos" },
         () => {
-          qc.invalidateQueries({ queryKey: ["dash-treinamentos"] });
+          schedule("dash-treinamentos");
         },
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "tarefas" },
         () => {
-          qc.invalidateQueries({ queryKey: ["dash-tarefas"] });
+          schedule("dash-tarefas");
         },
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "epis" },
         () => {
-          qc.invalidateQueries({ queryKey: ["dash-epis"] });
+          schedule("dash-epis");
         },
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "epi_movimentos" },
         () => {
-          qc.invalidateQueries({ queryKey: ["dash-epis"] });
+          schedule("dash-epis");
         },
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "materiais" },
         () => {
-          qc.invalidateQueries({ queryKey: ["dash-mat"] });
+          schedule("dash-mat");
         },
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "material_movimentos" },
         () => {
-          qc.invalidateQueries({ queryKey: ["dash-mat"] });
+          schedule("dash-mat");
         },
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "contas_financeiras" },
         () => {
-          qc.invalidateQueries({ queryKey: ["dash-contas"] });
+          schedule("dash-contas");
         },
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "ferramentas" },
         () => {
-          qc.invalidateQueries({ queryKey: ["dash-ferramentas"] });
+          schedule("dash-ferramentas");
         },
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "ferramenta_emprestimos" },
         () => {
-          qc.invalidateQueries({ queryKey: ["dash-emprestimos"] });
-          qc.invalidateQueries({ queryKey: ["dash-ferramentas"] });
+          schedule("dash-emprestimos");
+          schedule("dash-ferramentas");
         },
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "obras" },
         () => {
-          qc.invalidateQueries({ queryKey: ["dash-obras"] });
+          schedule("dash-obras");
         },
       )
       .subscribe();
     return () => {
+      if (timer) clearTimeout(timer);
       void supabase.removeChannel(channel);
     };
   }, [qc]);

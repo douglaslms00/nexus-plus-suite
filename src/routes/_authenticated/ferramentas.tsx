@@ -77,7 +77,7 @@ function FerramentasPage() {
     queryKey: ["ferramentas", obraId],
     enabled: perm.can_view,
     queryFn: async () => {
-      let q = supabase.from("ferramentas").select("*, obra:obras(nome)").order("nome");
+      let q = supabase.from("ferramentas").select("*, obra:obras(nome)").order("nome").limit(5000);
       if (obraId) q = q.eq("obra_id", obraId);
       return (await q).data ?? [];
     },
@@ -103,6 +103,7 @@ function FerramentasPage() {
           .from("ferramenta_emprestimos")
           .select("*, ferramenta:ferramentas(nome), funcionario:funcionarios(nome)")
           .order("created_at", { ascending: false })
+          .limit(2000)
       ).data ?? [],
   });
   const { data: transferencias = [] } = useQuery({

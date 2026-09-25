@@ -52,7 +52,8 @@ function FinanceiroPage() {
         .from("contas_financeiras")
         .select("*")
         .eq("escopo", "obra")
-        .order("data_vencimento");
+        .order("data_vencimento")
+        .limit(2000);
       if (obraId) q = q.eq("obra_id", obraId);
       return (await q).data ?? [];
     },
@@ -69,6 +70,7 @@ function FinanceiroPage() {
           .eq("escopo", "pessoal")
           .eq("user_id", user!.id)
           .order("data_vencimento")
+          .limit(2000)
       ).data ?? [],
   });
 

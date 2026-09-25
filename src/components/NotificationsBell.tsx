@@ -7,7 +7,7 @@ import { useCurrentUser } from "@/lib/permissions";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { formatDistanceToNow, parseISO } from "date-fns";
-import { ptBR } from "date-fns/locale";
+import { ptBR } from "date-fns/locale/pt-BR";
 import { cn } from "@/lib/utils";
 
 type Notif = {

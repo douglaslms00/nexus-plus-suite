@@ -171,7 +171,8 @@ function TarefasPage() {
       const { data, error } = await supabase
         .from("tarefas")
         .select("*")
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .limit(2000);
       if (error) throw error;
       const ids = Array.from(
         new Set((data ?? []).map((t: any) => t.responsavel_id).filter(Boolean)),
