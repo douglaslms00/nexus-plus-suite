@@ -139,8 +139,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false); // mobile drawer
   const [collapsed, setCollapsed] = useState(false);
 
-  // Cargos do usuário para exibição no cabeçalho e no rodapé da sidebar.
-  // Sistema primeiro (label amigável), depois personalizados.
+  // Cargos do usuário para exibição no cabeçalho (sistema primeiro com label
+  // amigável, depois personalizados). A identificação do usuário fica só no
+  // cabeçalho; o rodapé da sidebar exibe apenas o crédito do sistema.
   const userCargos = resolveUserCargos(roles, myCustomRoles, systemLabels);
   const primaryCargo = userCargos[0] ?? null;
   const cargosTitle =
@@ -335,61 +336,14 @@ export function AppShell({ children }: { children: ReactNode }) {
       </TooltipProvider>
 
       <div className={cn("border-t border-sidebar-border space-y-3", mini ? "p-2" : "p-4")}>
-        {!mini ? (
-          <div>
-            <p className="text-sm font-medium truncate">{profile?.nome ?? "Usuário"}</p>
-            <p className="text-xs font-medium text-primary truncate" title={cargosTitle}>
-              {primaryCargo?.label ?? "Sem cargo"}
-            </p>
-            <p className="text-xs opacity-70 truncate">{authUser?.email}</p>
-            <div className="mt-1 flex flex-wrap gap-1">
-              {userCargos.length > 0 ? (
-                userCargos.map((c) => (
-                  <span
-                    key={c.key}
-                    className="text-[10px] uppercase tracking-wide bg-sidebar-accent text-sidebar-accent-foreground px-2 py-0.5 rounded"
-                    title={c.system ? "Cargo do sistema" : "Cargo personalizado"}
-                  >
-                    {c.label}
-                  </span>
-                ))
-              ) : (
-                <span className="text-[10px] uppercase tracking-wide bg-sidebar-accent text-sidebar-accent-foreground px-2 py-0.5 rounded">
-                  Sem cargo
-                </span>
-              )}
-            </div>
-          </div>
-        ) : (
-          <TooltipProvider delayDuration={0}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="flex justify-center">
-                  <Avatar className="h-10 w-10 ring-1 ring-border/50">
-                    {profile?.avatar_url && (
-                      <AvatarImage
-                        src={profile.avatar_url}
-                        alt={profile?.nome ?? "Usuário"}
-                      />
-                    )}
-                    <AvatarFallback className="bg-primary/10 text-primary font-semibold text-xs">
-                      {(profile?.nome || authUser?.email || "U").slice(0, 2).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                </div>
-              </TooltipTrigger>
-              <TooltipContent side="right">
-                <p className="font-medium">{profile?.nome ?? "Usuário"}</p>
-                <p className="text-xs text-primary font-medium">
-                  {primaryCargo?.label ?? "Sem cargo"}
-                </p>
-                {authUser?.email && (
-                  <p className="text-xs opacity-70">{authUser.email}</p>
-                )}
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        )}
+        <p
+          className={cn(
+            "text-muted-foreground leading-snug",
+            mini ? "text-center text-[10px]" : "text-xs",
+          )}
+        >
+          Sistema criado por Douglas Luis - MS SISTEMAS.
+        </p>
         <Button
           variant="secondary"
           size={mini ? "icon" : "sm"}
