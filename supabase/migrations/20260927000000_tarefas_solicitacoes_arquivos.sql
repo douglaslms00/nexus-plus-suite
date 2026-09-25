@@ -77,7 +77,7 @@ BEGIN
     'arquivo_solicitado',
     'Novo arquivo solicitado',
     'Solicitado: ' || NEW.nome_arquivo_esperado,
-    NEW.id::text,
+    NEW.id,
     'tarefas_solicitacoes',
     '/tarefas?tab=solicitacoes'
   );
