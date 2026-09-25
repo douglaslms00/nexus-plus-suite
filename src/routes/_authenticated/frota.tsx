@@ -920,8 +920,13 @@ function FrotaPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["frota-motoristas"] }),
   });
 
-  // CSV import
+  // CSV import — somente quem tem permissão de edição (can_edit) no módulo frota
   const handleImportPedagio = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!canEdit) {
+      toast.error("Você não tem permissão para importar dados.");
+      if (e.target) e.target.value = "";
+      return;
+    }
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > MAX_UPLOAD_BYTES) {
@@ -1609,7 +1614,9 @@ function FrotaPage() {
               </Dialog>
             )}
             <input ref={fileRef} type="file" accept=".csv,.txt" className="hidden" onChange={handleImportPedagio} />
-            <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()}><Upload className="h-4 w-4" /> Importar CSV (Sem Parar/ConectCar/Veloe)</Button>
+            {canEdit && (
+              <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()}><Upload className="h-4 w-4" /> Importar CSV (Sem Parar/ConectCar/Veloe)</Button>
+            )}
             <span className="text-xs text-muted-foreground">CSV com colunas: data, praça, valor, rota, placa (opcional)</span>
           </div>
           <Card>

@@ -114,6 +114,10 @@ export function InventoryImportExport({
   };
 
   const stageFile = async (file: File, allowUpdate: boolean) => {
+    if (!canImport) {
+      toast.error("Você não tem permissão para importar dados.");
+      return;
+    }
     setResult(null);
     const text = await file.text();
     const parsed = parseCSVText(text);
@@ -200,6 +204,10 @@ export function InventoryImportExport({
   };
 
   const onPickFile = async (f: File | undefined) => {
+    if (!canImport) {
+      toast.error("Você não tem permissão para importar dados.");
+      return;
+    }
     if (!f) return;
     if (!/\.csv$/i.test(f.name) && f.type !== "text/csv") {
       toast.error("Envie um arquivo .csv (use o modelo).");
@@ -213,6 +221,10 @@ export function InventoryImportExport({
   };
 
   const runImport = async () => {
+    if (!canImport) {
+      toast.error("Você não tem permissão para importar dados.");
+      return;
+    }
     if (validRows.length === 0) {
       toast.error("Nenhuma linha válida para importar.");
       return;
