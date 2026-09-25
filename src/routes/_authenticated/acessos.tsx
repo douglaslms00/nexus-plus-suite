@@ -54,6 +54,7 @@ import {
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { DataPagination, usePagination } from "@/components/DataPagination";
 
 export const Route = createFileRoute("/_authenticated/acessos")({ component: AcessosPage });
 
@@ -690,6 +691,34 @@ function AcessosPage() {
     return null;
   };
 
+  const usuariosFiltrados = useMemo(
+    () =>
+      (usuarios as any[]).filter((u: any) => {
+        if (userSearch) {
+          const q = userSearch.toLowerCase();
+          const hit =
+            (u.nome ?? "").toLowerCase().includes(q) ||
+            (u.email ?? "").toLowerCase().includes(q);
+          if (!hit) return false;
+        }
+        if (userCargoFilter !== "all") {
+          if (userCargoFilter === "none") {
+            const temCargo =
+              (u.roles ?? []).length > 0 || (u.customRoleIds ?? []).length > 0;
+            if (temCargo) return false;
+          } else if (!userHasCargo(u, parseCargoId(userCargoFilter))) {
+            return false;
+          }
+        }
+        return true;
+      }),
+    [usuarios, userSearch, userCargoFilter],
+  );
+  const pagUsuarios = usePagination(usuariosFiltrados, {
+    key: "acessos-usuarios",
+    resetKey: `${userSearch}|${userCargoFilter}`,
+  });
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -748,27 +777,7 @@ function AcessosPage() {
           </Card>
 
           {/* LISTA DE USUÁRIOS */}
-          {usuarios
-            .filter((u: any) => {
-              if (userSearch) {
-                const q = userSearch.toLowerCase();
-                const hit =
-                  (u.nome ?? "").toLowerCase().includes(q) ||
-                  (u.email ?? "").toLowerCase().includes(q);
-                if (!hit) return false;
-              }
-              if (userCargoFilter !== "all") {
-                if (userCargoFilter === "none") {
-                  const temCargo =
-                    (u.roles ?? []).length > 0 || (u.customRoleIds ?? []).length > 0;
-                  if (temCargo) return false;
-                } else if (!userHasCargo(u, parseCargoId(userCargoFilter))) {
-                  return false;
-                }
-              }
-              return true;
-            })
-            .map((u: any) => {
+          {pagUsuarios.paged.map((u: any) => {
             const open = expanded[u.id];
             const isGestor = (u.roles ?? []).includes("gestor");
             const isUserAdmin = (u.roles ?? []).includes("admin");
@@ -1086,6 +1095,19 @@ function AcessosPage() {
               </Card>
             );
           })}
+          {usuariosFiltrados.length > 0 && (
+            <Card className="p-3">
+              <DataPagination
+                page={pagUsuarios.page}
+                totalPages={pagUsuarios.totalPages}
+                total={pagUsuarios.total}
+                pageSize={pagUsuarios.pageSize}
+                onPageChange={pagUsuarios.setPage}
+                onPageSizeChange={pagUsuarios.setPageSize}
+                itemLabel="usuários"
+              />
+            </Card>
+          )}
           {usuarios.length === 0 && (
             <Card className="p-8 text-center text-muted-foreground">
               Nenhum usuário cadastrado.

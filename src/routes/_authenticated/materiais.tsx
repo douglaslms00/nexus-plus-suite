@@ -46,6 +46,7 @@ import {
 import { toast } from "sonner";
 import { exportCSV, exportPDF } from "@/lib/exports";
 import { InventoryImportExport } from "@/components/InventoryImportExport";
+import { DataPagination, usePagination } from "@/components/DataPagination";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/materiais")({ component: MateriaisPage });
@@ -140,6 +141,11 @@ function MateriaisPage() {
     });
   }, [materiais, busca, estoqueInv, unidadeInv, obraInv]);
 
+  const pagMateriais = usePagination(materiaisFiltrados, {
+    key: "materiais",
+    resetKey: `${busca}|${estoqueInv}|${unidadeInv}|${obraInv}`,
+  });
+
   useEffect(() => {
     if (obraId) setFMv((p: any) => ({ ...p, obra_id: p.obra_id ?? obraId }));
   }, [obraId]);
@@ -180,6 +186,11 @@ function MateriaisPage() {
       return true;
     });
   }, [movs, filtro]);
+
+  const pagMovs = usePagination(movsFiltrados, {
+    key: "materiais-movs",
+    resetKey: `${filtro.ini}|${filtro.fim}|${filtro.tipo}|${filtro.obra}|${filtro.material}`,
+  });
 
   const saveMat = useMutation({
     mutationFn: async () => {
@@ -647,7 +658,7 @@ function MateriaisPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {materiaisFiltrados.map((m: any) => {
+                {pagMateriais.paged.map((m: any) => {
                   const baixo = Number(m.estoque_atual) < Number(m.estoque_minimo);
                   return (
                     <TableRow key={m.id}>
@@ -697,6 +708,17 @@ function MateriaisPage() {
                 )}
               </TableBody>
             </Table>
+            <div className="p-3 border-t">
+              <DataPagination
+                page={pagMateriais.page}
+                totalPages={pagMateriais.totalPages}
+                total={pagMateriais.total}
+                pageSize={pagMateriais.pageSize}
+                onPageChange={pagMateriais.setPage}
+                onPageSizeChange={pagMateriais.setPageSize}
+                itemLabel="materiais"
+              />
+            </div>
           </Card>
         </TabsContent>
 
@@ -889,7 +911,7 @@ function MateriaisPage() {
           </Card>
 
           <div className="grid gap-2">
-            {movsFiltrados.map((m: any) => (
+            {pagMovs.paged.map((m: any) => (
               <Card key={m.id} className="p-3 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   {m.tipo === "entrada" ? (
@@ -934,6 +956,19 @@ function MateriaisPage() {
             {movsFiltrados.length === 0 && (
               <Card className="p-8 text-center text-muted-foreground">
                 Nenhum movimento no filtro.
+              </Card>
+            )}
+            {movsFiltrados.length > 0 && (
+              <Card className="p-3">
+                <DataPagination
+                  page={pagMovs.page}
+                  totalPages={pagMovs.totalPages}
+                  total={pagMovs.total}
+                  pageSize={pagMovs.pageSize}
+                  onPageChange={pagMovs.setPage}
+                  onPageSizeChange={pagMovs.setPageSize}
+                  itemLabel="movimentos"
+                />
               </Card>
             )}
           </div>

@@ -28,6 +28,7 @@ import { Plus, Trash2, MapPin, Pencil, AlertTriangle, Bell, CalendarClock } from
 import { toast } from "sonner";
 import { differenceInDays } from "date-fns";
 import { cn, safeParseISO, safeFormatDate } from "@/lib/utils";
+import { DataPagination, usePagination } from "@/components/DataPagination";
 
 export const Route = createFileRoute("/_authenticated/obras")({
   component: () => (
@@ -133,6 +134,8 @@ function ObrasPage() {
     }
     return m;
   }, [todosOutros]);
+
+  const pagObras = usePagination(obras as any[], { key: "obras" });
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<any>(null);
@@ -471,7 +474,7 @@ function ObrasPage() {
       </div>
 
       <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-        {obras.map((o: any) => {
+        {pagObras.paged.map((o: any) => {
           const base = countVencimentosObra(o);
           const outros = outrosPorObra.get(o.id) ?? [];
           const dyn = countOutrosVencimentos(outros as any);
@@ -542,6 +545,19 @@ function ObrasPage() {
           <Card className="p-8 text-center text-muted-foreground md:col-span-2 lg:col-span-3">Nenhuma obra cadastrada.</Card>
         )}
       </div>
+      {obras.length > 0 && (
+        <Card className="p-3">
+          <DataPagination
+            page={pagObras.page}
+            totalPages={pagObras.totalPages}
+            total={pagObras.total}
+            pageSize={pagObras.pageSize}
+            onPageChange={pagObras.setPage}
+            onPageSizeChange={pagObras.setPageSize}
+            itemLabel="obras"
+          />
+        </Card>
+      )}
     </div>
   );
 }

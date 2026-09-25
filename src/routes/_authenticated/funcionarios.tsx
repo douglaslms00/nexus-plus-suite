@@ -65,6 +65,7 @@ import {
 } from "@/lib/document-requirements";
 import { differenceInDays } from "date-fns";
 import { cn, safeParseISO, safeFormatDate } from "@/lib/utils";
+import { DataPagination, usePagination } from "@/components/DataPagination";
 
 export const Route = createFileRoute("/_authenticated/funcionarios")({
   component: () => (
@@ -299,6 +300,11 @@ function FuncionariosPage() {
       return true;
     });
   }, [funcionarios, busca, fStatus, fObra, fVenc]);
+
+  const pagFuncionarios = usePagination(filtered, {
+    key: "funcionarios",
+    resetKey: `${busca}|${fStatus}|${fObra}|${fVenc}`,
+  });
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -1024,7 +1030,7 @@ function FuncionariosPage() {
                     </TableCell>
                   </TableRow>
                 )}
-                {filtered.map((f: any) => {
+                {pagFuncionarios.paged.map((f: any) => {
                   const abertos = countVencimentosAbertos(f);
                   const listaTrein = treinamentosPorFuncionario.get(f.id) ?? [];
                   const treinListaFallback =
@@ -1137,6 +1143,17 @@ function FuncionariosPage() {
                 })}
               </TableBody>
             </Table>
+            <div className="p-3 border-t">
+              <DataPagination
+                page={pagFuncionarios.page}
+                totalPages={pagFuncionarios.totalPages}
+                total={pagFuncionarios.total}
+                pageSize={pagFuncionarios.pageSize}
+                onPageChange={pagFuncionarios.setPage}
+                onPageSizeChange={pagFuncionarios.setPageSize}
+                itemLabel="funcionários"
+              />
+            </div>
           </Card>
         </TabsContent>
         <TabsContent value="vencimentos">
@@ -1169,7 +1186,7 @@ function FuncionariosPage() {
                     </TableCell>
                   </TableRow>
                 )}
-                {filtered.map((f: any) => (
+                {pagFuncionarios.paged.map((f: any) => (
                   <TableRow
                     key={f.id}
                     id={`func-${f.id}`}
@@ -1266,6 +1283,17 @@ function FuncionariosPage() {
                 ))}
               </TableBody>
             </Table>
+            <div className="p-3 border-t">
+              <DataPagination
+                page={pagFuncionarios.page}
+                totalPages={pagFuncionarios.totalPages}
+                total={pagFuncionarios.total}
+                pageSize={pagFuncionarios.pageSize}
+                onPageChange={pagFuncionarios.setPage}
+                onPageSizeChange={pagFuncionarios.setPageSize}
+                itemLabel="funcionários"
+              />
+            </div>
           </Card>
         </TabsContent>
       </Tabs>

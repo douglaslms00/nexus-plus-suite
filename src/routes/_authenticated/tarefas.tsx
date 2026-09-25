@@ -68,6 +68,7 @@ import {
   type SolicitacaoComArquivo,
 } from "@/lib/tarefas-solicitacoes";
 import { MAX_UPLOAD_LABEL } from "@/lib/upload";
+import { DataPagination, usePagination } from "@/components/DataPagination";
 
 export const Route = createFileRoute("/_authenticated/tarefas")({
   component: () => (
@@ -209,6 +210,11 @@ function TarefasPage() {
       return true;
     });
   }, [tarefas, onlyMine, fStatus, fPrio, busca, user?.id]);
+
+  const pagTarefas = usePagination(filtered, {
+    key: "tarefas",
+    resetKey: `${busca}|${fStatus}|${fPrio}|${onlyMine}`,
+  });
 
   const overdueCount = useMemo(
     () =>
@@ -865,7 +871,7 @@ function TarefasPage() {
       ) : (
         /* LIST VIEW */
         <div className="grid gap-3">
-          {filtered.map((t: any) => {
+          {pagTarefas.paged.map((t: any) => {
             const canToggle = canCreate || t.responsavel_id === user?.id || isGestor;
             const od = overdueInfo(t);
             return (
@@ -1025,6 +1031,19 @@ function TarefasPage() {
           {filtered.length === 0 && (
             <Card className="p-8 text-center text-muted-foreground">
               Nenhuma tarefa encontrada.
+            </Card>
+          )}
+          {filtered.length > 0 && (
+            <Card className="p-3">
+              <DataPagination
+                page={pagTarefas.page}
+                totalPages={pagTarefas.totalPages}
+                total={pagTarefas.total}
+                pageSize={pagTarefas.pageSize}
+                onPageChange={pagTarefas.setPage}
+                onPageSizeChange={pagTarefas.setPageSize}
+                itemLabel="tarefas"
+              />
             </Card>
           )}
         </div>

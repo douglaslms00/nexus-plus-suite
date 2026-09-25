@@ -42,6 +42,7 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { InventoryImportExport } from "@/components/InventoryImportExport";
+import { DataPagination, usePagination } from "@/components/DataPagination";
 
 export const Route = createFileRoute("/_authenticated/epis")({
   component: () => (
@@ -149,6 +150,11 @@ function EpisPage() {
     });
   }, [epis, busca, estoqueInv, tipoInv, obraInv]);
 
+  const pagEpis = usePagination(episFiltrados, {
+    key: "epis",
+    resetKey: `${busca}|${estoqueInv}|${tipoInv}|${obraInv}`,
+  });
+
   const estoqueEpiLabel: Record<string, string> = {
     all: "Todos",
     com_estoque: "Com estoque (> 0)",
@@ -182,6 +188,11 @@ function EpisPage() {
       pdfSubtitle: "Filtros — " + parts.join(" | "),
     };
   }, [episFiltrados, obras, busca, estoqueInv, tipoInv, obraInv]);
+
+  const pagMovsEpi = usePagination(movs as any[], {
+    key: "epis-movs",
+    resetKey: String((movs as any[]).length),
+  });
 
   const handleNewEpi = () => {
     setEditingEpi(null);
@@ -754,7 +765,7 @@ function EpisPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {episFiltrados.map((e: any) => {
+                {pagEpis.paged.map((e: any) => {
                   const baixo = e.estoque_atual < e.estoque_minimo;
                   return (
                     <TableRow key={e.id}>
@@ -808,6 +819,17 @@ function EpisPage() {
                 )}
               </TableBody>
             </Table>
+            <div className="p-3 border-t">
+              <DataPagination
+                page={pagEpis.page}
+                totalPages={pagEpis.totalPages}
+                total={pagEpis.total}
+                pageSize={pagEpis.pageSize}
+                onPageChange={pagEpis.setPage}
+                onPageSizeChange={pagEpis.setPageSize}
+                itemLabel="EPIs"
+              />
+            </div>
           </Card>
         </TabsContent>
         <TabsContent value="movs">
@@ -826,7 +848,7 @@ function EpisPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {movs.map((m: any) => (
+                {pagMovsEpi.paged.map((m: any) => (
                   <TableRow key={m.id}>
                     <TableCell className="text-sm">
                       {m.data_movimento ? new Date(m.data_movimento).toLocaleDateString("pt-BR") : "—"}
@@ -892,6 +914,19 @@ function EpisPage() {
                 )}
               </TableBody>
             </Table>
+            {(movs as any[]).length > 0 && (
+              <div className="p-3 border-t">
+                <DataPagination
+                  page={pagMovsEpi.page}
+                  totalPages={pagMovsEpi.totalPages}
+                  total={pagMovsEpi.total}
+                  pageSize={pagMovsEpi.pageSize}
+                  onPageChange={pagMovsEpi.setPage}
+                  onPageSizeChange={pagMovsEpi.setPageSize}
+                  itemLabel="movimentações"
+                />
+              </div>
+            )}
           </Card>
         </TabsContent>
       </Tabs>

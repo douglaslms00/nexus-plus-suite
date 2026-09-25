@@ -30,6 +30,7 @@ import {
 import { toast } from "sonner";
 import { safeFormatDate } from "@/lib/utils";
 import { MAX_UPLOAD_BYTES, MAX_UPLOAD_LABEL, formatFileSize } from "@/lib/upload";
+import { DataPagination, usePagination } from "@/components/DataPagination";
 
 export const Route = createFileRoute("/_authenticated/documentos")({ component: DocumentosPage });
 
@@ -152,6 +153,11 @@ function Browser({
   }, [pastas, pastaId]);
 
   const subpastas = pastas.filter((p) => (p.parent_id ?? null) === pastaId);
+
+  const pagDocs = usePagination(docs as any[], {
+    key: `docs-${escopo}`,
+    resetKey: `${escopo}|${pastaId}|${(docs as any[]).length}`,
+  });
 
   const createPasta = useMutation({
     mutationFn: async (nome: string) => {
@@ -380,7 +386,7 @@ function Browser({
         {docs.length === 0 && subpastas.length === 0 && (
           <Card className="p-8 text-center text-muted-foreground">Pasta vazia.</Card>
         )}
-        {docs.map((d) => (
+        {pagDocs.paged.map((d) => (
           <Card key={d.id} className="p-3 flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0 flex-1">
               <FileText className="h-5 w-5 text-muted-foreground shrink-0" />
@@ -410,6 +416,19 @@ function Browser({
             </div>
           </Card>
         ))}
+        {docs.length > 0 && (
+          <Card className="p-3">
+            <DataPagination
+              page={pagDocs.page}
+              totalPages={pagDocs.totalPages}
+              total={pagDocs.total}
+              pageSize={pagDocs.pageSize}
+              onPageChange={pagDocs.setPage}
+              onPageSizeChange={pagDocs.setPageSize}
+              itemLabel="arquivos"
+            />
+          </Card>
+        )}
       </div>
     </div>
   );

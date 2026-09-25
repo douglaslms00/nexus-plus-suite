@@ -57,6 +57,7 @@ import {
 import { toast } from "sonner";
 import { exportCSV, exportPDF } from "@/lib/exports";
 import { formatCurrency } from "@/lib/utils";
+import { DataPagination, usePagination } from "@/components/DataPagination";
 import { uploadAnexo, getAnexoUrl, MAX_UPLOAD_BYTES, MAX_UPLOAD_LABEL, formatFileSize } from "@/lib/upload";
 import { safeList, isMissingSchemaError } from "@/lib/supabase-safe";
 
@@ -1019,13 +1020,82 @@ function FrotaPage() {
     }
   };
 
-  if (!perm.can_view) {
-    return <Card className="p-8 text-center text-muted-foreground">Você não tem permissão para visualizar Gestão de Frota.</Card>;
-  }
-
   const filteredVeiculos = (veiculos as any[]).filter((v) =>
     !search ? true : `${v.placa} ${v.modelo} ${v.marca ?? ""}`.toLowerCase().includes(search.toLowerCase())
   );
+  const pagVeiculos = usePagination(filteredVeiculos, {
+    key: "frota-veiculos",
+    resetKey: search,
+  });
+  const pedagiosFiltrados = useMemo(
+    () =>
+      (pedagios as any[]).filter((p) =>
+        !search
+          ? true
+          : `${p.praca} ${p.rota ?? ""} ${p.veiculo?.placa ?? ""}`.toLowerCase().includes(search.toLowerCase()),
+      ),
+    [pedagios, search],
+  );
+  const pagPedagios = usePagination(pedagiosFiltrados, {
+    key: "frota-pedagios",
+    resetKey: search,
+  });
+  const pagAbast = usePagination(abastecimentosFiltrados, {
+    key: "frota-abastecimentos",
+    resetKey: `${search}|${fAbastVeiculo}|${fAbastObra}|${fAbastPagto}|${fAbastIni}|${fAbastFim}|${agruparPorObra}`,
+  });
+  const motoristasFiltrados = useMemo(
+    () =>
+      (motoristas as any[]).filter((m) =>
+        !search ? true : `${m.nome} ${m.cpf ?? ""}`.toLowerCase().includes(search.toLowerCase()),
+      ),
+    [motoristas, search],
+  );
+  const pagMotoristas = usePagination(motoristasFiltrados, {
+    key: "frota-motoristas",
+    resetKey: search,
+  });
+  const rankingFiltrados = useMemo(
+    () =>
+      (ranking as any[]).filter((r) =>
+        !search ? true : r.motorista.nome.toLowerCase().includes(search.toLowerCase()),
+      ),
+    [ranking, search],
+  );
+  const pagRanking = usePagination(rankingFiltrados, {
+    key: "frota-ranking",
+    resetKey: search,
+  });
+  const manutencoesFiltradas = useMemo(
+    () =>
+      (manutencoes as any[]).filter((m) =>
+        !search
+          ? true
+          : `${m.veiculo?.placa} ${m.servico} ${m.oficina ?? ""}`.toLowerCase().includes(search.toLowerCase()),
+      ),
+    [manutencoes, search],
+  );
+  const pagManutFrota = usePagination(manutencoesFiltradas, {
+    key: "frota-manutencao",
+    resetKey: search,
+  });
+  const gastosFiltrados = useMemo(
+    () =>
+      (gastos as any[]).filter((g) =>
+        !search
+          ? true
+          : `${g.categoria} ${g.descricao} ${g.veiculo?.placa ?? ""}`.toLowerCase().includes(search.toLowerCase()),
+      ),
+    [gastos, search],
+  );
+  const pagGastos = usePagination(gastosFiltrados, {
+    key: "frota-gastos",
+    resetKey: search,
+  });
+
+  if (!perm.can_view) {
+    return <Card className="p-8 text-center text-muted-foreground">Você não tem permissão para visualizar Gestão de Frota.</Card>;
+  }
 
   return (
     <div className="space-y-6">
@@ -1190,7 +1260,7 @@ function FrotaPage() {
             </Dialog>
           )}
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {filteredVeiculos.map((v: any) => {
+            {pagVeiculos.paged.map((v: any) => {
               const alerta = alertaRevisao(v);
               const consumo = consumoPorVeiculo.get(v.id);
               return (
@@ -1216,6 +1286,19 @@ function FrotaPage() {
             })}
             {filteredVeiculos.length === 0 && <Card className="p-8 text-center text-muted-foreground md:col-span-3">Nenhum veículo cadastrado.</Card>}
           </div>
+          {filteredVeiculos.length > 0 && (
+            <Card className="p-3">
+              <DataPagination
+                page={pagVeiculos.page}
+                totalPages={pagVeiculos.totalPages}
+                total={pagVeiculos.total}
+                pageSize={pagVeiculos.pageSize}
+                onPageChange={pagVeiculos.setPage}
+                onPageSizeChange={pagVeiculos.setPageSize}
+                itemLabel="veículos"
+              />
+            </Card>
+          )}
         </TabsContent>
 
         {/* COMBUSTÍVEL */}
@@ -1472,7 +1555,7 @@ function FrotaPage() {
                         </tr>
                       );
                     };
-                    if (!agruparPorObra) return abastecimentosFiltrados.map(renderRow);
+                    if (!agruparPorObra) return pagAbast.paged.map(renderRow);
                     return abastecimentosPorObra.flatMap((g) => [
                       <tr key={`obra-${g.obraId ?? "none"}`} className="bg-muted/60 border-t">
                         <td colSpan={11} className="p-2">
@@ -1487,6 +1570,19 @@ function FrotaPage() {
               </table>
               {abastecimentosFiltrados.length === 0 && <p className="p-8 text-center text-sm text-muted-foreground">{(abastecimentos as any[]).length === 0 ? "Nenhum abastecimento." : "Nenhum abastecimento com os filtros atuais."}</p>}
             </div>
+            {!agruparPorObra && abastecimentosFiltrados.length > 0 && (
+              <div className="p-3 border-t">
+                <DataPagination
+                  page={pagAbast.page}
+                  totalPages={pagAbast.totalPages}
+                  total={pagAbast.total}
+                  pageSize={pagAbast.pageSize}
+                  onPageChange={pagAbast.setPage}
+                  onPageSizeChange={pagAbast.setPageSize}
+                  itemLabel="abastecimentos"
+                />
+              </div>
+            )}
           </Card>
         </TabsContent>
 
@@ -1522,9 +1618,7 @@ function FrotaPage() {
             )}
           </div>
           <div className="grid gap-2">
-            {(manutencoes as any[])
-              .filter((m) => !search || `${m.veiculo?.placa} ${m.servico} ${m.oficina ?? ""}`.toLowerCase().includes(search.toLowerCase()))
-              .map((m) => {
+            {pagManutFrota.paged.map((m) => {
                 const total = Number(m.valor_total ?? 0);
                 return (
                   <Card key={m.id} className="p-3 flex items-center justify-between">
@@ -1547,6 +1641,19 @@ function FrotaPage() {
               })}
             {(manutencoes as any[]).length === 0 && <Card className="p-8 text-center text-muted-foreground">Nenhuma manutenção.</Card>}
           </div>
+          {manutencoesFiltradas.length > 0 && (
+            <Card className="p-3">
+              <DataPagination
+                page={pagManutFrota.page}
+                totalPages={pagManutFrota.totalPages}
+                total={pagManutFrota.total}
+                pageSize={pagManutFrota.pageSize}
+                onPageChange={pagManutFrota.setPage}
+                onPageSizeChange={pagManutFrota.setPageSize}
+                itemLabel="manutenções"
+              />
+            </Card>
+          )}
         </TabsContent>
 
         {/* GASTOS AVULSOS */}
@@ -1575,9 +1682,7 @@ function FrotaPage() {
             )}
           </div>
           <div className="grid gap-2">
-            {(gastos as any[])
-              .filter((g) => !search || `${g.categoria} ${g.descricao} ${g.veiculo?.placa ?? ""}`.toLowerCase().includes(search.toLowerCase()))
-              .map((g) => (
+            {pagGastos.paged.map((g) => (
                 <Card key={g.id} className="p-3 flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium">{g.descricao} <Badge variant="outline">{g.categoria}</Badge></p>
@@ -1588,6 +1693,19 @@ function FrotaPage() {
               ))}
             {(gastos as any[]).length === 0 && <Card className="p-8 text-center text-muted-foreground">Nenhum gasto avulso.</Card>}
           </div>
+          {gastosFiltrados.length > 0 && (
+            <Card className="p-3">
+              <DataPagination
+                page={pagGastos.page}
+                totalPages={pagGastos.totalPages}
+                total={pagGastos.total}
+                pageSize={pagGastos.pageSize}
+                onPageChange={pagGastos.setPage}
+                onPageSizeChange={pagGastos.setPageSize}
+                itemLabel="gastos"
+              />
+            </Card>
+          )}
         </TabsContent>
 
         {/* PEDÁGIOS */}
@@ -1625,9 +1743,7 @@ function FrotaPage() {
               <table className="w-full text-sm">
                 <thead className="bg-muted/50 text-xs"><tr><th className="text-left p-2">Data/Hora</th><th className="text-left p-2">Veículo</th><th className="text-left p-2">Motorista</th><th className="text-left p-2">Praça</th><th className="text-left p-2">Rota</th><th className="text-right p-2">Valor</th><th className="text-left p-2">Pagamento</th><th className="p-2"></th></tr></thead>
                 <tbody>
-                  {(pedagios as any[])
-                    .filter((p) => !search || `${p.praca} ${p.rota ?? ""} ${p.veiculo?.placa ?? ""}`.toLowerCase().includes(search.toLowerCase()))
-                    .map((p) => (
+                  {pagPedagios.paged.map((p) => (
                       <tr key={p.id} className="border-t">
                         <td className="p-2 whitespace-nowrap">{new Date(p.data_hora).toLocaleString("pt-BR")}</td>
                         <td className="p-2">{p.veiculo?.placa ?? "—"}</td>
@@ -1643,6 +1759,19 @@ function FrotaPage() {
               </table>
               {(pedagios as any[]).length === 0 && <p className="p-8 text-center text-sm text-muted-foreground">Nenhum pedágio. Use o botão Importar CSV para carregar extratos de tag.</p>}
             </div>
+            {pedagiosFiltrados.length > 0 && (
+              <div className="p-3 border-t">
+                <DataPagination
+                  page={pagPedagios.page}
+                  totalPages={pagPedagios.totalPages}
+                  total={pagPedagios.total}
+                  pageSize={pagPedagios.pageSize}
+                  onPageChange={pagPedagios.setPage}
+                  onPageSizeChange={pagPedagios.setPageSize}
+                  itemLabel="pedágios"
+                />
+              </div>
+            )}
           </Card>
         </TabsContent>
 
@@ -1680,13 +1809,11 @@ function FrotaPage() {
                 <table className="w-full text-sm">
                   <thead className="bg-muted/50 text-xs"><tr><th className="p-2 text-left">#</th><th className="p-2 text-left">Motorista</th><th className="p-2 text-left">CNH</th><th className="p-2 text-right">Abastec.</th><th className="p-2 text-right">km/L</th><th className="p-2 text-right">Combustível</th><th className="p-2 text-right">Avulsos</th><th className="p-2 text-right">Pedágios</th><th className="p-2 text-right">Total</th></tr></thead>
                   <tbody>
-                    {ranking
-                      .filter((r) => !search || r.motorista.nome.toLowerCase().includes(search.toLowerCase()))
-                      .map((r, idx) => {
+                    {pagRanking.paged.map((r, idx) => {
                         const s = statusCNH(r.motorista.cnh_validade);
                         return (
                           <tr key={r.motorista.id} className="border-t">
-                            <td className="p-2 font-bold">{idx + 1}</td>
+                            <td className="p-2 font-bold">{(pagRanking.page - 1) * pagRanking.pageSize + idx + 1}</td>
                             <td className="p-2 font-medium">{r.motorista.nome} <Badge variant={r.motorista.status === "ativo" ? "default" : "secondary"} className="ml-1 text-[10px]">{r.motorista.status}</Badge></td>
                             <td className="p-2"><Badge variant={s.nivel === "vencido" ? "destructive" : s.nivel === "atencao" ? "secondary" : "outline"}>{r.motorista.cnh_categoria} · {s.label}</Badge></td>
                             <td className="p-2 text-right">{r.totalAbast}</td>
@@ -1702,13 +1829,24 @@ function FrotaPage() {
                 </table>
                 {ranking.length === 0 && <p className="p-6 text-center text-sm text-muted-foreground">Cadastre motoristas e abastecimentos para ver o ranking.</p>}
               </div>
+              {rankingFiltrados.length > 0 && (
+                <div className="p-3 border-t">
+                  <DataPagination
+                    page={pagRanking.page}
+                    totalPages={pagRanking.totalPages}
+                    total={pagRanking.total}
+                    pageSize={pagRanking.pageSize}
+                    onPageChange={pagRanking.setPage}
+                    onPageSizeChange={pagRanking.setPageSize}
+                    itemLabel="motoristas no ranking"
+                  />
+                </div>
+              )}
             </CardContent>
           </Card>
 
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {(motoristas as any[])
-              .filter((m) => !search || `${m.nome} ${m.cpf ?? ""}`.toLowerCase().includes(search.toLowerCase()))
-              .map((m) => {
+            {pagMotoristas.paged.map((m) => {
                 const s = statusCNH(m.cnh_validade);
                 return (
                   <Card key={m.id} className={`p-4 ${s.nivel === "vencido" ? "border-rose-300" : s.nivel === "atencao" ? "border-amber-300" : ""}`}>
@@ -1729,6 +1867,19 @@ function FrotaPage() {
               })}
             {(motoristas as any[]).length === 0 && <Card className="p-8 text-center text-muted-foreground md:col-span-3">Nenhum motorista cadastrado.</Card>}
           </div>
+          {motoristasFiltrados.length > 0 && (
+            <Card className="p-3">
+              <DataPagination
+                page={pagMotoristas.page}
+                totalPages={pagMotoristas.totalPages}
+                total={pagMotoristas.total}
+                pageSize={pagMotoristas.pageSize}
+                onPageChange={pagMotoristas.setPage}
+                onPageSizeChange={pagMotoristas.setPageSize}
+                itemLabel="motoristas"
+              />
+            </Card>
+          )}
         </TabsContent>
 
         {/* TERMOS DE RESPONSABILIDADE */}

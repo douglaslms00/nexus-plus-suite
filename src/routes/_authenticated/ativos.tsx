@@ -29,6 +29,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Plus, Trash2, Wrench, ArrowRightLeft, Check, X, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { InventoryImportExport } from "@/components/InventoryImportExport";
+import { DataPagination, usePagination } from "@/components/DataPagination";
 
 export const Route = createFileRoute("/_authenticated/ativos")({
   component: () => (
@@ -109,6 +110,19 @@ function AtivosPage() {
         (a.categoria ?? "").toLowerCase().includes(q),
     );
   }, [ativos, buscaAtivo]);
+
+  const pagAtivos = usePagination(ativosFiltrados, {
+    key: "ativos",
+    resetKey: buscaAtivo,
+  });
+  const pagManutAtivo = usePagination(manutencoes as any[], {
+    key: "ativos-manut",
+    resetKey: String((manutencoes as any[]).length),
+  });
+  const pagTransfAtivo = usePagination(transferencias as any[], {
+    key: "ativos-transf",
+    resetKey: String((transferencias as any[]).length),
+  });
 
   const exportAtivosSpec = useMemo(() => {
     const headers = ["Nome", "Código", "Categoria", "Estado", "Obra", "Valor (R$)", "Aquisição", "Descrição"];
@@ -416,7 +430,7 @@ function AtivosPage() {
             </p>
           </Card>
           <div className="grid gap-3 md:grid-cols-2">
-            {ativosFiltrados.map((a: any) => (
+            {pagAtivos.paged.map((a: any) => (
               <Card key={a.id} className="p-4">
                 <div className="flex justify-between items-start">
                   <div>
@@ -462,6 +476,19 @@ function AtivosPage() {
               </Card>
             )}
           </div>
+          {ativosFiltrados.length > 0 && (
+            <Card className="p-3">
+              <DataPagination
+                page={pagAtivos.page}
+                totalPages={pagAtivos.totalPages}
+                total={pagAtivos.total}
+                pageSize={pagAtivos.pageSize}
+                onPageChange={pagAtivos.setPage}
+                onPageSizeChange={pagAtivos.setPageSize}
+                itemLabel="ativos"
+              />
+            </Card>
+          )}
         </TabsContent>
 
         <TabsContent value="manut" className="space-y-3">
@@ -555,7 +582,7 @@ function AtivosPage() {
             </Dialog>
           )}
           <div className="grid gap-2">
-            {manutencoes.map((m: any) => (
+            {pagManutAtivo.paged.map((m: any) => (
               <Card key={m.id} className="p-3 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Wrench className="h-4 w-4 text-muted-foreground" />
@@ -590,6 +617,19 @@ function AtivosPage() {
               </Card>
             )}
           </div>
+          {manutencoes.length > 0 && (
+            <Card className="p-3">
+              <DataPagination
+                page={pagManutAtivo.page}
+                totalPages={pagManutAtivo.totalPages}
+                total={pagManutAtivo.total}
+                pageSize={pagManutAtivo.pageSize}
+                onPageChange={pagManutAtivo.setPage}
+                onPageSizeChange={pagManutAtivo.setPageSize}
+                itemLabel="manutenções"
+              />
+            </Card>
+          )}
         </TabsContent>
 
         <TabsContent value="transf" className="space-y-3">
@@ -663,7 +703,7 @@ function AtivosPage() {
             </DialogContent>
           </Dialog>
           <div className="grid gap-2">
-            {transferencias.map((t: any) => (
+            {pagTransfAtivo.paged.map((t: any) => (
               <Card key={t.id} className="p-3">
                 <div className="flex items-center justify-between">
                   <div>
@@ -730,6 +770,19 @@ function AtivosPage() {
               </Card>
             )}
           </div>
+          {transferencias.length > 0 && (
+            <Card className="p-3">
+              <DataPagination
+                page={pagTransfAtivo.page}
+                totalPages={pagTransfAtivo.totalPages}
+                total={pagTransfAtivo.total}
+                pageSize={pagTransfAtivo.pageSize}
+                onPageChange={pagTransfAtivo.setPage}
+                onPageSizeChange={pagTransfAtivo.setPageSize}
+                itemLabel="transferências"
+              />
+            </Card>
+          )}
         </TabsContent>
       </Tabs>
     </div>

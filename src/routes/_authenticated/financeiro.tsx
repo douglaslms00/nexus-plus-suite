@@ -30,6 +30,7 @@ import { toast } from "sonner";
 import { differenceInDays } from "date-fns";
 import { safeParseISO } from "@/lib/utils";
 import { exportCSV, exportPDF } from "@/lib/exports";
+import { DataPagination, usePagination } from "@/components/DataPagination";
 
 export const Route = createFileRoute("/_authenticated/financeiro")({ component: FinanceiroPage });
 
@@ -157,6 +158,10 @@ function FinanceiroPage() {
 
   const pagar = contasFiltradas.filter((c: any) => c.tipo === "pagar");
   const receber = contasFiltradas.filter((c: any) => c.tipo === "receber");
+
+  const finResetKey = `${filtro.ini}|${filtro.fim}|${filtro.tipo}|${filtro.status}|${filtro.categoria}|${escopoAtivo}`;
+  const pagPagar = usePagination(pagar, { key: "fin-pagar", resetKey: finResetKey });
+  const pagReceber = usePagination(receber, { key: "fin-receber", resetKey: finResetKey });
 
   const fluxo = useMemo(() => {
     const pagas = contasFiltradas.filter((c: any) => c.status === "pago");
@@ -436,9 +441,10 @@ function FinanceiroPage() {
             </TabsList>
             {(["pagar", "receber"] as const).map((tab) => {
               const list = tab === "pagar" ? pagar : receber;
+              const pag = tab === "pagar" ? pagPagar : pagReceber;
               return (
                 <TabsContent key={tab} value={tab} className="space-y-2">
-                  {list.map((c: any) => {
+                  {pag.paged.map((c: any) => {
                     const dias = c.data_vencimento
                       ? differenceInDays(safeParseISO(c.data_vencimento), new Date())
                       : 0;
@@ -493,6 +499,19 @@ function FinanceiroPage() {
                   })}
                   {list.length === 0 && (
                     <Card className="p-8 text-center text-muted-foreground">Nada por aqui.</Card>
+                  )}
+                  {list.length > 0 && (
+                    <Card className="p-3">
+                      <DataPagination
+                        page={pag.page}
+                        totalPages={pag.totalPages}
+                        total={pag.total}
+                        pageSize={pag.pageSize}
+                        onPageChange={pag.setPage}
+                        onPageSizeChange={pag.setPageSize}
+                        itemLabel="contas"
+                      />
+                    </Card>
                   )}
                 </TabsContent>
               );

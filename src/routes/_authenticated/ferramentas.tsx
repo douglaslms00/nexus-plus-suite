@@ -54,6 +54,7 @@ import { toast } from "sonner";
 import { differenceInDays } from "date-fns";
 import { safeParseISO } from "@/lib/utils";
 import { InventoryImportExport } from "@/components/InventoryImportExport";
+import { DataPagination, usePagination } from "@/components/DataPagination";
 
 export const Route = createFileRoute("/_authenticated/ferramentas")({
   component: () => (
@@ -174,6 +175,11 @@ function FerramentasPage() {
       );
     });
   }, [ferramentas, buscaFer, estadoInv, obraInvFer, manutInv]);
+
+  const pagFerramentas = usePagination(ferramentasFiltradas, {
+    key: "ferramentas",
+    resetKey: `${buscaFer}|${estadoInv}|${obraInvFer}|${manutInv}`,
+  });
 
   const exportInventarioFerSpec = useMemo(() => {
     const headers = ["Nome", "Código", "Estado", "Obra", "Próx. manutenção", "Descrição"];
@@ -363,6 +369,11 @@ function FerramentasPage() {
     });
   }, [emprestimos, buscaEmp, filtroFicha]);
 
+  const pagFichas = usePagination(fichas, {
+    key: "ferramentas-fichas",
+    resetKey: `${buscaEmp}|${filtroFicha}`,
+  });
+
   const ferramentasDisponiveis = useMemo(
     () => (ferramentas as any[]).filter((f: any) => f.estado === "disponivel"),
     [ferramentas],
@@ -494,6 +505,11 @@ function FerramentasPage() {
     arr.sort((a, b) => String(b.created_at ?? "").localeCompare(String(a.created_at ?? "")));
     return arr.slice(0, 100);
   }, [transferencias]);
+
+  const pagLotesTransf = usePagination(lotesTransferencia, {
+    key: "ferramentas-transf",
+    resetKey: String((transferencias as any[]).length),
+  });
 
   const removeLoteTransferencia = useMutation({
     mutationFn: async (lote: any) => {
@@ -985,7 +1001,7 @@ function FerramentasPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {ferramentasFiltradas.map((f: any) => {
+                {pagFerramentas.paged.map((f: any) => {
                   const dias = f.proxima_manutencao
                     ? differenceInDays(safeParseISO(f.proxima_manutencao), new Date())
                     : null;
@@ -1058,6 +1074,17 @@ function FerramentasPage() {
                 )}
               </TableBody>
             </Table>
+            <div className="p-3 border-t">
+              <DataPagination
+                page={pagFerramentas.page}
+                totalPages={pagFerramentas.totalPages}
+                total={pagFerramentas.total}
+                pageSize={pagFerramentas.pageSize}
+                onPageChange={pagFerramentas.setPage}
+                onPageSizeChange={pagFerramentas.setPageSize}
+                itemLabel="ferramentas"
+              />
+            </div>
           </Card>
         </TabsContent>
 
@@ -1250,7 +1277,7 @@ function FerramentasPage() {
           </div>
 
           <div className="grid gap-3">
-            {fichas.map((ficha: any) => (
+            {pagFichas.paged.map((ficha: any) => (
               <Card key={ficha.key} className="p-4 space-y-3">
                 <div className="flex flex-wrap items-start gap-2">
                   <div className="flex items-center gap-2 min-w-0">
@@ -1362,6 +1389,19 @@ function FerramentasPage() {
               </Card>
             )}
           </div>
+          {fichas.length > 0 && (
+            <Card className="p-3">
+              <DataPagination
+                page={pagFichas.page}
+                totalPages={pagFichas.totalPages}
+                total={pagFichas.total}
+                pageSize={pagFichas.pageSize}
+                onPageChange={pagFichas.setPage}
+                onPageSizeChange={pagFichas.setPageSize}
+                itemLabel="fichas"
+              />
+            </Card>
+          )}
 
           {canEdit && (
             <Dialog open={openAdd} onOpenChange={setOpenAdd}>
@@ -1475,7 +1515,7 @@ function FerramentasPage() {
           </Card>
 
           <div className="grid gap-2">
-            {lotesTransferencia.map((lote: any) => (
+            {pagLotesTransf.paged.map((lote: any) => (
               <Card key={lote.key} className="p-3">
                 <div className="flex flex-wrap items-start gap-2">
                   <ArrowRightLeft className="h-4 w-4 mt-0.5 shrink-0" />
@@ -1510,6 +1550,19 @@ function FerramentasPage() {
               </Card>
             )}
           </div>
+          {lotesTransferencia.length > 0 && (
+            <Card className="p-3">
+              <DataPagination
+                page={pagLotesTransf.page}
+                totalPages={pagLotesTransf.totalPages}
+                total={pagLotesTransf.total}
+                pageSize={pagLotesTransf.pageSize}
+                onPageChange={pagLotesTransf.setPage}
+                onPageSizeChange={pagLotesTransf.setPageSize}
+                itemLabel="transferências"
+              />
+            </Card>
+          )}
 
           {canEdit && (
             <Dialog open={openT} onOpenChange={setOpenT}>
