@@ -1,4 +1,4 @@
-﻿import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -46,6 +46,10 @@ import {
   CheckCircle2,
   GripVertical,
   Calendar,
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+  Link2,
   User,
   ArrowRight,
   MoreVertical,
@@ -53,8 +57,32 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn, safeParseISO, safeFormatDate } from "@/lib/utils";
-import { differenceInCalendarDays } from "date-fns";
+import {
+  differenceInCalendarDays,
+  startOfMonth,
+  endOfMonth,
+  startOfWeek,
+  endOfWeek,
+  addMonths,
+  subMonths,
+  addDays,
+  isSameMonth,
+  isSameDay,
+  isToday,
+  startOfDay,
+  format,
+} from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { DataPagination, usePagination } from "@/components/DataPagination";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import {
+  listarMeusCompromissos,
+  criarCompromisso,
+  atualizarCompromisso,
+  excluirCompromisso,
+  formatarHorario,
+  type Compromisso,
+} from "@/lib/compromissos";
 
 export const Route = createFileRoute("/_authenticated/tarefas")({
   component: () => (
@@ -66,11 +94,11 @@ export const Route = createFileRoute("/_authenticated/tarefas")({
 
 type TaskStatus = "pendente" | "em_andamento" | "concluida";
 
-const PRIO_LABEL: Record<string, string> = { baixa: "Baixa", media: "MÃ©dia", alta: "Alta" };
+const PRIO_LABEL: Record<string, string> = { baixa: "Baixa", media: "Média", alta: "Alta" };
 const STATUS_LABEL: Record<TaskStatus, string> = {
   pendente: "Pendente",
   em_andamento: "Em andamento",
-  concluida: "ConcluÃ­da",
+  concluida: "Concluída",
 };
 
 const KANBAN_COLUMNS: {
@@ -102,12 +130,12 @@ const KANBAN_COLUMNS: {
   },
   {
     id: "concluida",
-    label: "ConcluÃ­da",
+    label: "Concluída",
     badgeClass: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30",
     columnBg: "bg-muted/30 border-border/70",
     headerBorder: "border-b-emerald-500/40 text-emerald-600 dark:text-emerald-400",
     icon: CheckCircle2,
-    emptyText: "Nenhuma tarefa concluÃ­da",
+    emptyText: "Nenhuma tarefa concluída",
   },
 ];
 
@@ -123,23 +151,24 @@ function TarefasPage() {
   const qc = useQueryClient();
   const { data: user } = useCurrentUser();
   const { data: roles } = useUserRoles();
-  const canCreate = true; // qualquer usuÃ¡rio pode criar/atribuir tarefas
+  const canCreate = true; // qualquer usuário pode criar/atribuir tarefas
   const permTarefas = useModulePerm("tarefas");
   const canDelete = permTarefas.can_delete;
   const isGestor = canManage(roles) || permTarefas.can_edit;
 
   const canEditTask = (t: any) => {
     if (!user?.id || !t) return false;
-    // PermissÃ£o global por perfil/cargo (Admin, Gestor ou mÃ³dulo tarefas can_edit)
+    // Permissão global por perfil/cargo (Admin, Gestor ou módulo tarefas can_edit)
     if (canManage(roles) || permTarefas.can_edit) return true;
     // Criador da tarefa
     if (t.created_by === user.id) return true;
-    // ResponsÃ¡vel ou pessoa atribuÃ­da Ã  tarefa
+    // Responsável ou pessoa atribuída à tarefa
     if (t.responsavel_id === user.id || t.assigned_to === user.id) return true;
     return false;
   };
 
   const [viewMode, setViewMode] = useState<"kanban" | "lista">("kanban");
+  const [aba, setAba] = useState("tarefas");
   const [fStatus, setFStatus] = useState<string>("todos");
   const [fPrio, setFPrio] = useState<string>("todos");
   const [onlyMine, setOnlyMine] = useState<boolean>(true);
@@ -170,12 +199,12 @@ function TarefasPage() {
           const profs = (allProfs ?? []).filter((p: any) => ids.includes(p.id));
           nameMap = new Map((profs ?? []).map((p: any) => [p.id, p.nome]));
         } catch (e: any) {
-          console.warn("[tarefas] diretÃ³rio de perfis indisponÃ­vel:", e?.message ?? e);
+          console.warn("[tarefas] diretório de perfis indisponível:", e?.message ?? e);
         }
       }
       return (data ?? []).map((t: any) => ({
         ...t,
-        responsavel: t.responsavel_id ? { nome: nameMap.get(t.responsavel_id) ?? "â€”" } : null,
+        responsavel: t.responsavel_id ? { nome: nameMap.get(t.responsavel_id) ?? "—" } : null,
       }));
     },
   });
@@ -229,7 +258,7 @@ function TarefasPage() {
 
   const openEdit = (t: any) => {
     if (!canEditTask(t)) {
-      toast.error("VocÃª nÃ£o possui permissÃ£o para editar esta tarefa.");
+      toast.error("Você não possui permissão para editar esta tarefa.");
       return;
     }
     setEditingId(t.id);
@@ -250,7 +279,7 @@ function TarefasPage() {
       if (editingId) {
         const original = tarefas.find((x: any) => x.id === editingId);
         if (!original || !canEditTask(original)) {
-          throw new Error("VocÃª nÃ£o possui permissÃ£o para editar esta tarefa.");
+          throw new Error("Você não possui permissão para editar esta tarefa.");
         }
         const assignedChanged = original && original.assigned_to !== assigned;
         const patch: any = {
@@ -352,7 +381,7 @@ function TarefasPage() {
       if (error) throw error;
     },
     onSuccess: (_d, v) => {
-      toast.success(v.concluida ? "Tarefa concluÃ­da!" : "Tarefa reaberta para 'Em andamento'");
+      toast.success(v.concluida ? "Tarefa concluída!" : "Tarefa reaberta para 'Em andamento'");
       qc.invalidateQueries({ queryKey: ["tarefas"] });
       qc.invalidateQueries({ queryKey: ["dash-tarefas"] });
     },
@@ -386,7 +415,7 @@ function TarefasPage() {
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Tarefa excluÃ­da");
+      toast.success("Tarefa excluída");
       qc.invalidateQueries({ queryKey: ["tarefas"] });
       qc.invalidateQueries({ queryKey: ["dash-tarefas"] });
     },
@@ -407,16 +436,31 @@ function TarefasPage() {
 
   return (
     <div className="space-y-6 pb-8">
+      <Tabs value={aba} onValueChange={setAba} className="space-y-6">
       {/* Top Header */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Tarefas</h1>
           <p className="text-muted-foreground">
-            Organize, atribua e movimente tarefas no modo Kanban ou Lista.
+            Organize, atribua e movimente tarefas no modo Kanban ou Lista — ou veja seus
+            compromissos e vencimentos na Agenda.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <TabsList>
+            <TabsTrigger value="tarefas" className="gap-1.5 text-xs font-medium">
+              <List className="h-3.5 w-3.5" />
+              Tarefas
+            </TabsTrigger>
+            <TabsTrigger value="agenda" className="gap-1.5 text-xs font-medium">
+              <CalendarDays className="h-3.5 w-3.5" />
+              Agenda
+            </TabsTrigger>
+          </TabsList>
+
+          {aba === "tarefas" && (
+            <>
           {/* View Mode Toggle */}
           <div className="inline-flex items-center rounded-lg border bg-muted p-1 text-muted-foreground shadow-xs">
             <button
@@ -452,15 +496,18 @@ function TarefasPage() {
               <Plus className="h-4 w-4" /> Nova tarefa
             </Button>
           )}
+            </>
+          )}
         </div>
       </div>
 
+      <TabsContent value="tarefas" className="space-y-6 mt-0">
       {/* Overdue alert */}
       {overdueCount > 0 && (
         <Card className="p-3 border-destructive/40 bg-destructive/10 flex items-center gap-2 text-destructive">
           <AlertTriangle className="h-4 w-4 shrink-0" />
           <span className="text-sm font-medium">
-            {overdueCount} tarefa(s) vencida(s) sem conclusÃ£o.
+            {overdueCount} tarefa(s) vencida(s) sem conclusão.
           </span>
         </Card>
       )}
@@ -469,7 +516,7 @@ function TarefasPage() {
       <Card className="p-3">
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
           <Input
-            placeholder="Buscar por tÃ­tulo ou descriÃ§Ã£o..."
+            placeholder="Buscar por título ou descrição..."
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
           />
@@ -481,7 +528,7 @@ function TarefasPage() {
               <SelectItem value="todos">Todos status</SelectItem>
               <SelectItem value="pendente">Pendente</SelectItem>
               <SelectItem value="em_andamento">Em andamento</SelectItem>
-              <SelectItem value="concluida">ConcluÃ­da</SelectItem>
+              <SelectItem value="concluida">Concluída</SelectItem>
             </SelectContent>
           </Select>
           <Select value={fPrio} onValueChange={setFPrio}>
@@ -491,7 +538,7 @@ function TarefasPage() {
             <SelectContent>
               <SelectItem value="todos">Todas prioridades</SelectItem>
               <SelectItem value="alta">Alta</SelectItem>
-              <SelectItem value="media">MÃ©dia</SelectItem>
+              <SelectItem value="media">Média</SelectItem>
               <SelectItem value="baixa">Baixa</SelectItem>
             </SelectContent>
           </Select>
@@ -683,7 +730,7 @@ function TarefasPage() {
                                     }
                                   >
                                     <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 mr-2" />
-                                    <span>ConcluÃ­da</span>
+                                    <span>Concluída</span>
                                     {t.status === "concluida" && (
                                       <Check className="h-3.5 w-3.5 ml-auto" />
                                     )}
@@ -705,7 +752,7 @@ function TarefasPage() {
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
                                 <DropdownMenuItem onClick={() => setDetailId(t.id)}>
-                                  <History className="h-3.5 w-3.5 mr-2" /> Detalhes & HistÃ³rico
+                                  <History className="h-3.5 w-3.5 mr-2" /> Detalhes & Histórico
                                 </DropdownMenuItem>
                                 {canEditTask(t) && (
                                   <DropdownMenuItem onClick={() => openEdit(t)}>
@@ -759,7 +806,7 @@ function TarefasPage() {
                             )}
                             {t.assignment_status === "aceita" && (
                               <span className="text-[10px] uppercase font-medium px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 inline-flex items-center gap-1">
-                                <Check className="h-2.5 w-2.5" /> AtribuiÃ§Ã£o aceita
+                                <Check className="h-2.5 w-2.5" /> Atribuição aceita
                               </span>
                             )}
                             {t.assignment_status === "recusada" && (
@@ -795,14 +842,14 @@ function TarefasPage() {
                           </div>
                         )}
 
-                        {/* Footer info: ResponsÃ¡vel & Vencimento */}
+                        {/* Footer info: Responsável & Vencimento */}
                         <div className="flex items-center justify-between gap-2 mt-3 pt-2 border-t text-[11px] text-muted-foreground">
                           <div
                             className="flex items-center gap-1 truncate max-w-[130px]"
-                            title={t.responsavel?.nome ?? "Sem responsÃ¡vel"}
+                            title={t.responsavel?.nome ?? "Sem responsável"}
                           >
                             <User className="h-3 w-3 shrink-0" />
-                            <span className="truncate">{t.responsavel?.nome ?? "â€”"}</span>
+                            <span className="truncate">{t.responsavel?.nome ?? "—"}</span>
                           </div>
 
                           {t.data_vencimento && (
@@ -926,7 +973,7 @@ function TarefasPage() {
                       </p>
                     )}
                     <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground flex-wrap">
-                      <span>ResponsÃ¡vel: {t.responsavel?.nome ?? "â€”"}</span>
+                      <span>Responsável: {t.responsavel?.nome ?? "—"}</span>
                       {t.data_vencimento && (
                         <span>Vence: {safeFormatDate(t.data_vencimento, "dd/MM/yyyy")}</span>
                       )}
@@ -946,7 +993,7 @@ function TarefasPage() {
                         <SelectContent>
                           <SelectItem value="pendente">Pendente</SelectItem>
                           <SelectItem value="em_andamento">Em andamento</SelectItem>
-                          <SelectItem value="concluida">ConcluÃ­da</SelectItem>
+                          <SelectItem value="concluida">Concluída</SelectItem>
                         </SelectContent>
                       </Select>
                     ) : (
@@ -1032,6 +1079,12 @@ function TarefasPage() {
           )}
         </div>
       )}
+      </TabsContent>
+
+      <TabsContent value="agenda" className="mt-0">
+        <AgendaPanel tarefas={tarefas} pessoas={pessoas} onOpenTask={setDetailId} />
+      </TabsContent>
+      </Tabs>
 
       {/* Creation & Edit Dialog */}
       <Dialog
@@ -1056,7 +1109,7 @@ function TarefasPage() {
             className="space-y-4 pt-2"
           >
             <div className="space-y-1.5">
-              <Label>TÃ­tulo *</Label>
+              <Label>Título *</Label>
               <Input
                 required
                 value={form.titulo ?? ""}
@@ -1065,12 +1118,12 @@ function TarefasPage() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label>DescriÃ§Ã£o</Label>
+              <Label>Descrição</Label>
               <Textarea
                 rows={3}
                 value={form.descricao ?? ""}
                 onChange={(e) => setForm({ ...form, descricao: e.target.value })}
-                placeholder="InstruÃ§Ãµes ou detalhes adicionais..."
+                placeholder="Instruções ou detalhes adicionais..."
               />
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -1086,7 +1139,7 @@ function TarefasPage() {
                   <SelectContent>
                     <SelectItem value="pendente">Pendente</SelectItem>
                     <SelectItem value="em_andamento">Em andamento</SelectItem>
-                    <SelectItem value="concluida">ConcluÃ­da</SelectItem>
+                    <SelectItem value="concluida">Concluída</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -1101,7 +1154,7 @@ function TarefasPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="baixa">Baixa</SelectItem>
-                    <SelectItem value="media">MÃ©dia</SelectItem>
+                    <SelectItem value="media">Média</SelectItem>
                     <SelectItem value="alta">Alta</SelectItem>
                   </SelectContent>
                 </Select>
@@ -1122,7 +1175,7 @@ function TarefasPage() {
                 onValueChange={(v) => setForm({ ...form, assigned_to: v })}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="NinguÃ©m (eu mesmo)" />
+                  <SelectValue placeholder="Ninguém (eu mesmo)" />
                 </SelectTrigger>
                 <SelectContent>
                   {pessoas.map((p: any) => (
@@ -1134,7 +1187,7 @@ function TarefasPage() {
               </Select>
               {editingId && form.assigned_to && (
                 <p className="text-[11px] text-muted-foreground">
-                  Alterar o destinatÃ¡rio reenvia a tarefa para aceitar/recusar.
+                  Alterar o destinatário reenvia a tarefa para aceitar/recusar.
                 </p>
               )}
             </div>
@@ -1151,7 +1204,7 @@ function TarefasPage() {
                 Cancelar
               </Button>
               <Button type="submit" disabled={create.isPending}>
-                {create.isPending ? "Salvando..." : editingId ? "Salvar alteraÃ§Ãµes" : "Criar tarefa"}
+                {create.isPending ? "Salvando..." : editingId ? "Salvar alterações" : "Criar tarefa"}
               </Button>
             </DialogFooter>
           </form>
@@ -1289,19 +1342,19 @@ function TarefaDetailDialog({
               {safeFormatDate(tarefa.data_vencimento, "dd/MM/yyyy")}
             </div>
             <div>
-              <span className="text-muted-foreground">ConcluÃ­da em:</span>{" "}
+              <span className="text-muted-foreground">Concluída em:</span>{" "}
               {safeFormatDate(tarefa.concluida_em, "dd/MM/yyyy HH:mm")}
             </div>
           </div>
           {od?.kind === "overdue" && (
             <div className="rounded-md border border-destructive/50 bg-destructive/10 text-destructive p-2 text-xs flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4" /> Tarefa vencida hÃ¡ {od.days} dia(s).
+              <AlertTriangle className="h-4 w-4" /> Tarefa vencida há {od.days} dia(s).
             </div>
           )}
 
           <div className="pt-3 border-t">
             <div className="flex items-center justify-between mb-2">
-              <h4 className="font-medium">HistÃ³rico de execuÃ§Ã£o</h4>
+              <h4 className="font-medium">Histórico de execução</h4>
             </div>
 
             {canEdit && (
@@ -1339,7 +1392,7 @@ function TarefaDetailDialog({
                   />
                 </div>
                 <div className="space-y-1 sm:col-span-2">
-                  <Label className="text-xs">ObservaÃ§Ã£o</Label>
+                  <Label className="text-xs">Observação</Label>
                   <Textarea
                     value={execForm.observacao ?? ""}
                     onChange={(e) => setExecForm({ ...execForm, observacao: e.target.value })}
@@ -1371,7 +1424,7 @@ function TarefaDetailDialog({
               )}
               {execs.map((e: any) => {
                 const nome =
-                  e.executor_nome ?? pessoas.find((p: any) => p.id === e.executor_id)?.nome ?? "â€”";
+                  e.executor_nome ?? pessoas.find((p: any) => p.id === e.executor_id)?.nome ?? "—";
                 const mine = e.created_by === user?.id;
                 return (
                   <div key={e.id} className="rounded-md border p-2 text-xs flex items-start gap-2">
@@ -1379,7 +1432,7 @@ function TarefaDetailDialog({
                       <div className="font-medium">
                         {nome}{" "}
                         <span className="text-muted-foreground font-normal">
-                          â€” {safeFormatDate(e.executado_em, "dd/MM/yyyy HH:mm")}
+                          — {safeFormatDate(e.executado_em, "dd/MM/yyyy HH:mm")}
                         </span>
                       </div>
                       {e.observacao && (
@@ -1426,5 +1479,748 @@ function TarefaDetailDialog({
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+const AGENDA_DIAS_SEMANA = ["D", "S", "T", "Q", "Q", "S", "S"];
+
+function agendaDiaKey(d: Date): string {
+  return format(d, "yyyy-MM-dd");
+}
+
+function tarefaVencimentoKey(t: any): string | null {
+  if (!t?.data_vencimento) return null;
+  const k = safeFormatDate(t.data_vencimento, "yyyy-MM-dd", "");
+  return k || null;
+}
+
+function capitalizar(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+/**
+ * Agenda pessoal: calendário mensal interativo que combina os compromissos
+ * do usuário com os vencimentos das tarefas em que ele está envolvido.
+ */
+function AgendaPanel({
+  tarefas,
+  pessoas,
+  onOpenTask,
+}: {
+  tarefas: any[];
+  pessoas: any[];
+  onOpenTask: (id: string) => void;
+}) {
+  const qc = useQueryClient();
+  const { data: user } = useCurrentUser();
+  const [mesAtual, setMesAtual] = useState<Date>(() => startOfMonth(new Date()));
+  const [diaSel, setDiaSel] = useState<Date>(() => new Date());
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editing, setEditing] = useState<Compromisso | null>(null);
+  const [form, setForm] = useState({
+    titulo: "",
+    descricao: "",
+    data: "",
+    hora_inicio: "",
+    hora_fim: "",
+    tarefa_id: "",
+  });
+
+  const { data: compromissos = [], isError: compError } = useQuery({
+    queryKey: ["compromissos"],
+    queryFn: listarMeusCompromissos,
+    retry: 1,
+  });
+
+  const nomePessoa = (id: string | null | undefined) =>
+    pessoas.find((p: any) => p.id === id)?.nome ?? null;
+
+  // Tarefas com vencimento envolvendo o usuário — base da interatividade com a Agenda.
+  const tarefasAgenda = useMemo(() => {
+    return (tarefas ?? [])
+      .filter((t: any) => {
+        if (!t?.data_vencimento) return false;
+        if (!user?.id) return true;
+        return (
+          t.responsavel_id === user.id || t.created_by === user.id || t.assigned_to === user.id
+        );
+      })
+      .sort((a: any, b: any) => String(a.data_vencimento).localeCompare(String(b.data_vencimento)));
+  }, [tarefas, user?.id]);
+
+  const compPorDia = useMemo(() => {
+    const m = new Map<string, Compromisso[]>();
+    for (const c of compromissos) {
+      const arr = m.get(c.data) ?? [];
+      arr.push(c);
+      m.set(c.data, arr);
+    }
+    for (const arr of m.values()) {
+      arr.sort((a, b) => (a.hora_inicio ?? "").localeCompare(b.hora_inicio ?? ""));
+    }
+    return m;
+  }, [compromissos]);
+
+  const tarefasPorDia = useMemo(() => {
+    const m = new Map<string, any[]>();
+    for (const t of tarefasAgenda) {
+      const k = tarefaVencimentoKey(t);
+      if (!k) continue;
+      const arr = m.get(k) ?? [];
+      arr.push(t);
+      m.set(k, arr);
+    }
+    return m;
+  }, [tarefasAgenda]);
+
+  const dias = useMemo(() => {
+    const ini = startOfWeek(startOfMonth(mesAtual), { weekStartsOn: 0 });
+    const fim = endOfWeek(endOfMonth(mesAtual), { weekStartsOn: 0 });
+    const arr: Date[] = [];
+    for (let d = ini; d <= fim; d = addDays(d, 1)) arr.push(d);
+    return arr;
+  }, [mesAtual]);
+
+  const hojeKey = agendaDiaKey(new Date());
+  const selKey = agendaDiaKey(diaSel);
+  const compsDia = compPorDia.get(selKey) ?? [];
+  const tarsDia = (tarefasPorDia.get(selKey) ?? []).slice().sort((a: any, b: any) =>
+    (a.concluida ? 1 : 0) - (b.concluida ? 1 : 0),
+  );
+
+  const hojeComps = (compPorDia.get(hojeKey) ?? []).filter((c) => !c.concluido).length;
+  const hojeTars = (tarefasPorDia.get(hojeKey) ?? []).filter(
+    (t: any) => !t.concluida && t.status !== "concluida",
+  ).length;
+  const atrasadas = tarefasAgenda.filter(
+    (t: any) =>
+      !t.concluida && t.status !== "concluida" && (tarefaVencimentoKey(t) ?? "") < hojeKey,
+  ).length;
+
+  // Próximos 14 dias: compromissos + vencimentos pendentes, ordenados por dia.
+  const proximos = useMemo(() => {
+    const items: { dia: string; comp?: Compromisso; tarefa?: any }[] = [];
+    const base = startOfDay(new Date());
+    for (let i = 0; i < 14; i++) {
+      const k = agendaDiaKey(addDays(base, i));
+      for (const c of compPorDia.get(k) ?? []) items.push({ dia: k, comp: c });
+      for (const t of tarefasPorDia.get(k) ?? []) {
+        if (!t.concluida && t.status !== "concluida") items.push({ dia: k, tarefa: t });
+      }
+    }
+    return items.slice(0, 30);
+  }, [compPorDia, tarefasPorDia]);
+
+  const salvar = useMutation({
+    mutationFn: async () => {
+      if (editing) {
+        await atualizarCompromisso(editing.id, {
+          titulo: form.titulo,
+          descricao: form.descricao,
+          data: form.data,
+          hora_inicio: form.hora_inicio,
+          hora_fim: form.hora_fim,
+          tarefa_id: form.tarefa_id || null,
+        });
+      } else {
+        await criarCompromisso({
+          titulo: form.titulo,
+          descricao: form.descricao,
+          data: form.data,
+          hora_inicio: form.hora_inicio,
+          hora_fim: form.hora_fim,
+          tarefa_id: form.tarefa_id || null,
+        });
+      }
+    },
+    onSuccess: () => {
+      toast.success(editing ? "Compromisso atualizado!" : "Compromisso adicionado!");
+      qc.invalidateQueries({ queryKey: ["compromissos"] });
+      setDialogOpen(false);
+      setEditing(null);
+    },
+    onError: (e: any) => toast.error(e.message ?? "Erro ao salvar compromisso"),
+  });
+
+  const concluir = useMutation({
+    mutationFn: ({ id, v }: { id: string; v: boolean }) =>
+      atualizarCompromisso(id, { concluido: v }),
+    onSuccess: (_d, v) => {
+      toast.success(v.v ? "Compromisso concluído!" : "Compromisso reaberto");
+      qc.invalidateQueries({ queryKey: ["compromissos"] });
+    },
+    onError: (e: any) => toast.error(e.message ?? "Erro ao atualizar"),
+  });
+
+  const excluir = useMutation({
+    mutationFn: (id: string) => excluirCompromisso(id),
+    onSuccess: () => {
+      toast.success("Compromisso excluído");
+      qc.invalidateQueries({ queryKey: ["compromissos"] });
+    },
+    onError: (e: any) => toast.error(e.message ?? "Erro ao excluir"),
+  });
+
+  const abrirNovo = (pre?: Partial<typeof form>) => {
+    setEditing(null);
+    setForm({
+      titulo: "",
+      descricao: "",
+      data: selKey,
+      hora_inicio: "",
+      hora_fim: "",
+      tarefa_id: "",
+      ...pre,
+    });
+    setDialogOpen(true);
+  };
+
+  const abrirEditar = (c: Compromisso) => {
+    setEditing(c);
+    setForm({
+      titulo: c.titulo ?? "",
+      descricao: c.descricao ?? "",
+      data: c.data,
+      hora_inicio: (c.hora_inicio ?? "").slice(0, 5),
+      hora_fim: (c.hora_fim ?? "").slice(0, 5),
+      tarefa_id: c.tarefa_id ?? "",
+    });
+    setDialogOpen(true);
+  };
+
+  const irParaHoje = () => {
+    setMesAtual(startOfMonth(new Date()));
+    setDiaSel(new Date());
+  };
+
+  const tituloTarefa = (id: string | null) =>
+    tarefas.find((t: any) => t.id === id)?.titulo ?? "Tarefa vinculada";
+
+  const mesLabel = capitalizar(format(mesAtual, "MMMM 'de' yyyy", { locale: ptBR }));
+  const diaSelLabel = capitalizar(format(diaSel, "EEEE, d 'de' MMMM", { locale: ptBR }));
+
+  return (
+    <div className="space-y-4">
+      {compError && (
+        <Card className="p-3 border-warning/50 bg-warning/10 flex items-center gap-2 text-sm">
+          <AlertTriangle className="h-4 w-4 shrink-0 text-warning" />
+          <span>
+            Os vencimentos de tarefas funcionam normalmente, mas os compromissos exigem a
+            migration <code>20260930_compromissos.sql</code> aplicada no Supabase.
+          </span>
+        </Card>
+      )}
+
+      {/* Resumo */}
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Card
+          className="p-3 flex items-center gap-3 cursor-pointer hover:shadow-xs transition-shadow"
+          onClick={irParaHoje}
+          title="Ir para hoje"
+        >
+          <span className="rounded-md bg-primary/15 text-primary p-2">
+            <CalendarDays className="h-4 w-4" />
+          </span>
+          <div>
+            <div className="text-2xl font-bold leading-none">{hojeComps + hojeTars}</div>
+            <div className="text-xs text-muted-foreground mt-1">
+              hoje • {hojeComps} compromisso(s) • {hojeTars} vencimento(s)
+            </div>
+          </div>
+        </Card>
+        <Card className="p-3 flex items-center gap-3">
+          <span className="rounded-md bg-amber-500/15 text-amber-600 dark:text-amber-400 p-2">
+            <Clock className="h-4 w-4" />
+          </span>
+          <div>
+            <div className="text-2xl font-bold leading-none">{proximos.length}</div>
+            <div className="text-xs text-muted-foreground mt-1">itens nos próximos 14 dias</div>
+          </div>
+        </Card>
+        <Card className="p-3 flex items-center gap-3">
+          <span className="rounded-md bg-destructive/15 text-destructive p-2">
+            <AlertTriangle className="h-4 w-4" />
+          </span>
+          <div>
+            <div className="text-2xl font-bold leading-none">{atrasadas}</div>
+            <div className="text-xs text-muted-foreground mt-1">tarefa(s) vencida(s)</div>
+          </div>
+        </Card>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-5 items-start">
+        {/* Calendário mensal */}
+        <Card className="p-4 lg:col-span-3">
+          <div className="flex items-center justify-between gap-2 flex-wrap mb-3">
+            <div className="flex items-center gap-1">
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-8 w-8"
+                onClick={() => setMesAtual(subMonths(mesAtual, 1))}
+                title="Mês anterior"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <h2 className="font-semibold text-sm min-w-[140px] text-center">{mesLabel}</h2>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-8 w-8"
+                onClick={() => setMesAtual(addMonths(mesAtual, 1))}
+                title="Próximo mês"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button size="sm" variant="outline" onClick={irParaHoje}>
+                Hoje
+              </Button>
+              <Button size="sm" onClick={() => abrirNovo()}>
+                <Plus className="h-3.5 w-3.5" /> Novo compromisso
+              </Button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-7 gap-1 mb-1">
+            {AGENDA_DIAS_SEMANA.map((d, i) => (
+              <div
+                key={i}
+                className="text-center text-[11px] font-semibold uppercase text-muted-foreground py-1"
+              >
+                {d}
+              </div>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-7 gap-1">
+            {dias.map((d) => {
+              const k = agendaDiaKey(d);
+              const comps = compPorDia.get(k) ?? [];
+              const tars = tarefasPorDia.get(k) ?? [];
+              const pendentes = comps.filter((c) => !c.concluido).length;
+              const foraMes = !isSameMonth(d, mesAtual);
+              const sel = isSameDay(d, diaSel);
+              return (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => {
+                    setDiaSel(d);
+                    if (!isSameMonth(d, mesAtual)) setMesAtual(startOfMonth(d));
+                  }}
+                  onDoubleClick={() => {
+                    setDiaSel(d);
+                    abrirNovo({ data: k });
+                  }}
+                  title="Clique para ver o dia • duplo clique para agendar"
+                  className={cn(
+                    "min-h-[62px] rounded-lg border p-1.5 text-left transition-all cursor-pointer",
+                    "hover:border-primary/60 hover:shadow-xs",
+                    foraMes && "opacity-40",
+                    isToday(d) && "border-primary",
+                    sel && "ring-2 ring-primary/40 bg-primary/5 border-primary/60",
+                  )}
+                >
+                  <div
+                    className={cn(
+                      "text-xs font-semibold inline-flex items-center justify-center h-5 min-w-5 px-1 rounded-full",
+                      isToday(d) && "bg-primary text-primary-foreground",
+                    )}
+                  >
+                    {format(d, "d")}
+                  </div>
+                  {(pendentes > 0 || tars.length > 0) && (
+                    <div className="flex items-center gap-1 mt-1 flex-wrap">
+                      {pendentes > 0 && (
+                        <span className="inline-flex items-center gap-0.5 text-[10px] text-primary font-medium">
+                          <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                          {pendentes}
+                        </span>
+                      )}
+                      {tars.map((t: any) => {
+                        const od = overdueInfo(t);
+                        const done = t.concluida || t.status === "concluida";
+                        return (
+                          <span
+                            key={t.id}
+                            title={t.titulo}
+                            className={cn(
+                              "h-1.5 w-4 rounded-full",
+                              done
+                                ? "bg-emerald-500"
+                                : od?.kind === "overdue"
+                                  ? "bg-destructive"
+                                  : "bg-amber-500",
+                            )}
+                          />
+                        );
+                      })}
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="flex items-center gap-4 mt-3 text-[11px] text-muted-foreground flex-wrap">
+            <span className="inline-flex items-center gap-1.5">
+              <span className="h-1.5 w-1.5 rounded-full bg-primary" /> Compromisso
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="h-1.5 w-4 rounded-full bg-amber-500" /> Vencimento de tarefa
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="h-1.5 w-4 rounded-full bg-destructive" /> Tarefa vencida
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="h-1.5 w-4 rounded-full bg-emerald-500" /> Tarefa concluída
+            </span>
+          </div>
+        </Card>
+
+        {/* Detalhe do dia + próximos */}
+        <div className="lg:col-span-2 space-y-4">
+          <Card className="p-4 space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="font-semibold text-sm">{diaSelLabel}</h3>
+              {isToday(diaSel) && (
+                <Badge variant="outline" className="text-[11px]">
+                  Hoje
+                </Badge>
+              )}
+            </div>
+
+            {compsDia.length === 0 && tarsDia.length === 0 && (
+              <p className="text-xs text-muted-foreground border border-dashed rounded-md p-4 text-center">
+                Nada agendado para este dia.{" "}
+                <button
+                  type="button"
+                  className="text-primary font-medium hover:underline cursor-pointer"
+                  onClick={() => abrirNovo()}
+                >
+                  Adicionar compromisso
+                </button>
+              </p>
+            )}
+
+            {compsDia.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Compromissos ({compsDia.length})
+                </p>
+                {compsDia.map((c) => (
+                  <div key={c.id} className="rounded-md border p-2.5 text-sm space-y-1">
+                    <div className="flex items-start gap-2">
+                      <Checkbox
+                        checked={c.concluido}
+                        onCheckedChange={(v) => concluir.mutate({ id: c.id, v: !!v })}
+                        className="mt-0.5"
+                        title={c.concluido ? "Reabrir" : "Concluir"}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div
+                          className={cn(
+                            "font-medium text-[13px] leading-snug",
+                            c.concluido && "line-through text-muted-foreground",
+                          )}
+                        >
+                          {c.titulo}
+                        </div>
+                        <div className="text-[11px] text-muted-foreground flex items-center gap-2 flex-wrap mt-0.5">
+                          <span className="inline-flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            {formatarHorario(c)}
+                          </span>
+                          {c.tarefa_id && (
+                            <span className="inline-flex items-center gap-1 text-primary">
+                              <Link2 className="h-3 w-3" />
+                              {tituloTarefa(c.tarefa_id)}
+                            </span>
+                          )}
+                        </div>
+                        {c.descricao && (
+                          <p className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap">
+                            {c.descricao}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex gap-0.5 shrink-0">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7"
+                          onClick={() => abrirEditar(c)}
+                          title="Editar"
+                        >
+                          <Pencil className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7 text-destructive"
+                          onClick={() => {
+                            if (confirm("Excluir compromisso?")) excluir.mutate(c.id);
+                          }}
+                          title="Excluir"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {tarsDia.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Vencimentos de tarefas ({tarsDia.length})
+                </p>
+                {tarsDia.map((t: any) => {
+                  const od = overdueInfo(t);
+                  const done = t.concluida || t.status === "concluida";
+                  const resp = t.responsavel?.nome ?? nomePessoa(t.responsavel_id) ?? "—";
+                  return (
+                    <div key={t.id} className="rounded-md border p-2.5 text-sm space-y-1.5">
+                      <div
+                        className={cn(
+                          "font-medium text-[13px] leading-snug",
+                          done && "line-through text-muted-foreground",
+                        )}
+                      >
+                        {t.titulo}
+                      </div>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span
+                          className={cn(
+                            "text-[10px] uppercase px-1.5 py-0.5 rounded font-medium",
+                            t.prioridade === "alta" && "bg-destructive/15 text-destructive",
+                            t.prioridade === "media" && "bg-amber-500/15 text-amber-600",
+                            t.prioridade === "baixa" && "bg-muted text-muted-foreground",
+                          )}
+                        >
+                          {PRIO_LABEL[t.prioridade] ?? t.prioridade}
+                        </span>
+                        <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                          {STATUS_LABEL[t.status as TaskStatus] ?? t.status}
+                        </span>
+                        {od?.kind === "overdue" && (
+                          <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-destructive text-destructive-foreground font-medium">
+                            Vencida {od.days}d
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[11px] text-muted-foreground">Responsável: {resp}</div>
+                      <div className="flex gap-1.5 pt-0.5">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-xs"
+                          onClick={() => onOpenTask(t.id)}
+                        >
+                          <History className="h-3 w-3" /> Detalhes
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 text-xs"
+                          onClick={() =>
+                            abrirNovo({ titulo: t.titulo, tarefa_id: t.id, data: selKey })
+                          }
+                          title="Criar compromisso vinculado a esta tarefa"
+                        >
+                          <Plus className="h-3 w-3" /> Agendar
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </Card>
+
+          {/* Próximos 14 dias */}
+          <Card className="p-4 space-y-2">
+            <h3 className="font-semibold text-sm">Próximos 14 dias</h3>
+            {proximos.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                Nenhum compromisso ou vencimento nos próximos dias.
+              </p>
+            ) : (
+              <div className="space-y-1.5 max-h-[380px] overflow-y-auto pr-1">
+                {proximos.map((it, i) => {
+                  const diaFmt = capitalizar(
+                    format(safeParseISO(it.dia), "EEE, d/MM", { locale: ptBR }),
+                  );
+                  if (it.comp) {
+                    const c = it.comp;
+                    return (
+                      <div
+                        key={`c-${c.id}-${i}`}
+                        className="flex items-center gap-2 rounded-md border px-2 py-1.5 text-xs"
+                      >
+                        <Checkbox
+                          checked={c.concluido}
+                          onCheckedChange={(v) => concluir.mutate({ id: c.id, v: !!v })}
+                        />
+                        <span className="text-muted-foreground shrink-0 w-[86px]">{diaFmt}</span>
+                        <span className="rounded bg-primary/15 text-primary px-1.5 py-0.5 text-[10px] uppercase font-medium shrink-0">
+                          Agenda
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDiaSel(safeParseISO(it.dia));
+                            abrirEditar(c);
+                          }}
+                          className={cn(
+                            "truncate text-left hover:underline cursor-pointer",
+                            c.concluido && "line-through text-muted-foreground",
+                          )}
+                          title="Editar compromisso"
+                        >
+                          {c.titulo}
+                          <span className="text-muted-foreground"> • {formatarHorario(c)}</span>
+                        </button>
+                      </div>
+                    );
+                  }
+                  const t = it.tarefa;
+                  const od = overdueInfo(t);
+                  return (
+                    <div
+                      key={`t-${t.id}-${i}`}
+                      className="flex items-center gap-2 rounded-md border px-2 py-1.5 text-xs"
+                    >
+                      <span className="text-muted-foreground shrink-0 w-[86px]">{diaFmt}</span>
+                      <span
+                        className={cn(
+                          "rounded px-1.5 py-0.5 text-[10px] uppercase font-medium shrink-0",
+                          od?.kind === "overdue"
+                            ? "bg-destructive/15 text-destructive"
+                            : "bg-amber-500/15 text-amber-600",
+                        )}
+                      >
+                        Tarefa
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => onOpenTask(t.id)}
+                        className="truncate text-left hover:underline cursor-pointer"
+                        title="Abrir tarefa"
+                      >
+                        {t.titulo}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </Card>
+        </div>
+      </div>
+
+      {/* Dialog criar/editar compromisso */}
+      <Dialog
+        open={dialogOpen}
+        onOpenChange={(v) => {
+          setDialogOpen(v);
+          if (!v) setEditing(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-[480px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <CalendarDays className="h-4 w-4 text-primary" />
+              {editing ? "Editar compromisso" : "Novo compromisso"}
+            </DialogTitle>
+          </DialogHeader>
+          <form
+            className="space-y-3 pt-1"
+            onSubmit={(e) => {
+              e.preventDefault();
+              salvar.mutate();
+            }}
+          >
+            <div className="space-y-1.5">
+              <Label>Título *</Label>
+              <Input
+                required
+                value={form.titulo}
+                onChange={(e) => setForm({ ...form, titulo: e.target.value })}
+                placeholder='Ex: "Reunião com cliente", "Vistoria obra 12"'
+                maxLength={200}
+              />
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="space-y-1.5">
+                <Label>Data *</Label>
+                <Input
+                  required
+                  type="date"
+                  value={form.data}
+                  onChange={(e) => setForm({ ...form, data: e.target.value })}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Início</Label>
+                <Input
+                  type="time"
+                  value={form.hora_inicio}
+                  onChange={(e) => setForm({ ...form, hora_inicio: e.target.value })}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Fim</Label>
+                <Input
+                  type="time"
+                  value={form.hora_fim}
+                  onChange={(e) => setForm({ ...form, hora_fim: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Tarefa vinculada (opcional)</Label>
+              <Select
+                value={form.tarefa_id || "__none"}
+                onValueChange={(v) => setForm({ ...form, tarefa_id: v === "__none" ? "" : v })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Vincular a uma tarefa" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none">Sem vínculo</SelectItem>
+                  {tarefas.slice(0, 200).map((t: any) => (
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.titulo}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Descrição (opcional)</Label>
+              <Textarea
+                rows={2}
+                value={form.descricao}
+                onChange={(e) => setForm({ ...form, descricao: e.target.value })}
+                placeholder="Local, pauta, observações..."
+              />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={salvar.isPending}>
+                {salvar.isPending ? "Salvando..." : editing ? "Salvar alterações" : "Adicionar"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }

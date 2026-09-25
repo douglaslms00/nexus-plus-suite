@@ -42,6 +42,10 @@ export type TarefaExecucao = Tables["tarefa_execucoes"]["Row"];
 export type TarefaExecucaoInsert = Tables["tarefa_execucoes"]["Insert"];
 export type TarefaExecucaoUpdate = Tables["tarefa_execucoes"]["Update"];
 
+export type Compromisso = Tables["compromissos"]["Row"];
+export type CompromissoInsert = Tables["compromissos"]["Insert"];
+export type CompromissoUpdate = Tables["compromissos"]["Update"];
+
 export type ContaFinanceira = Tables["contas_financeiras"]["Row"];
 export type ContaFinanceiraInsert = Tables["contas_financeiras"]["Insert"];
 export type ContaFinanceiraUpdate = Tables["contas_financeiras"]["Update"];

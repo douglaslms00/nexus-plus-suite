@@ -442,6 +442,56 @@ export type Database = {
           },
         ]
       }
+      compromissos: {
+        Row: {
+          concluido: boolean
+          created_at: string
+          data: string
+          descricao: string | null
+          hora_fim: string | null
+          hora_inicio: string | null
+          id: string
+          tarefa_id: string | null
+          titulo: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          concluido?: boolean
+          created_at?: string
+          data: string
+          descricao?: string | null
+          hora_fim?: string | null
+          hora_inicio?: string | null
+          id?: string
+          tarefa_id?: string | null
+          titulo: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          concluido?: boolean
+          created_at?: string
+          data?: string
+          descricao?: string | null
+          hora_fim?: string | null
+          hora_inicio?: string | null
+          id?: string
+          tarefa_id?: string | null
+          titulo?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "compromissos_tarefa_id_fkey"
+            columns: ["tarefa_id"]
+            isOneToOne: false
+            referencedRelation: "tarefas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       custom_role_module_permissions: {
         Row: {
           can_delete: boolean
