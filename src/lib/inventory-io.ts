@@ -348,21 +348,60 @@ export function downloadCSV(filename: string, headers: string[], rows: (string |
   setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 
-export function templateHeaders(kind: InventoryKind): string[] {
-  return INVENTORY_SCHEMAS[kind].columns.map((c) => c.header);
+export type TemplateMode = "completo" | "somente_itens" | "itens_quantidades";
+
+export function templateHeaders(kind: InventoryKind, mode: TemplateMode = "completo"): string[] {
+  const allCols = INVENTORY_SCHEMAS[kind].columns;
+  if (mode === "somente_itens") {
+    // Apenas identificadores principais do item
+    if (kind === "materiais") {
+      return allCols.filter((c) => ["nome", "codigo", "unidade", "obra_nome"].includes(c.key)).map((c) => c.header);
+    }
+    if (kind === "epis") {
+      return allCols.filter((c) => ["nome", "tipo", "ca", "obra_nome"].includes(c.key)).map((c) => c.header);
+    }
+    if (kind === "ferramentas") {
+      return allCols.filter((c) => ["nome", "codigo", "obra_nome", "estado"].includes(c.key)).map((c) => c.header);
+    }
+    if (kind === "ativos") {
+      return allCols.filter((c) => ["nome", "codigo", "categoria", "obra_nome"].includes(c.key)).map((c) => c.header);
+    }
+  }
+
+  if (mode === "itens_quantidades") {
+    if (kind === "materiais") {
+      return allCols.filter((c) => ["nome", "codigo", "unidade", "obra_nome", "estoque_atual", "estoque_minimo"].includes(c.key)).map((c) => c.header);
+    }
+    if (kind === "epis") {
+      return allCols.filter((c) => ["nome", "tipo", "ca", "obra_nome", "estoque_atual", "estoque_minimo"].includes(c.key)).map((c) => c.header);
+    }
+    if (kind === "ferramentas") {
+      return allCols.filter((c) => ["nome", "codigo", "obra_nome", "estado", "descricao"].includes(c.key)).map((c) => c.header);
+    }
+    if (kind === "ativos") {
+      return allCols.filter((c) => ["nome", "codigo", "categoria", "obra_nome", "estado", "valor"].includes(c.key)).map((c) => c.header);
+    }
+  }
+
+  return allCols.map((c) => c.header);
 }
 
-export function templateExampleRow(kind: InventoryKind): string[] {
-  return INVENTORY_SCHEMAS[kind].columns.map((c) => c.example ?? "");
+export function templateExampleRow(kind: InventoryKind, mode: TemplateMode = "completo"): string[] {
+  const headers = templateHeaders(kind, mode);
+  const allCols = INVENTORY_SCHEMAS[kind].columns;
+  return headers.map((h) => {
+    const col = allCols.find((c) => c.header === h);
+    return col?.example ?? "";
+  });
 }
 
-export function downloadTemplate(kind: InventoryKind) {
+export function downloadTemplate(kind: InventoryKind, mode: TemplateMode = "completo") {
   const schema = INVENTORY_SCHEMAS[kind];
   const date = new Date().toISOString().slice(0, 10);
-  downloadCSV(`modelo-importacao-${kind}-${date}`, templateHeaders(kind), [
-    templateExampleRow(kind),
-    // segunda linha de exemplo ajuda quem abre no Excel; o import ignora? não ignora —
-    // por isso deixamos só 1 linha de exemplo e o usuário apaga/substitui.
+  const suffix = mode === "completo" ? "" : `-${mode}`;
+  downloadCSV(`modelo-importacao-${kind}${suffix}-${date}`, templateHeaders(kind, mode), [
+    templateExampleRow(kind, mode),
   ]);
   return schema;
 }
+

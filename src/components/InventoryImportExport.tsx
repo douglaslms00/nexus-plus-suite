@@ -12,12 +12,21 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   FileDown,
   FileText,
   FileUp,
   Table as TableIcon,
   AlertTriangle,
   CheckCircle2,
+  ChevronDown,
+  Search,
+  Filter,
 } from "lucide-react";
 import { toast } from "sonner";
 import { exportCSV, exportPDF } from "@/lib/exports";
@@ -31,6 +40,7 @@ import {
   type InventoryKind,
   type ImportRowResult,
   type ObraRef,
+  type TemplateMode,
 } from "@/lib/inventory-io";
 
 interface ExportSpec {
@@ -58,6 +68,7 @@ interface StagedRow extends ImportRowResult {
   obra_id: string | null;
   action: "create" | "update" | "error";
   matchId?: string;
+  selected?: boolean;
 }
 
 function chunk<T>(arr: T[], size: number): T[][] {
@@ -81,15 +92,73 @@ export function InventoryImportExport({
   const [open, setOpen] = useState(false);
   const [fileName, setFileName] = useState("");
   const [staged, setStaged] = useState<StagedRow[]>([]);
+  const [detectedColumns, setDetectedColumns] = useState<string[]>([]);
   const [missingHeaders, setMissingHeaders] = useState<string[]>([]);
   const [updateExisting, setUpdateExisting] = useState(true);
   const [importing, setImporting] = useState(false);
   const [result, setResult] = useState<{ created: number; updated: number } | null>(null);
 
+  // Filtros internos na lista de importação
+  const [filterAction, setFilterAction] = useState<"all" | "selected" | "create" | "update" | "error">("all");
+  const [searchTerm, setSearchTerm] = useState("");
+
   const validRows = useMemo(() => staged.filter((r) => r.action !== "error"), [staged]);
   const errorRows = useMemo(() => staged.filter((r) => r.action === "error"), [staged]);
   const toCreate = useMemo(() => validRows.filter((r) => r.action === "create").length, [validRows]);
   const toUpdate = useMemo(() => validRows.filter((r) => r.action === "update").length, [validRows]);
+
+  // Linhas selecionadas pelo usuário que estão aptas a serem importadas
+  const selectedRows = useMemo(
+    () => staged.filter((r) => r.selected && r.action !== "error"),
+    [staged],
+  );
+
+  // Linhas visíveis na tabela com base na busca e filtro de ação
+  const filteredStaged = useMemo(() => {
+    return staged.filter((r) => {
+      if (filterAction === "selected" && !r.selected) return false;
+      if (filterAction === "create" && r.action !== "create") return false;
+      if (filterAction === "update" && r.action !== "update") return false;
+      if (filterAction === "error" && r.action !== "error") return false;
+
+      if (searchTerm.trim()) {
+        const q = normText(searchTerm);
+        const dataValues = Object.values(r.data).map(normText).join(" ");
+        const obraMatch = normText(r.obraNomeRaw).includes(q);
+        const errMatch = r.errors.some((e) => normText(e).includes(q));
+        if (!dataValues.includes(q) && !obraMatch && !errMatch) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [staged, filterAction, searchTerm]);
+
+  const allFilteredSelected = useMemo(() => {
+    const validFiltered = filteredStaged.filter((r) => r.action !== "error");
+    if (validFiltered.length === 0) return false;
+    return validFiltered.every((r) => r.selected);
+  }, [filteredStaged]);
+
+  const toggleSelectFiltered = (checked: boolean) => {
+    const filteredLineSet = new Set(
+      filteredStaged.filter((r) => r.action !== "error").map((r) => r.line),
+    );
+    setStaged((prev) =>
+      prev.map((r) => {
+        if (filteredLineSet.has(r.line)) {
+          return { ...r, selected: checked };
+        }
+        return r;
+      }),
+    );
+  };
+
+  const toggleSelectRow = (line: number) => {
+    setStaged((prev) =>
+      prev.map((r) => (r.line === line ? { ...r, selected: !r.selected } : r)),
+    );
+  };
 
   const doExport = (type: "csv" | "pdf") => {
     if (exportSpec.rows.length === 0) {
@@ -101,15 +170,35 @@ export function InventoryImportExport({
       toast.success(`CSV exportado (${exportSpec.rows.length} item(ns))`);
     } else {
       if (!confirm(`Deseja baixar o PDF com ${exportSpec.rows.length} item(ns)?`)) return;
-      exportPDF(exportSpec.pdfTitle, exportSpec.headers, exportSpec.rows, exportSpec.filenameBase, exportSpec.pdfSubtitle);
+      exportPDF(
+        exportSpec.pdfTitle,
+        exportSpec.headers,
+        exportSpec.rows,
+        exportSpec.filenameBase,
+        exportSpec.pdfSubtitle,
+      );
     }
+  };
+
+  const handleDownloadTemplate = (mode: TemplateMode) => {
+    downloadTemplate(kind, mode);
+    const modeLabel =
+      mode === "somente_itens"
+        ? "Somente Itens"
+        : mode === "itens_quantidades"
+          ? "Itens + Quantidades"
+          : "Completo";
+    toast.success(`Modelo CSV (${modeLabel}) baixado — preencha e importe de volta.`);
   };
 
   const resetImport = () => {
     setStaged([]);
+    setDetectedColumns([]);
     setMissingHeaders([]);
     setFileName("");
     setResult(null);
+    setSearchTerm("");
+    setFilterAction("all");
     if (fileRef.current) fileRef.current.value = "";
   };
 
@@ -133,13 +222,19 @@ export function InventoryImportExport({
       toast.error(`Arquivo com ${parsed.rows.length} linhas — limite de 2000 por importação. Divida o arquivo.`);
       return;
     }
-    const { mapped, missingHeaders: miss } = mapParsedToRows(schema, parsed);
+    const { mapped, missingHeaders: miss, colIndex } = mapParsedToRows(schema, parsed);
     setMissingHeaders(miss);
     if (miss.length > 0) {
       toast.error(`Cabeçalho obrigatório ausente: ${miss.join(", ")}`);
       setStaged([]);
       return;
     }
+
+    // Identifica colunas presentes no arquivo para exibir na tabela de conferência
+    const presentKeys = schema.columns
+      .filter((c) => colIndex.has(c.key))
+      .map((c) => c.key);
+    setDetectedColumns(presentKeys.length > 0 ? presentKeys : schema.columns.map((c) => c.key));
 
     // Busca existentes para detectar atualização (por código/CA ou nome+obra)
     let existing: any[] = [];
@@ -176,7 +271,7 @@ export function InventoryImportExport({
         else obra_id = m.obraNomeRaw.trim() === "" ? null : r.obra_id;
       }
       if (errors.length > 0 || !m.payload) {
-        return { ...m, obra_id, errors, action: "error" as const };
+        return { ...m, obra_id, errors, action: "error" as const, selected: false };
       }
       // matching
       let match: any = null;
@@ -185,13 +280,22 @@ export function InventoryImportExport({
       if (codeKey) match = byCode.get(codeKey) ?? null;
       if (!match) match = byNameObra.get(`${normText(dataAny.nome ?? "")}|${obra_id ?? "__geral"}`) ?? null;
       if (match && !allowUpdate) {
-        return { ...m, obra_id, errors: [`Já existe "${dataAny.nome}" (código/CA ou nome+obra) — ative "Atualizar itens existentes" ou remova a linha`], action: "error" as const };
+        return {
+          ...m,
+          obra_id,
+          errors: [
+            `Já existe "${dataAny.nome}" (código/CA ou nome+obra) — ative "Atualizar itens existentes" ou remova a linha`,
+          ],
+          action: "error" as const,
+          selected: false,
+        };
       }
       return {
         ...m,
         obra_id,
         action: match ? ("update" as const) : ("create" as const),
         matchId: match?.id,
+        selected: true, // selecionado por padrão para importação
       };
     });
 
@@ -200,7 +304,7 @@ export function InventoryImportExport({
     const ok = next.filter((r) => r.action !== "error").length;
     const bad = next.length - ok;
     if (ok === 0) toast.error(`Nenhuma linha válida (${bad} com erro). Corrija e tente de novo.`);
-    else toast.success(`${ok} linha(s) pronta(s)${bad ? ` — ${bad} com erro serão ignoradas` : ""}`);
+    else toast.success(`${ok} linha(s) pronta(s)${bad ? ` — ${bad} com erro ignoradas` : ""}`);
   };
 
   const onPickFile = async (f: File | undefined) => {
@@ -225,21 +329,21 @@ export function InventoryImportExport({
       toast.error("Você não tem permissão para importar dados.");
       return;
     }
-    if (validRows.length === 0) {
-      toast.error("Nenhuma linha válida para importar.");
+    if (selectedRows.length === 0) {
+      toast.error("Selecione pelo menos um item válido para importar.");
       return;
     }
     setImporting(true);
     try {
       let created = 0;
       let updated = 0;
-      const creates = validRows.filter((r) => r.action === "create");
-      const updates = validRows.filter((r) => r.action === "update");
+      const creates = selectedRows.filter((r) => r.action === "create");
+      const updates = selectedRows.filter((r) => r.action === "update");
 
       for (const batch of chunk(creates, 100)) {
         const rows = batch.map((r) => {
           const p: Record<string, unknown> = { ...(r.payload as Record<string, unknown>) };
-          // campos vazios de número viram null/0 conforme a tabela; mantém como está
+          // campos padrão apenas para novos itens criados
           if (kind === "materiais") {
             if (p.unidade == null) p.unidade = "un";
             if (p.estoque_minimo == null) p.estoque_minimo = 0;
@@ -264,15 +368,17 @@ export function InventoryImportExport({
         created += rows.length;
       }
 
-      // updates um a um (upsert por id é mais seguro p/ RLS + triggers de estoque)
+      // updates: apenas atualiza os campos que realmente foram informados no payload
       for (const r of updates) {
         const p: Record<string, unknown> = { ...(r.payload as Record<string, unknown>) };
-        p.obra_id = r.obra_id;
+        if (r.obraNomeRaw.trim() !== "" || defaultObraId) {
+          p.obra_id = r.obra_id;
+        }
         Object.keys(p).forEach((k) => {
           if (p[k] === "") p[k] = null;
         });
         delete (p as any).obra_nome;
-        // nunca zera campo numérico ausente na planilha: remove chaves não informadas
+
         const { error } = await supabase.from(schema.table as any).update(p as any).eq("id", r.matchId as any);
         if (error) throw new Error(`Linha ${r.line}: ${error.message}`);
         updated += 1;
@@ -288,26 +394,67 @@ export function InventoryImportExport({
     }
   };
 
+  // Colunas a renderizar na tabela de pré-visualização
+  const visibleCols = useMemo(() => {
+    if (detectedColumns.length === 0) return schema.columns;
+    return schema.columns.filter((c) => detectedColumns.includes(c.key));
+  }, [schema.columns, detectedColumns]);
+
   return (
     <>
       <div className="flex flex-wrap gap-2 items-center">
-        <Button variant="outline" size={compact ? "sm" : "sm"} onClick={() => doExport("csv")} title="Exporta os itens do filtro atual em CSV (Excel)">
+        <Button
+          variant="outline"
+          size={compact ? "sm" : "sm"}
+          onClick={() => doExport("csv")}
+          title="Exporta os itens do filtro atual em CSV (Excel)"
+        >
           <FileDown className="h-4 w-4" /> CSV
-        </Button>
-        <Button variant="outline" size={compact ? "sm" : "sm"} onClick={() => doExport("pdf")} title="Exporta os itens do filtro atual em PDF">
-          <FileText className="h-4 w-4" /> PDF
         </Button>
         <Button
           variant="outline"
           size={compact ? "sm" : "sm"}
-          onClick={() => {
-            downloadTemplate(kind);
-            toast.success("Modelo CSV baixado — preencha e importe de volta.");
-          }}
-          title="Baixa a planilha modelo com o cabeçalho oficial e um exemplo"
+          onClick={() => doExport("pdf")}
+          title="Exporta os itens do filtro atual em PDF"
         >
-          <TableIcon className="h-4 w-4" /> Modelo CSV
+          <FileText className="h-4 w-4" /> PDF
         </Button>
+
+        {/* Dropdown com opções de modelo */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="outline"
+              size={compact ? "sm" : "sm"}
+              title="Baixar planilha modelo CSV para importação"
+              className="gap-1"
+            >
+              <TableIcon className="h-4 w-4" /> Modelo CSV
+              <ChevronDown className="h-3 w-3 opacity-60" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-56">
+            <DropdownMenuItem onClick={() => handleDownloadTemplate("somente_itens")}>
+              <div className="flex flex-col text-left">
+                <span className="font-medium text-xs">Somente os itens</span>
+                <span className="text-[10px] text-muted-foreground">Nome, código e identificadores básicos</span>
+              </div>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleDownloadTemplate("itens_quantidades")}>
+              <div className="flex flex-col text-left">
+                <span className="font-medium text-xs">Itens e quantidades</span>
+                <span className="text-[10px] text-muted-foreground">Itens, estoque atual e estoque mínimo</span>
+              </div>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleDownloadTemplate("completo")}>
+              <div className="flex flex-col text-left">
+                <span className="font-medium text-xs">Modelo completo</span>
+                <span className="text-[10px] text-muted-foreground">Todas as colunas suportadas pelo módulo</span>
+              </div>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
         {canImport && (
           <Button
             size={compact ? "sm" : "sm"}
@@ -329,35 +476,57 @@ export function InventoryImportExport({
           if (!v) resetImport();
         }}
       >
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Importar {schema.label} via CSV</DialogTitle>
             <p className="text-sm text-muted-foreground">
-              1) Baixe o <strong>Modelo CSV</strong>, preencha no Excel e salve como CSV. 2) Selecione o
-              arquivo abaixo para validar. 3) Confira a prévia e confirme.
+              Você pode importar <strong>somente os itens</strong>, <strong>itens e quantidades</strong> ou selecionar <strong>itens específicos</strong> antes de confirmar.
             </p>
           </DialogHeader>
 
           <div className="space-y-4">
-            <div className="rounded-md border p-3 text-xs space-y-1 bg-muted/40">
-              <p className="font-medium">Colunas oficiais: {schema.columns.map((c) => c.header).join(" · ")}</p>
+            {/* Bloco de ajuda e templates */}
+            <div className="rounded-md border p-3 text-xs space-y-2 bg-muted/40">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-2">
+                <span className="font-semibold text-foreground">Formatos de importação aceitos:</span>
+                <div className="flex flex-wrap gap-1">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-6 text-[11px] px-2"
+                    onClick={() => handleDownloadTemplate("somente_itens")}
+                  >
+                    Baixar: Somente Itens
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-6 text-[11px] px-2"
+                    onClick={() => handleDownloadTemplate("itens_quantidades")}
+                  >
+                    Baixar: Itens + Quantidades
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-6 text-[11px] px-2"
+                    onClick={() => handleDownloadTemplate("completo")}
+                  >
+                    Baixar: Completo
+                  </Button>
+                </div>
+              </div>
               <p className="text-muted-foreground">
-                Cabeçalho obrigatório: <strong>Nome</strong>
-                {kind === "ferramentas" || kind === "ativos" ? "" : " (+ Estoque/quantidades podem ir zeradas)"}.
-                {" "}Obra aceita o nome exato da obra ou <strong>Geral</strong> (vazio = Geral
-                {defaultObraId ? " ou a obra do filtro atual" : ""}). Números aceitam vírgula decimal
-                (32,90). Datas aceitam AAAA-MM-DD ou DD/MM/AAAA.
-                {kind === "epis" ? " Tipo: EPI ou EPC." : ""}
-                {kind === "ferramentas" ? " Estado: disponivel, emprestada, manutencao, descartada." : ""}
-                {kind === "ativos" ? " Estado: em_uso, estoque, manutencao, baixado." : ""}
-              </p>
-              <p className="text-muted-foreground">
-                Duplicados: compara por {kind === "epis" ? "CA" : "Código"} ou por Nome + Obra. Com
-                “Atualizar itens existentes” ligado, a linha atualiza o cadastro; desligado, linhas
-                duplicadas são bloqueadas.
+                • <strong>Somente os itens:</strong> basta o cabeçalho <code>Nome</code> (e Código se houver). Estoque e outros campos ficarão zerados/padrão.<br />
+                • <strong>Itens e quantidades:</strong> inclua a coluna <code>Estoque</code> (ou Qtd). Novos cadastros entram com a quantidade e itens existentes são atualizados.<br />
+                • <strong>Somente alguns itens específicos:</strong> após carregar a planilha, use os checkboxes da tabela abaixo para escolher exatamente quais itens importar.
               </p>
             </div>
 
+            {/* Upload e opção de atualizar existentes */}
             <div className="grid gap-3 md:grid-cols-[1fr_auto] items-end">
               <div className="space-y-1">
                 <Label>Arquivo CSV (máx. 5 MB, até 2000 linhas)</Label>
@@ -368,7 +537,7 @@ export function InventoryImportExport({
                   onChange={(e) => onPickFile(e.target.files?.[0])}
                 />
               </div>
-              <label className="flex items-center gap-2 text-sm pb-2">
+              <label className="flex items-center gap-2 text-sm pb-2 cursor-pointer select-none">
                 <Checkbox
                   checked={updateExisting}
                   onCheckedChange={(v) => {
@@ -388,86 +557,225 @@ export function InventoryImportExport({
             )}
 
             {staged.length > 0 && (
-              <div className="space-y-2">
-                <div className="flex flex-wrap gap-2 text-xs">
-                  <span className="px-2 py-1 rounded bg-muted font-medium">
-                    {fileName} — {staged.length} linha(s)
-                  </span>
-                  <span className="px-2 py-1 rounded bg-emerald-500/15 text-emerald-700 font-medium">
-                    {toCreate} a criar
-                  </span>
-                  <span className="px-2 py-1 rounded bg-sky-500/15 text-sky-700 font-medium">
-                    {toUpdate} a atualizar
-                  </span>
-                  {errorRows.length > 0 && (
-                    <span className="px-2 py-1 rounded bg-destructive/15 text-destructive font-medium">
-                      {errorRows.length} com erro
+              <div className="space-y-3">
+                {/* Barra de status e contagens */}
+                <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                  <div className="flex flex-wrap gap-1.5 items-center">
+                    <span className="px-2 py-1 rounded bg-muted font-medium">
+                      {fileName} — {staged.length} linha(s) no arquivo
                     </span>
-                  )}
+                    <span className="px-2 py-1 rounded bg-primary/10 text-primary font-semibold">
+                      {selectedRows.length} selecionado(s) para importar
+                    </span>
+                    <span className="px-2 py-1 rounded bg-emerald-500/15 text-emerald-700 font-medium">
+                      {toCreate} novos
+                    </span>
+                    <span className="px-2 py-1 rounded bg-sky-500/15 text-sky-700 font-medium">
+                      {toUpdate} existentes
+                    </span>
+                    {errorRows.length > 0 && (
+                      <span className="px-2 py-1 rounded bg-destructive/15 text-destructive font-medium">
+                        {errorRows.length} com erro
+                      </span>
+                    )}
+                  </div>
                 </div>
 
-                <div className="border rounded-md overflow-x-auto">
+                {/* Filtros e seleção rápida de itens específicos */}
+                <div className="flex flex-wrap items-center justify-between gap-2 bg-muted/20 p-2 rounded-md border text-xs">
+                  <div className="flex items-center gap-2 flex-1 min-w-[200px] max-w-sm">
+                    <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    <Input
+                      placeholder="Filtrar itens na lista..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="h-7 text-xs"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <Filter className="h-3.5 w-3.5 text-muted-foreground mr-0.5" />
+                    <span className="text-muted-foreground">Exibir:</span>
+                    <Button
+                      type="button"
+                      variant={filterAction === "all" ? "default" : "outline"}
+                      size="sm"
+                      className="h-6 text-[11px] px-2"
+                      onClick={() => setFilterAction("all")}
+                    >
+                      Todos ({staged.length})
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={filterAction === "selected" ? "default" : "outline"}
+                      size="sm"
+                      className="h-6 text-[11px] px-2"
+                      onClick={() => setFilterAction("selected")}
+                    >
+                      Selecionados ({selectedRows.length})
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={filterAction === "create" ? "default" : "outline"}
+                      size="sm"
+                      className="h-6 text-[11px] px-2"
+                      onClick={() => setFilterAction("create")}
+                    >
+                      Novos ({toCreate})
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={filterAction === "update" ? "default" : "outline"}
+                      size="sm"
+                      className="h-6 text-[11px] px-2"
+                      onClick={() => setFilterAction("update")}
+                    >
+                      Atualizações ({toUpdate})
+                    </Button>
+                    {errorRows.length > 0 && (
+                      <Button
+                        type="button"
+                        variant={filterAction === "error" ? "destructive" : "outline"}
+                        size="sm"
+                        className="h-6 text-[11px] px-2"
+                        onClick={() => setFilterAction("error")}
+                      >
+                        Erros ({errorRows.length})
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Tabela de itens com checkbox individual para importar apenas itens específicos */}
+                <div className="border rounded-md overflow-x-auto max-h-[380px] overflow-y-auto">
                   <table className="w-full text-xs">
-                    <thead>
-                      <tr className="border-b bg-muted/50 text-left">
+                    <thead className="sticky top-0 bg-muted z-10">
+                      <tr className="border-b text-left">
+                        <th className="p-2 w-10 text-center">
+                          <Checkbox
+                            checked={allFilteredSelected}
+                            onCheckedChange={(v) => toggleSelectFiltered(v === true)}
+                            title="Selecionar ou desmarcar todos os itens válidos desta visualização"
+                          />
+                        </th>
                         <th className="p-2">Linha</th>
                         <th className="p-2">Ação</th>
-                        {schema.columns.map((c) => (
+                        {visibleCols.map((c) => (
                           <th key={c.key} className="p-2 whitespace-nowrap">
                             {c.header}
                           </th>
                         ))}
-                        <th className="p-2">Erros</th>
+                        <th className="p-2">Situação / Erros</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {staged.slice(0, 50).map((r) => (
-                        <tr key={r.line} className="border-b align-top">
-                          <td className="p-2">{r.line}</td>
-                          <td className="p-2">
-                            {r.action === "create" && <span className="text-emerald-700 font-medium">criar</span>}
-                            {r.action === "update" && <span className="text-sky-700 font-medium">atualizar</span>}
-                            {r.action === "error" && <span className="text-destructive font-medium">erro</span>}
-                          </td>
-                          {schema.columns.map((c) => (
-                            <td key={c.key} className="p-2 max-w-40 truncate" title={r.data[c.key]}>
-                              {c.key === "obra_nome" ? r.obraNomeRaw || "Geral" : r.data[c.key]}
+                      {filteredStaged.slice(0, 100).map((r) => {
+                        const isErr = r.action === "error";
+                        return (
+                          <tr
+                            key={r.line}
+                            className={`border-b align-middle transition-colors ${
+                              isErr
+                                ? "bg-destructive/5 opacity-70"
+                                : r.selected
+                                  ? "bg-primary/[0.03] hover:bg-primary/[0.06]"
+                                  : "opacity-60 hover:opacity-100"
+                            }`}
+                          >
+                            <td className="p-2 text-center">
+                              <Checkbox
+                                disabled={isErr}
+                                checked={!!r.selected}
+                                onCheckedChange={() => toggleSelectRow(r.line)}
+                                title={isErr ? "Item com erro não pode ser importado" : "Marque para importar este item"}
+                              />
                             </td>
-                          ))}
-                          <td className="p-2 text-destructive max-w-60">
-                            {r.errors.join(" | ") || "—"}
-                          </td>
-                        </tr>
-                      ))}
+                            <td className="p-2 text-muted-foreground font-mono">{r.line}</td>
+                            <td className="p-2">
+                              {r.action === "create" && (
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] bg-emerald-500/15 text-emerald-700 font-semibold">
+                                  novo
+                                </span>
+                              )}
+                              {r.action === "update" && (
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] bg-sky-500/15 text-sky-700 font-semibold">
+                                  atualizar
+                                </span>
+                              )}
+                              {r.action === "error" && (
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] bg-destructive/15 text-destructive font-semibold">
+                                  erro
+                                </span>
+                              )}
+                            </td>
+                            {visibleCols.map((c) => (
+                              <td key={c.key} className="p-2 max-w-44 truncate" title={r.data[c.key]}>
+                                {c.key === "obra_nome"
+                                  ? r.obraNomeRaw || (defaultObraId ? "Obra padrão" : "Geral")
+                                  : r.data[c.key] || <span className="text-muted-foreground/50">—</span>}
+                              </td>
+                            ))}
+                            <td className="p-2 text-xs">
+                              {r.errors.length > 0 ? (
+                                <span className="text-destructive font-medium">{r.errors.join(" | ")}</span>
+                              ) : r.selected ? (
+                                <span className="text-emerald-700 text-[11px]">Pronto para importar</span>
+                              ) : (
+                                <span className="text-muted-foreground text-[11px]">Não selecionado</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
-                  {staged.length > 50 && (
-                    <p className="p-2 text-xs text-muted-foreground">
-                      Mostrando 50 de {staged.length} linhas — as demais serão validadas da mesma forma.
+                  {filteredStaged.length > 100 && (
+                    <p className="p-2 text-xs text-muted-foreground border-t bg-muted/20">
+                      Mostrando 100 de {filteredStaged.length} itens. A ação de seleção afeta os itens filtrados.
                     </p>
+                  )}
+                  {filteredStaged.length === 0 && (
+                    <div className="p-6 text-center text-xs text-muted-foreground">
+                      Nenhum item encontrado com os filtros atuais.
+                    </div>
                   )}
                 </div>
               </div>
             )}
 
             {result && (
-              <p className="text-sm text-emerald-700 flex items-center gap-1">
-                <CheckCircle2 className="h-4 w-4" /> Última importação: {result.created} criado(s),{" "}
-                {result.updated} atualizado(s). Você pode fechar ou importar outro arquivo.
+              <p className="text-sm text-emerald-700 flex items-center gap-1 font-medium bg-emerald-500/10 p-2.5 rounded-md border border-emerald-500/20">
+                <CheckCircle2 className="h-4 w-4 shrink-0" /> Última importação concluída: {result.created} criado(s) e{" "}
+                {result.updated} atualizado(s).
               </p>
             )}
           </div>
 
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setOpen(false)}>
-              {result ? "Fechar" : "Cancelar"}
-            </Button>
-            <Button disabled={validRows.length === 0 || importing} onClick={runImport}>
-              {importing ? "Importando..." : `Confirmar importação (${validRows.length})`}
-            </Button>
+          <DialogFooter className="flex flex-col sm:flex-row items-center justify-between gap-2 border-t pt-3">
+            <div className="text-xs text-muted-foreground w-full sm:w-auto text-left">
+              {staged.length > 0 && (
+                <span>
+                  <strong>{selectedRows.length}</strong> de {validRows.length} itens válidos selecionados
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+              <Button variant="ghost" onClick={() => setOpen(false)}>
+                {result ? "Fechar" : "Cancelar"}
+              </Button>
+              <Button
+                disabled={selectedRows.length === 0 || importing}
+                onClick={runImport}
+              >
+                {importing
+                  ? "Importando..."
+                  : `Confirmar importação (${selectedRows.length})`}
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </>
   );
 }
+
