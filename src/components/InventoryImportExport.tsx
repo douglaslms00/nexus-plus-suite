@@ -28,7 +28,6 @@ import {
   ChevronDown,
   Search,
   Filter,
-  ListChecks,
 } from "lucide-react";
 import { toast } from "sonner";
 import { exportCSV, exportPDF } from "@/lib/exports";
@@ -643,45 +642,6 @@ export function InventoryImportExport({
                 </span>
               </div>
             </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-
-        {/* Menu de exportação por itens selecionados */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="outline"
-              size={compact ? "sm" : "sm"}
-              title="Escolher quais itens do filtro atual serão exportados, com ou sem quantidades"
-              className="gap-1"
-            >
-              <ListChecks className="h-4 w-4" /> Itens selecionados
-              <ChevronDown className="h-3 w-3 opacity-60" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-64">
-            <DropdownMenuItem onClick={() => openExportSelection(true)}>
-              <div className="flex flex-col text-left">
-                <span className="font-medium text-xs">Com quantidades</span>
-                <span className="text-[10px] text-muted-foreground">
-                  Escolher itens e exportar com estoque/valores{qtyHeadersInSpec.length > 0 ? ` (${qtyHeadersInSpec.join(", ")})` : ""}
-                </span>
-              </div>
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => openExportSelection(false)} disabled={!hasQtyColumns}>
-              <div className="flex flex-col text-left">
-                <span className="font-medium text-xs">Sem quantidades</span>
-                <span className="text-[10px] text-muted-foreground">
-                  {hasQtyColumns
-                    ? "Escolher itens e exportar só identificação (sem estoque/valores)"
-                    : "Este módulo não tem colunas de quantidade/valor no relatório"}
-                </span>
-              </div>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <div className="px-2 py-1.5 text-[10px] text-muted-foreground">
-              {exportSpec.rows.length} item(ns) no filtro atual — a escolha é feita na próxima tela.
-            </div>
           </DropdownMenuContent>
         </DropdownMenu>
 
