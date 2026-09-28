@@ -15,6 +15,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -27,12 +28,16 @@ import {
   ChevronDown,
   Search,
   Filter,
+  ListChecks,
 } from "lucide-react";
 import { toast } from "sonner";
 import { exportCSV, exportPDF } from "@/lib/exports";
 import {
   INVENTORY_SCHEMAS,
+  downloadSelectedAsTemplate,
   downloadTemplate,
+  filterExportColumns,
+  isQuantityOrValueHeader,
   mapParsedToRows,
   parseCSVText,
   resolveObraId,
@@ -102,6 +107,12 @@ export function InventoryImportExport({
   const [filterAction, setFilterAction] = useState<"all" | "selected" | "create" | "update" | "error">("all");
   const [searchTerm, setSearchTerm] = useState("");
 
+  // Exportação de itens selecionados (com / sem quantidades)
+  const [exportSelOpen, setExportSelOpen] = useState(false);
+  const [exportSelSearch, setExportSelSearch] = useState("");
+  const [exportSelChecked, setExportSelChecked] = useState<number[]>([]);
+  const [includeQty, setIncludeQty] = useState(true);
+
   const validRows = useMemo(() => staged.filter((r) => r.action !== "error"), [staged]);
   const errorRows = useMemo(() => staged.filter((r) => r.action === "error"), [staged]);
   const toCreate = useMemo(() => validRows.filter((r) => r.action === "create").length, [validRows]);
@@ -158,6 +169,94 @@ export function InventoryImportExport({
     setStaged((prev) =>
       prev.map((r) => (r.line === line ? { ...r, selected: !r.selected } : r)),
     );
+  };
+
+  // ---- Itens selecionados para exportação ----
+  const qtyHeadersInSpec = useMemo(
+    () => exportSpec.headers.filter((h) => isQuantityOrValueHeader(h)),
+    [exportSpec.headers],
+  );
+  const hasQtyColumns = qtyHeadersInSpec.length > 0;
+
+  const exportSelFilteredIdx = useMemo(() => {
+    const q = normText(exportSelSearch);
+    return exportSpec.rows
+      .map((_, i) => i)
+      .filter((i) => {
+        if (!q) return true;
+        return exportSpec.rows[i].map((v) => normText(v)).join(" ").includes(q);
+      });
+  }, [exportSpec.rows, exportSelSearch]);
+
+  const exportSelCheckedSet = useMemo(() => new Set(exportSelChecked), [exportSelChecked]);
+  const exportSelSelectedRows = useMemo(
+    () => exportSelChecked.filter((i) => i >= 0 && i < exportSpec.rows.length).map((i) => exportSpec.rows[i]),
+    [exportSelChecked, exportSpec.rows],
+  );
+  const allExportFilteredChecked = useMemo(() => {
+    if (exportSelFilteredIdx.length === 0) return false;
+    return exportSelFilteredIdx.every((i) => exportSelCheckedSet.has(i));
+  }, [exportSelFilteredIdx, exportSelCheckedSet]);
+
+  const openExportSelection = (withQuantities: boolean) => {
+    if (exportSpec.rows.length === 0) {
+      toast.error("Nada para selecionar no filtro atual.");
+      return;
+    }
+    setIncludeQty(hasQtyColumns ? withQuantities : true);
+    setExportSelSearch("");
+    setExportSelChecked(exportSpec.rows.map((_, i) => i));
+    setExportSelOpen(true);
+  };
+
+  const toggleExportSelOne = (idx: number) => {
+    setExportSelChecked((prev) => (prev.includes(idx) ? prev.filter((i) => i !== idx) : [...prev, idx]));
+  };
+
+  const toggleExportSelFiltered = (checked: boolean) => {
+    setExportSelChecked((prev) => {
+      const set = new Set(prev);
+      if (checked) exportSelFilteredIdx.forEach((i) => set.add(i));
+      else exportSelFilteredIdx.forEach((i) => set.delete(i));
+      return [...set].sort((a, b) => a - b);
+    });
+  };
+
+  const exportSelectionPreview = useMemo(() => {
+    const rawRows = exportSelSelectedRows as (string | number | null | undefined)[][];
+    if (!hasQtyColumns) return { headers: exportSpec.headers, rows: rawRows, removed: [] as string[] };
+    return filterExportColumns(exportSpec.headers, rawRows, includeQty);
+  }, [exportSelSelectedRows, exportSpec.headers, includeQty, hasQtyColumns]);
+
+  const doExportSelected = (type: "csv" | "pdf" | "template") => {
+    if (exportSelSelectedRows.length === 0) {
+      toast.error("Selecione pelo menos 1 item para exportar.");
+      return;
+    }
+    const qtySuffix = hasQtyColumns ? (includeQty ? "com-quantidades" : "sem-quantidades") : "selecionados";
+    if (type === "template") {
+      const mode: TemplateMode = includeQty ? "itens_quantidades" : "somente_itens";
+      downloadSelectedAsTemplate(kind, exportSpec.headers, exportSelSelectedRows as any, mode);
+      toast.success(
+        `Modelo preenchido (${exportSelSelectedRows.length} item(ns), ${includeQty ? "com" : "sem"} quantidades) baixado — edite e importe de volta.`,
+      );
+      return;
+    }
+    if (type === "csv") {
+      exportCSV(`${exportSpec.filenameBase}-${qtySuffix}`, exportSelectionPreview.headers, exportSelectionPreview.rows as any);
+      toast.success(
+        `CSV exportado (${exportSelectionPreview.rows.length} item(ns) ${includeQty ? "com" : "sem"} quantidades)`,
+      );
+    } else {
+      if (!confirm(`Deseja baixar o PDF com ${exportSelectionPreview.rows.length} item(ns) selecionado(s)?`)) return;
+      exportPDF(
+        `${exportSpec.pdfTitle} — selecionados`,
+        exportSelectionPreview.headers,
+        exportSelectionPreview.rows as any,
+        `${exportSpec.filenameBase}-${qtySuffix}`,
+        `${exportSpec.pdfSubtitle ?? ""} | ${exportSelectionPreview.rows.length} selecionado(s) | ${includeQty ? "Com" : "Sem"} quantidades/valores`,
+      );
+    }
   };
 
   const doExport = (type: "csv" | "pdf") => {
@@ -433,7 +532,7 @@ export function InventoryImportExport({
               <ChevronDown className="h-3 w-3 opacity-60" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-56">
+          <DropdownMenuContent align="start" className="w-64">
             <DropdownMenuItem onClick={() => handleDownloadTemplate("somente_itens")}>
               <div className="flex flex-col text-left">
                 <span className="font-medium text-xs">Somente os itens</span>
@@ -452,6 +551,54 @@ export function InventoryImportExport({
                 <span className="text-[10px] text-muted-foreground">Todas as colunas suportadas pelo módulo</span>
               </div>
             </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => openExportSelection(true)}>
+              <div className="flex flex-col text-left">
+                <span className="font-medium text-xs">Itens selecionados…</span>
+                <span className="text-[10px] text-muted-foreground">
+                  Escolher itens do filtro atual e baixar preenchido, com ou sem quantidades
+                </span>
+              </div>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        {/* Menu de exportação por itens selecionados */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="outline"
+              size={compact ? "sm" : "sm"}
+              title="Escolher quais itens do filtro atual serão exportados, com ou sem quantidades"
+              className="gap-1"
+            >
+              <ListChecks className="h-4 w-4" /> Itens selecionados
+              <ChevronDown className="h-3 w-3 opacity-60" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-64">
+            <DropdownMenuItem onClick={() => openExportSelection(true)}>
+              <div className="flex flex-col text-left">
+                <span className="font-medium text-xs">Com quantidades</span>
+                <span className="text-[10px] text-muted-foreground">
+                  Escolher itens e exportar com estoque/valores{qtyHeadersInSpec.length > 0 ? ` (${qtyHeadersInSpec.join(", ")})` : ""}
+                </span>
+              </div>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => openExportSelection(false)} disabled={!hasQtyColumns}>
+              <div className="flex flex-col text-left">
+                <span className="font-medium text-xs">Sem quantidades</span>
+                <span className="text-[10px] text-muted-foreground">
+                  {hasQtyColumns
+                    ? "Escolher itens e exportar só identificação (sem estoque/valores)"
+                    : "Este módulo não tem colunas de quantidade/valor no relatório"}
+                </span>
+              </div>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <div className="px-2 py-1.5 text-[10px] text-muted-foreground">
+              {exportSpec.rows.length} item(ns) no filtro atual — a escolha é feita na próxima tela.
+            </div>
           </DropdownMenuContent>
         </DropdownMenu>
 
@@ -770,6 +917,188 @@ export function InventoryImportExport({
                 {importing
                   ? "Importando..."
                   : `Confirmar importação (${selectedRows.length})`}
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: exportar itens selecionados (com / sem quantidades) */}
+      <Dialog open={exportSelOpen} onOpenChange={setExportSelOpen}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Exportar itens selecionados — {schema.label}</DialogTitle>
+            <p className="text-sm text-muted-foreground">
+              Escolha quais itens do filtro atual ({exportSpec.rows.length}) vão para o arquivo e se a
+              exportação inclui <strong>quantidades/valores</strong> ou só a identificação.
+            </p>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/40 p-2.5 text-xs">
+              <label className="flex items-center gap-2 cursor-pointer select-none font-medium">
+                <Checkbox
+                  checked={hasQtyColumns ? includeQty : true}
+                  disabled={!hasQtyColumns}
+                  onCheckedChange={(v) => setIncludeQty(v === true)}
+                />
+                Incluir quantidades e valores
+              </label>
+              <span className="text-muted-foreground">
+                {hasQtyColumns ? (
+                  <>
+                    {includeQty ? (
+                      <>Com: {exportSelectionPreview.headers.join(" · ")}</>
+                    ) : (
+                      <>
+                        Sem: remove {exportSelectionPreview.removed.join(", ")} — sai só{" "}
+                        {exportSelectionPreview.headers.join(", ")}
+                      </>
+                    )}
+                  </>
+                ) : (
+                  <>Este módulo não tem colunas de quantidade/valor no relatório — sai o relatório completo.</>
+                )}
+              </span>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2 flex-1 min-w-[200px] max-w-sm">
+                <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                <Input
+                  placeholder="Filtrar itens para selecionar..."
+                  value={exportSelSearch}
+                  onChange={(e) => setExportSelSearch(e.target.value)}
+                  className="h-7 text-xs"
+                />
+              </div>
+              <div className="flex items-center gap-1.5 text-xs">
+                <span className="px-2 py-1 rounded bg-primary/10 text-primary font-semibold">
+                  {exportSelChecked.length} selecionado(s)
+                </span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-6 text-[11px] px-2"
+                  onClick={() => toggleExportSelFiltered(true)}
+                >
+                  Todos do filtro
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-6 text-[11px] px-2"
+                  onClick={() => toggleExportSelFiltered(false)}
+                >
+                  Nenhum
+                </Button>
+              </div>
+            </div>
+
+            <div className="border rounded-md overflow-x-auto max-h-[380px] overflow-y-auto">
+              <table className="w-full text-xs">
+                <thead className="sticky top-0 bg-muted z-10">
+                  <tr className="border-b text-left">
+                    <th className="p-2 w-10 text-center">
+                      <Checkbox
+                        checked={allExportFilteredChecked}
+                        onCheckedChange={(v) => toggleExportSelFiltered(v === true)}
+                        title="Selecionar ou desmarcar todos os itens desta visualização"
+                      />
+                    </th>
+                    {exportSelectionPreview.headers.map((h) => (
+                      <th key={h} className="p-2 whitespace-nowrap">
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {exportSelFilteredIdx.slice(0, 200).map((rowIdx) => {
+                    const checked = exportSelCheckedSet.has(rowIdx);
+                    const row = exportSpec.rows[rowIdx] ?? [];
+                    // Mapeia a linha do relatório para as colunas visíveis (com/sem quantidades)
+                    const previewRow = hasQtyColumns
+                      ? (() => {
+                          const kept = exportSpec.headers
+                            .map((h, i) => ({ h, i }))
+                            .filter(({ h }) =>
+                              includeQty ? true : !isQuantityOrValueHeader(h),
+                            )
+                            .map(({ i }) => i);
+                          return kept.map((i) => row[i]);
+                        })()
+                      : row;
+                    return (
+                      <tr
+                        key={rowIdx}
+                        className={`border-b align-middle transition-colors ${
+                          checked ? "bg-primary/[0.03] hover:bg-primary/[0.06]" : "opacity-60 hover:opacity-100"
+                        }`}
+                      >
+                        <td className="p-2 text-center">
+                          <Checkbox
+                            checked={checked}
+                            onCheckedChange={() => toggleExportSelOne(rowIdx)}
+                            title="Marque para incluir este item na exportação"
+                          />
+                        </td>
+                        {previewRow.map((v, ci) => (
+                          <td
+                            key={ci}
+                            className="p-2 max-w-44 truncate"
+                            title={String(v ?? "")}
+                          >
+                            {String(v ?? "") || <span className="text-muted-foreground/50">—</span>}
+                          </td>
+                        ))}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              {exportSelFilteredIdx.length > 200 && (
+                <p className="p-2 text-xs text-muted-foreground border-t bg-muted/20">
+                  Mostrando 200 de {exportSelFilteredIdx.length} itens. Use a busca para refinar — a seleção
+                  é mantida.
+                </p>
+              )}
+              {exportSelFilteredIdx.length === 0 && (
+                <div className="p-6 text-center text-xs text-muted-foreground">
+                  Nenhum item encontrado com a busca atual.
+                </div>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter className="flex flex-col sm:flex-row items-center justify-between gap-2 border-t pt-3">
+            <div className="text-xs text-muted-foreground w-full sm:w-auto text-left">
+              <strong>{exportSelChecked.length}</strong> de {exportSpec.rows.length} itens ·{" "}
+              {includeQty ? "com" : "sem"} quantidades/valores
+            </div>
+            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end">
+              <Button variant="ghost" onClick={() => setExportSelOpen(false)}>
+                Cancelar
+              </Button>
+              <Button
+                variant="outline"
+                disabled={exportSelChecked.length === 0}
+                onClick={() => doExportSelected("template")}
+                title="Baixa os itens marcados já preenchidos no formato do modelo de importação"
+              >
+                <TableIcon className="h-4 w-4" /> Modelo preenchido ({exportSelChecked.length})
+              </Button>
+              <Button
+                variant="outline"
+                disabled={exportSelChecked.length === 0}
+                onClick={() => doExportSelected("pdf")}
+              >
+                <FileText className="h-4 w-4" /> PDF ({exportSelChecked.length})
+              </Button>
+              <Button disabled={exportSelChecked.length === 0} onClick={() => doExportSelected("csv")}>
+                <FileDown className="h-4 w-4" /> CSV ({exportSelChecked.length})
               </Button>
             </div>
           </DialogFooter>

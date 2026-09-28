@@ -405,3 +405,77 @@ export function downloadTemplate(kind: InventoryKind, mode: TemplateMode = "comp
   return schema;
 }
 
+// ---------- exportação de itens selecionados (com / sem quantidades) ----------
+
+/** Colunas de relatório consideradas "quantidades/valores" (removidas quando sem quantidades). */
+const QTY_KEYWORDS = ["estoque", "minimo", "qtd", "quantidade", "preco", "valor", "custo"];
+
+export function isQuantityOrValueHeader(header: string): boolean {
+  const h = normHeader(String(header ?? ""));
+  return QTY_KEYWORDS.some((k) => h.includes(k));
+}
+
+/** Índices das colunas de relatório que devem ser mantidas conforme a opção com/sem quantidades. */
+export function keptExportColumnIndexes(headers: string[], includeQuantities: boolean): number[] {
+  if (includeQuantities) return headers.map((_, i) => i);
+  const kept = headers
+    .map((h, i) => ({ h, i }))
+    .filter(({ h }) => !isQuantityOrValueHeader(h))
+    .map(({ i }) => i);
+  // Segurança: nunca retornar zero colunas (ex.: módulo sem colunas de identificação fora da regra)
+  return kept.length > 0 ? kept : headers.map((_, i) => i);
+}
+
+export function filterExportColumns(
+  headers: string[],
+  rows: (string | number | null | undefined)[][],
+  includeQuantities: boolean,
+): { headers: string[]; rows: (string | number | null | undefined)[][]; removed: string[] } {
+  const kept = keptExportColumnIndexes(headers, includeQuantities);
+  if (kept.length === headers.length) return { headers, rows, removed: [] };
+  const removed = headers.filter((_, i) => !kept.includes(i));
+  return {
+    headers: kept.map((i) => headers[i]),
+    rows: rows.map((r) => kept.map((i) => r[i])),
+    removed,
+  };
+}
+
+/**
+ * Mapeia linhas do relatório (exportSpec) para o formato do modelo de importação,
+ * permitindo baixar apenas os itens selecionados já preenchidos para editar e reimportar.
+ * A correspondência é feita pelos aliases oficiais de cada coluna do schema.
+ */
+export function mapExportRowsToTemplate(
+  kind: InventoryKind,
+  exportHeaders: string[],
+  exportRows: (string | number | null | undefined)[][],
+  mode: TemplateMode,
+): { headers: string[]; rows: (string | number | null | undefined)[][] } {
+  const schema = INVENTORY_SCHEMAS[kind];
+  const headers = templateHeaders(kind, mode);
+  const normExport = exportHeaders.map(normHeader);
+  const rows = exportRows.map((er) =>
+    headers.map((h) => {
+      const col = schema.columns.find((c) => c.header === h);
+      if (!col) return "";
+      const candidates = [normHeader(col.header), ...col.aliases.map(normHeader)];
+      const idx = normExport.findIndex((eh) => candidates.includes(eh));
+      if (idx < 0) return "";
+      return (er[idx] ?? "") as string | number;
+    }),
+  );
+  return { headers, rows };
+}
+
+export function downloadSelectedAsTemplate(
+  kind: InventoryKind,
+  exportHeaders: string[],
+  exportRows: (string | number | null | undefined)[][],
+  mode: TemplateMode,
+) {
+  const { headers, rows } = mapExportRowsToTemplate(kind, exportHeaders, exportRows, mode);
+  const date = new Date().toISOString().slice(0, 10);
+  downloadCSV(`modelo-importacao-${kind}-${mode}-selecionados-${date}`, headers, rows);
+}
+
