@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { exportCSV, exportPDF } from "@/lib/exports";
+import { useObraAtual } from "@/lib/obra-context.types";
 import {
   INVENTORY_SCHEMAS,
   downloadSelectedAsTemplate,
@@ -101,7 +102,21 @@ export function InventoryImportExport({
   const [missingHeaders, setMissingHeaders] = useState<string[]>([]);
   const [updateExisting, setUpdateExisting] = useState(true);
   const [importing, setImporting] = useState(false);
-  const [result, setResult] = useState<{ created: number; updated: number } | null>(null);
+  const [result, setResult] = useState<{
+    created: number;
+    updated: number;
+    destinos: { id: string | null; nome: string; n: number }[];
+  } | null>(null);
+  const { setObraId } = useObraAtual();
+
+  const obraNameById = (id: string | null | undefined) =>
+    (obras as ObraRef[]).find((o) => o.id === id)?.nome;
+  /** Nome da obra de destino de cada linha da importação (para exibir e avisar). */
+  const stagedDestName = (r: StagedRow) => {
+    if (r.obraNomeRaw.trim()) return r.obraNomeRaw.trim();
+    if (r.obra_id) return obraNameById(r.obra_id) ?? "Obra atual";
+    return "Geral";
+  };
 
   // Filtros internos na lista de importação
   const [filterAction, setFilterAction] = useState<"all" | "selected" | "create" | "update" | "error">("all");
@@ -351,39 +366,67 @@ export function InventoryImportExport({
       toast.error(`Não foi possível ler ${schema.label} existentes: ${e.message}`);
       return;
     }
-    const byCode = new Map<string, any>();
+    // A identidade do item é sempre DENTRO da obra de destino (código/CA + obra ou nome + obra).
+    // Sem isso, importar um código que já existe em outra obra atualizaria/moveria o item da
+    // outra obra em vez de criar na obra de destino — e o item "sumia" da tela atual.
+    const byCodeObra = new Map<string, any>();
+    const byCodeAll = new Map<string, any[]>();
     const byNameObra = new Map<string, any>();
     for (const ex of existing) {
       const code = kind === "epis" ? ex.ca : ex.codigo;
-      if (code) byCode.set(`${normText(code)}`, ex);
-      byNameObra.set(`${normText(ex.nome)}|${ex.obra_id ?? "__geral"}`, ex);
+      const obraKey = ex.obra_id ?? "__geral";
+      if (code) {
+        byCodeObra.set(`${normText(code)}|${obraKey}`, ex);
+        const list = byCodeAll.get(normText(code)) ?? [];
+        list.push(ex);
+        byCodeAll.set(normText(code), list);
+      }
+      byNameObra.set(`${normText(ex.nome)}|${obraKey}`, ex);
     }
 
     const next: StagedRow[] = mapped.map((m) => {
       const errors = [...m.errors];
       let obra_id: string | null = null;
-      if (m.obraNomeRaw.trim() === "" && defaultObraId) {
+      const explicitObra = m.obraNomeRaw.trim() !== "";
+      if (!explicitObra && defaultObraId) {
         obra_id = defaultObraId;
       } else {
         const r = resolveObraId(m.obraNomeRaw, obras);
         if (r.error) errors.push(r.error);
-        else obra_id = m.obraNomeRaw.trim() === "" ? null : r.obra_id;
+        else obra_id = explicitObra ? r.obra_id : null;
       }
       if (errors.length > 0 || !m.payload) {
         return { ...m, obra_id, errors, action: "error" as const, selected: false };
       }
-      // matching
+      // matching — sempre restrito à obra de destino
       let match: any = null;
       const dataAny = m.data as Record<string, string>;
       const codeKey = kind === "epis" ? normText(dataAny.ca ?? "") : normText(dataAny.codigo ?? "");
-      if (codeKey) match = byCode.get(codeKey) ?? null;
-      if (!match) match = byNameObra.get(`${normText(dataAny.nome ?? "")}|${obra_id ?? "__geral"}`) ?? null;
+      const destKey = obra_id ?? "__geral";
+      if (codeKey) match = byCodeObra.get(`${codeKey}|${destKey}`) ?? null;
+      if (!match) match = byNameObra.get(`${normText(dataAny.nome ?? "")}|${destKey}`) ?? null;
+      // Compatibilidade: visão "Todas as obras" (sem obra atual) + CSV sem coluna Obra —
+      // o destino é "Geral", mas o item pode morar numa obra. Reaproveita o vínculo global
+      // por código/CA para atualizar em vez de duplicar. Se o código existir em várias
+      // obras, exige a coluna Obra para desempatar.
+      if (!match && !explicitObra && !defaultObraId && codeKey) {
+        const candidates = byCodeAll.get(codeKey) ?? [];
+        if (candidates.length === 1) {
+          match = candidates[0];
+          obra_id = match.obra_id ?? null;
+        } else if (candidates.length > 1) {
+          errors.push(
+            `Código/CA "${dataAny.codigo ?? dataAny.ca}" existe em ${candidates.length} obras — preencha a coluna Obra para indicar o destino`,
+          );
+          return { ...m, obra_id, errors, action: "error" as const, selected: false };
+        }
+      }
       if (match && !allowUpdate) {
         return {
           ...m,
           obra_id,
           errors: [
-            `Já existe "${dataAny.nome}" (código/CA ou nome+obra) — ative "Atualizar itens existentes" ou remova a linha`,
+            `Já existe "${dataAny.nome}" nesta obra (código/CA ou nome) — ative "Atualizar itens existentes" ou remova a linha`,
           ],
           action: "error" as const,
           selected: false,
@@ -404,6 +447,27 @@ export function InventoryImportExport({
     const bad = next.length - ok;
     if (ok === 0) toast.error(`Nenhuma linha válida (${bad} com erro). Corrija e tente de novo.`);
     else toast.success(`${ok} linha(s) pronta(s)${bad ? ` — ${bad} com erro ignoradas` : ""}`);
+
+    // A lista da tela mostra só a obra atual. Se alguma linha vai para outra obra, ela NÃO
+    // vai aparecer aqui depois de importar — avisa na hora para não parecer que sumiu.
+    if (defaultObraId) {
+      const other = new Map<string, number>();
+      for (const r of next) {
+        if (r.action === "error") continue;
+        const dest = r.obra_id ?? null;
+        if ((dest ?? null) !== (defaultObraId ?? null)) {
+          const nome = r.obraNomeRaw.trim() || obraNameById(dest) || "Geral";
+          other.set(nome, (other.get(nome) ?? 0) + 1);
+        }
+      }
+      if (other.size > 0) {
+        const detalhe = [...other.entries()].map(([n, q]) => `${q} para "${n}"`).join("; ");
+        toast.warning(
+          `Atenção: ${detalhe}. A tela mostra só a obra atual — esses itens não vão aparecer aqui. Troque a obra atual no topo para vê-los.`,
+          { duration: 8000 },
+        );
+      }
+    }
   };
 
   const onPickFile = async (f: File | undefined) => {
@@ -483,8 +547,27 @@ export function InventoryImportExport({
         updated += 1;
       }
 
-      setResult({ created, updated });
+      // Resumo por obra de destino — a tela mostra só a obra atual, então itens de
+      // outra obra precisam de aviso explícito (senão parecem "sumidos").
+      const destMap = new Map<string, { id: string | null; nome: string; n: number }>();
+      for (const r of selectedRows) {
+        const id = r.obra_id ?? null;
+        const key = id ?? "__geral";
+        const nome = r.obraNomeRaw.trim() || obraNameById(id) || "Geral";
+        const cur = destMap.get(key) ?? { id, nome, n: 0 };
+        cur.n += 1;
+        destMap.set(key, cur);
+      }
+      const destinos = [...destMap.values()];
+      setResult({ created, updated, destinos });
       toast.success(`Importação concluída: ${created} criado(s), ${updated} atualizado(s)`);
+      const foraDaTela = defaultObraId ? destinos.filter((d) => (d.id ?? null) !== (defaultObraId ?? null)) : [];
+      if (foraDaTela.length > 0) {
+        toast.warning(
+          `${foraDaTela.map((d) => `${d.n} item(ns) na obra "${d.nome}"`).join("; ")} — troque a obra atual no topo para visualizá-los.`,
+          { duration: 9000 },
+        );
+      }
       onImported?.({ created, updated });
     } catch (e: any) {
       toast.error(e.message ?? "Falha na importação");
@@ -669,7 +752,8 @@ export function InventoryImportExport({
               <p className="text-muted-foreground">
                 • <strong>Somente os itens:</strong> basta o cabeçalho <code>Nome</code> (e Código se houver). Estoque e outros campos ficarão zerados/padrão.<br />
                 • <strong>Itens e quantidades:</strong> inclua a coluna <code>Estoque</code> (ou Qtd). Novos cadastros entram com a quantidade e itens existentes são atualizados.<br />
-                • <strong>Somente alguns itens específicos:</strong> após carregar a planilha, use os checkboxes da tabela abaixo para escolher exatamente quais itens importar.
+                • <strong>Somente alguns itens específicos:</strong> após carregar a planilha, use os checkboxes da tabela abaixo para escolher exatamente quais itens importar.<br />
+                • <strong>Obra de destino:</strong> sem a coluna <code>Obra</code>, os itens vão para a obra atual. Para outra obra, preencha a coluna <code>Obra</code> com o nome exato — depois troque a obra atual no topo para vê-los.
               </p>
             </div>
 
@@ -858,7 +942,7 @@ export function InventoryImportExport({
                             {visibleCols.map((c) => (
                               <td key={c.key} className="p-2 max-w-44 truncate" title={r.data[c.key]}>
                                 {c.key === "obra_nome"
-                                  ? r.obraNomeRaw || (defaultObraId ? "Obra padrão" : "Geral")
+                                  ? stagedDestName(r)
                                   : r.data[c.key] || <span className="text-muted-foreground/50">—</span>}
                               </td>
                             ))}
@@ -891,10 +975,42 @@ export function InventoryImportExport({
             )}
 
             {result && (
-              <p className="text-sm text-emerald-700 flex items-center gap-1 font-medium bg-emerald-500/10 p-2.5 rounded-md border border-emerald-500/20">
-                <CheckCircle2 className="h-4 w-4 shrink-0" /> Última importação concluída: {result.created} criado(s) e{" "}
-                {result.updated} atualizado(s).
-              </p>
+              <div className="text-sm text-emerald-700 font-medium bg-emerald-500/10 p-2.5 rounded-md border border-emerald-500/20 space-y-1.5">
+                <p className="flex items-center gap-1">
+                  <CheckCircle2 className="h-4 w-4 shrink-0" /> Última importação concluída: {result.created}{" "}
+                  criado(s) e {result.updated} atualizado(s).
+                </p>
+                {result.destinos.length > 0 && (
+                  <p className="text-xs font-normal">
+                    Destino: {result.destinos.map((d) => `${d.n} em "${d.nome}"`).join(" · ")}
+                  </p>
+                )}
+                {defaultObraId &&
+                  result.destinos.some((d) => (d.id ?? null) !== (defaultObraId ?? null)) && (
+                    <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                      <span className="text-xs font-normal text-amber-700">
+                        Há itens em outra obra — a lista mostra só a obra atual:
+                      </span>
+                      {result.destinos
+                        .filter((d) => (d.id ?? null) !== (defaultObraId ?? null))
+                        .map((d) => (
+                          <Button
+                            key={d.id ?? "__geral"}
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="h-6 text-[11px] px-2 bg-background"
+                            onClick={() => {
+                              setObraId(d.id);
+                              setOpen(false);
+                            }}
+                          >
+                            Ver obra "{d.nome}"
+                          </Button>
+                        ))}
+                    </div>
+                  )}
+              </div>
             )}
           </div>
 
