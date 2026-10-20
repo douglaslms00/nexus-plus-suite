@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Plus, Trash2, Wrench, ArrowRightLeft, Check, X, Pencil } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { InventoryImportExport } from "@/components/InventoryImportExport";
 import { DataPagination, usePagination } from "@/components/DataPagination";
@@ -103,6 +104,18 @@ function AtivosPage() {
   const [editingAtivo, setEditingAtivo] = useState<any>(null);
 
   const [buscaAtivo, setBuscaAtivo] = useState("");
+  const [selectedAtivoIds, setSelectedAtivoIds] = useState<Set<string>>(new Set());
+
+  const toggleAtivoSel = (id: string) =>
+    setSelectedAtivoIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  const someAtivoSel = selectedAtivoIds.size > 0;
+
   const ativosFiltrados = useMemo(() => {
     const q = buscaAtivo.trim().toLowerCase();
     if (!q) return ativos as any[];
@@ -127,18 +140,20 @@ function AtivosPage() {
     resetKey: String((transferencias as any[]).length),
   });
 
+  const makeAtivoRow = (a: any) => [
+    a.nome ?? "",
+    a.codigo ?? "",
+    a.categoria ?? "",
+    a.estado ?? "",
+    a.obra?.nome ?? "",
+    a.valor != null ? Number(a.valor).toFixed(2) : "",
+    a.data_aquisicao ?? "",
+    (a.descricao ?? "").replace(/\s+/g, " ").slice(0, 120),
+  ];
+
   const exportAtivosSpec = useMemo(() => {
     const headers = ["Nome", "Código", "Categoria", "Estado", "Obra", "Valor (R$)", "Aquisição", "Descrição"];
-    const rows = ativosFiltrados.map((a: any) => [
-      a.nome ?? "",
-      a.codigo ?? "",
-      a.categoria ?? "",
-      a.estado ?? "",
-      a.obra?.nome ?? "",
-      a.valor != null ? Number(a.valor).toFixed(2) : "",
-      a.data_aquisicao ?? "",
-      (a.descricao ?? "").replace(/\s+/g, " ").slice(0, 120),
-    ]);
+    const rows = ativosFiltrados.map((a: any) => makeAtivoRow(a));
     const parts: string[] = [];
     if (buscaAtivo.trim()) parts.push(`Busca: "${buscaAtivo.trim()}"`);
     parts.push(`${ativosFiltrados.length} item(ns)`);
@@ -150,6 +165,20 @@ function AtivosPage() {
       pdfSubtitle: "Filtros — " + parts.join(" | "),
     };
   }, [ativosFiltrados, buscaAtivo]);
+
+  const ativoSelectedRows = useMemo(() => {
+    const headers = ["Nome", "Código", "Categoria", "Estado", "Obra", "Valor (R$)", "Aquisição", "Descrição"];
+    const rows = ativosFiltrados
+      .filter((a: any) => selectedAtivoIds.has(a.id))
+      .map((a: any) => makeAtivoRow(a));
+    return {
+      headers,
+      rows,
+      filenameBase: `inventario-ativos-${new Date().toISOString().slice(0, 10)}`,
+      pdfTitle: "Inventário de ativos",
+      pdfSubtitle: `${selectedAtivoIds.size} item(ns) selecionado(s) manualmente`,
+    };
+  }, [selectedAtivoIds, ativosFiltrados]);
 
   const openNewAtivo = () => {
     setEditingAtivo(null);
@@ -426,34 +455,64 @@ function AtivosPage() {
                 defaultObraId={obraId}
                 canImport={canImport}
                 onImported={() => qc.invalidateQueries({ queryKey: ["ativos"] })}
+                tableSelectedRows={someAtivoSel ? ativoSelectedRows.rows : undefined}
+                tableSelectedSpec={someAtivoSel ? ativoSelectedRows : undefined}
               />
             </div>
+            {someAtivoSel && (
+              <div className="flex items-center gap-2 mt-2">
+                <span className="text-xs text-primary font-medium">
+                  {selectedAtivoIds.size} ativo(s) selecionado(s) para PDF
+                </span>
+                <Button variant="ghost" size="sm" onClick={() => setSelectedAtivoIds(new Set())}>
+                  Limpar seleção
+                </Button>
+              </div>
+            )}
             <p className="text-xs text-muted-foreground mt-2">
-              {ativosFiltrados.length} de {ativos.length} — a exportação e o PDF usam o filtro atual.
+              {ativosFiltrados.length} de {ativos.length} —{" "}
+              {someAtivoSel
+                ? `${selectedAtivoIds.size} selecionado(s) para PDF — clique no card para selecionar`
+                : "clique no ✅ do card para selecionar itens para PDF, ou use o botão de PDF acima para todos"}
             </p>
           </Card>
           <div className="grid gap-3 md:grid-cols-2">
-            {pagAtivos.paged.map((a: any) => (
-              <Card key={a.id} className="p-4">
+            {pagAtivos.paged.map((a: any) => {
+              const isSelected = selectedAtivoIds.has(a.id);
+              return (
+              <Card
+                key={a.id}
+                className={`p-4 cursor-pointer transition-colors ${isSelected ? "ring-2 ring-primary bg-primary/5" : ""}`}
+                onClick={() => toggleAtivoSel(a.id)}
+              >
                 <div className="flex justify-between items-start">
-                  <div>
-                    <h3 className="font-medium">
-                      {a.nome}{" "}
-                      {a.codigo && (
-                        <span className="text-xs text-muted-foreground">#{a.codigo}</span>
-                      )}
-                    </h3>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {a.categoria} · {a.estado} · {a.obra?.nome ?? "Sem obra"}
-                    </p>
-                    {a.valor && <p className="text-sm mt-1">R$ {Number(a.valor).toFixed(2)}</p>}
+                  <div className="flex items-start gap-2">
+                    <Checkbox
+                      checked={isSelected}
+                      onCheckedChange={() => toggleAtivoSel(a.id)}
+                      onClick={(e) => e.stopPropagation()}
+                      aria-label={`Selecionar ${a.nome}`}
+                      className="mt-0.5 shrink-0"
+                    />
+                    <div>
+                      <h3 className="font-medium">
+                        {a.nome}{" "}
+                        {a.codigo && (
+                          <span className="text-xs text-muted-foreground">#{a.codigo}</span>
+                        )}
+                      </h3>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {a.categoria} · {a.estado} · {a.obra?.nome ?? "Sem obra"}
+                      </p>
+                      {a.valor && <p className="text-sm mt-1">R$ {Number(a.valor).toFixed(2)}</p>}
+                    </div>
                   </div>
                   <div className="flex items-center gap-1">
                     {canCreate && (
                       <Button
                         size="icon"
                         variant="ghost"
-                        onClick={() => openEditAtivo(a)}
+                        onClick={(e) => { e.stopPropagation(); openEditAtivo(a); }}
                         title="Editar ativo"
                       >
                         <Pencil className="h-4 w-4" />
@@ -463,7 +522,7 @@ function AtivosPage() {
                       <Button
                         size="icon"
                         variant="ghost"
-                        onClick={() => confirm("Excluir?") && removeAtivo.mutate(a.id)}
+                        onClick={(e) => { e.stopPropagation(); confirm("Excluir?") && removeAtivo.mutate(a.id); }}
                         title="Excluir ativo"
                       >
                         <Trash2 className="h-4 w-4 text-destructive" />
@@ -472,7 +531,8 @@ function AtivosPage() {
                   </div>
                 </div>
               </Card>
-            ))}
+              );
+            })}
             {ativosFiltrados.length === 0 && (
               <Card className="p-8 text-center text-muted-foreground md:col-span-2">
                 {ativos.length === 0 ? "Nenhum ativo cadastrado." : "Nenhum ativo no filtro atual."}

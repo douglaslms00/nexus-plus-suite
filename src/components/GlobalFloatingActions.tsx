@@ -46,6 +46,7 @@ export function GlobalFloatingActions() {
         concluida: false,
         data_vencimento: form.data_vencimento || null,
         responsavel_id: user?.id,
+        created_by: user?.id,
       } as any);
       if (error) throw error;
     },

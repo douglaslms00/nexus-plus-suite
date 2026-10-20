@@ -323,6 +323,7 @@ function TarefasPage() {
           concluida_em: isConcluida ? new Date().toISOString() : null,
           responsavel_id: form.responsavel_id || assigned || user?.id || null,
           data_vencimento: form.data_vencimento || null,
+          created_by: user?.id || null,
           ...(assigned ? { assigned_to: assigned, assignment_status: "pendente" } : {}),
         } as any);
         if (error) throw error;

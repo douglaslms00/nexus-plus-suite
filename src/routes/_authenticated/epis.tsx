@@ -39,6 +39,7 @@ import {
   ArrowUpFromLine,
   Pencil,
 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { InventoryImportExport } from "@/components/InventoryImportExport";
@@ -155,6 +156,23 @@ function EpisPage() {
     resetKey: `${busca}|${estoqueInv}|${tipoInv}|${obraInv}`,
   });
 
+  const [selectedEpiIds, setSelectedEpiIds] = useState<Set<string>>(new Set());
+
+  const toggleEpiSel = (id: string) =>
+    setSelectedEpiIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  const toggleAllEpiSel = (checked: boolean) =>
+    setSelectedEpiIds(checked ? new Set(episFiltrados.map((e: any) => e.id)) : new Set());
+
+  const allEpiSel =
+    episFiltrados.length > 0 && episFiltrados.every((e: any) => selectedEpiIds.has(e.id));
+  const someEpiSel = selectedEpiIds.size > 0;
+
   const estoqueEpiLabel: Record<string, string> = {
     all: "Todos",
     com_estoque: "Com estoque (> 0)",
@@ -163,17 +181,19 @@ function EpisPage() {
     baixo: "Abaixo do mínimo",
   };
 
+  const makeEpiRow = (e: any) => [
+    e.nome ?? "",
+    e.tipo ?? "",
+    e.ca ?? "",
+    obraNome((e as any).obra_id),
+    String(e.estoque_atual ?? 0),
+    String(e.estoque_minimo ?? 0),
+    e.validade_meses != null ? String(e.validade_meses) : "",
+  ];
+
   const exportInventarioEpiSpec = useMemo(() => {
     const headers = ["Nome", "Tipo", "CA", "Obra", "Estoque", "Mínimo", "Validade (meses)"];
-    const rows = episFiltrados.map((e: any) => [
-      e.nome ?? "",
-      e.tipo ?? "",
-      e.ca ?? "",
-      obraNome((e as any).obra_id),
-      String(e.estoque_atual ?? 0),
-      String(e.estoque_minimo ?? 0),
-      e.validade_meses != null ? String(e.validade_meses) : "",
-    ]);
+    const rows = episFiltrados.map((e: any) => makeEpiRow(e));
     const parts: string[] = [];
     if (busca.trim()) parts.push(`Busca: "${busca.trim()}"`);
     parts.push(`Estoque: ${estoqueEpiLabel[estoqueInv] ?? estoqueInv}`);
@@ -188,6 +208,20 @@ function EpisPage() {
       pdfSubtitle: "Filtros — " + parts.join(" | "),
     };
   }, [episFiltrados, obras, busca, estoqueInv, tipoInv, obraInv]);
+
+  const epiSelectedRows = useMemo(() => {
+    const headers = ["Nome", "Tipo", "CA", "Obra", "Estoque", "Mínimo", "Validade (meses)"];
+    const rows = episFiltrados
+      .filter((e: any) => selectedEpiIds.has(e.id))
+      .map((e: any) => makeEpiRow(e));
+    return {
+      headers,
+      rows,
+      filenameBase: `inventario-epis-${new Date().toISOString().slice(0, 10)}`,
+      pdfTitle: "Inventário de EPI / EPC",
+      pdfSubtitle: `${selectedEpiIds.size} item(ns) selecionado(s) manualmente`,
+    };
+  }, [selectedEpiIds, episFiltrados, obras]);
 
   const pagMovsEpi = usePagination(movs as any[], {
     key: "epis-movs",
@@ -731,6 +765,8 @@ function EpisPage() {
                   qc.invalidateQueries({ queryKey: ["epis"] });
                   qc.invalidateQueries({ queryKey: ["dash-epis"] });
                 }}
+                tableSelectedRows={someEpiSel ? epiSelectedRows.rows : undefined}
+                tableSelectedSpec={someEpiSel ? epiSelectedRows : undefined}
               />
               {busca || estoqueInv !== "all" || tipoInv !== "all" || obraInv !== "all" ? (
                 <Button
@@ -746,8 +782,20 @@ function EpisPage() {
                   Limpar filtros
                 </Button>
               ) : null}
+              {someEpiSel && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSelectedEpiIds(new Set())}
+                >
+                  Limpar seleção ({selectedEpiIds.size})
+                </Button>
+              )}
               <span className="text-xs text-muted-foreground ml-auto">
-                {episFiltrados.length} de {epis.length} — o PDF usa o filtro atual
+                {episFiltrados.length} de {epis.length} —{" "}
+                {someEpiSel
+                  ? `${selectedEpiIds.size} selecionado(s) para PDF`
+                  : "o PDF usa o filtro atual"}
               </span>
             </div>
           </Card>
@@ -755,6 +803,13 @@ function EpisPage() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-10">
+                    <Checkbox
+                      checked={allEpiSel}
+                      onCheckedChange={(v) => toggleAllEpiSel(v === true)}
+                      aria-label="Selecionar todos EPIs"
+                    />
+                  </TableHead>
                   <TableHead>Nome</TableHead>
                   <TableHead>Tipo</TableHead>
                   <TableHead>CA</TableHead>
@@ -767,8 +822,19 @@ function EpisPage() {
               <TableBody>
                 {pagEpis.paged.map((e: any) => {
                   const baixo = e.estoque_atual < e.estoque_minimo;
+                  const selected = selectedEpiIds.has(e.id);
                   return (
-                    <TableRow key={e.id}>
+                    <TableRow
+                      key={e.id}
+                      className={cn(selected && "bg-primary/5")}
+                    >
+                      <TableCell>
+                        <Checkbox
+                          checked={selected}
+                          onCheckedChange={() => toggleEpiSel(e.id)}
+                          aria-label={`Selecionar ${e.nome}`}
+                        />
+                      </TableCell>
                       <TableCell className="font-medium">{e.nome}</TableCell>
                       <TableCell>
                         <span className="text-xs px-2 py-0.5 rounded bg-muted">{e.tipo}</span>

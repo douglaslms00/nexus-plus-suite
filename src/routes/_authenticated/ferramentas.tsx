@@ -182,16 +182,18 @@ function FerramentasPage() {
     resetKey: `${buscaFer}|${estadoInv}|${obraInvFer}|${manutInv}`,
   });
 
+  const makeFerrRow = (f: any) => [
+    f.nome ?? "",
+    f.codigo ?? "",
+    f.estado ?? "",
+    f.obra?.nome ?? "",
+    f.proxima_manutencao ?? "",
+    (f.descricao ?? "").replace(/\s+/g, " ").slice(0, 120),
+  ];
+
   const exportInventarioFerSpec = useMemo(() => {
     const headers = ["Nome", "Código", "Estado", "Obra", "Próx. manutenção", "Descrição"];
-    const rows = ferramentasFiltradas.map((f: any) => [
-      f.nome ?? "",
-      f.codigo ?? "",
-      f.estado ?? "",
-      f.obra?.nome ?? "",
-      f.proxima_manutencao ?? "",
-      (f.descricao ?? "").replace(/\s+/g, " ").slice(0, 120),
-    ]);
+    const rows = ferramentasFiltradas.map((f: any) => makeFerrRow(f));
     const estadoTxt = estadoInv === "all" ? "Todos os estados" : estadoInv;
     const obraTxt =
       obraInvFer === "all"
@@ -220,6 +222,21 @@ function FerramentasPage() {
       pdfSubtitle: "Filtros — " + parts.join(" | "),
     };
   }, [ferramentasFiltradas, obras, buscaFer, estadoInv, obraInvFer, manutInv]);
+
+  const ferSelectedRows = useMemo(() => {
+    const headers = ["Nome", "Código", "Estado", "Obra", "Próx. manutenção", "Descrição"];
+    const selSet = new Set(selCatalogo);
+    const rows = ferramentasFiltradas
+      .filter((f: any) => selSet.has(f.id))
+      .map((f: any) => makeFerrRow(f));
+    return {
+      headers,
+      rows,
+      filenameBase: `inventario-ferramentas-${new Date().toISOString().slice(0, 10)}`,
+      pdfTitle: "Inventário de ferramentas",
+      pdfSubtitle: `${selCatalogo.length} item(ns) selecionado(s) manualmente`,
+    };
+  }, [selCatalogo, ferramentasFiltradas]);
 
   const openNewF = () => {
     setEditing(null);
@@ -938,6 +955,8 @@ function FerramentasPage() {
                   qc.invalidateQueries({ queryKey: ["ferramentas"] });
                   qc.invalidateQueries({ queryKey: ["dash-ferramentas"] });
                 }}
+                tableSelectedRows={selCatalogo.length > 0 ? ferSelectedRows.rows : undefined}
+                tableSelectedSpec={selCatalogo.length > 0 ? ferSelectedRows : undefined}
               />
               {(buscaFer || estadoInv !== "all" || obraInvFer !== "all" || manutInv !== "all") && (
                 <Button
@@ -954,7 +973,10 @@ function FerramentasPage() {
                 </Button>
               )}
               <span className="text-xs text-muted-foreground ml-auto">
-                {ferramentasFiltradas.length} de {ferramentas.length} — o PDF usa o filtro atual
+                {ferramentasFiltradas.length} de {ferramentas.length} —{" "}
+                {selCatalogo.length > 0
+                  ? `${selCatalogo.length} selecionada(s) para PDF`
+                  : "o PDF usa o filtro atual"}
               </span>
             </div>
           </Card>

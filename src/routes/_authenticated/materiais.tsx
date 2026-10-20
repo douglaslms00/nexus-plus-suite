@@ -43,6 +43,7 @@ import {
   FileText,
   Pencil,
 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { exportCSV, exportPDF } from "@/lib/exports";
 import { InventoryImportExport } from "@/components/InventoryImportExport";
@@ -145,6 +146,23 @@ function MateriaisPage() {
     key: "materiais",
     resetKey: `${busca}|${estoqueInv}|${unidadeInv}|${obraInv}`,
   });
+
+  const [selectedMatIds, setSelectedMatIds] = useState<Set<string>>(new Set());
+
+  const toggleMatSel = (id: string) =>
+    setSelectedMatIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  const toggleAllMatSel = (checked: boolean) =>
+    setSelectedMatIds(checked ? new Set(materiaisFiltrados.map((m: any) => m.id)) : new Set());
+
+  const allMatSel =
+    materiaisFiltrados.length > 0 && materiaisFiltrados.every((m: any) => selectedMatIds.has(m.id));
+  const someMatSel = selectedMatIds.size > 0;
 
   useEffect(() => {
     if (obraId) setFMv((p: any) => ({ ...p, obra_id: p.obra_id ?? obraId }));
@@ -407,17 +425,19 @@ function MateriaisPage() {
     return "Filtros — " + parts.join(" | ");
   };
 
+  const makeMatRow = (m: any) => [
+    m.nome ?? "",
+    m.codigo ?? "",
+    m.unidade ?? "",
+    obraNome(m.obra_id),
+    Number(m.estoque_atual).toFixed(2),
+    Number(m.estoque_minimo ?? 0).toFixed(2),
+    m.preco_medio != null ? Number(m.preco_medio).toFixed(2) : "",
+  ];
+
   const exportInventarioSpec = useMemo(() => {
     const headers = ["Nome", "Código", "Unidade", "Obra", "Estoque", "Mínimo", "Preço médio"];
-    const rows = materiaisFiltrados.map((m: any) => [
-      m.nome ?? "",
-      m.codigo ?? "",
-      m.unidade ?? "",
-      obraNome(m.obra_id),
-      Number(m.estoque_atual).toFixed(2),
-      Number(m.estoque_minimo ?? 0).toFixed(2),
-      m.preco_medio != null ? Number(m.preco_medio).toFixed(2) : "",
-    ]);
+    const rows = materiaisFiltrados.map((m: any) => makeMatRow(m));
     return {
       headers,
       rows,
@@ -426,6 +446,20 @@ function MateriaisPage() {
       pdfSubtitle: describeInventarioFilter(),
     };
   }, [materiaisFiltrados, obras]);
+
+  const matSelectedRows = useMemo(() => {
+    const headers = ["Nome", "Código", "Unidade", "Obra", "Estoque", "Mínimo", "Preço médio"];
+    const rows = materiaisFiltrados
+      .filter((m: any) => selectedMatIds.has(m.id))
+      .map((m: any) => makeMatRow(m));
+    return {
+      headers,
+      rows,
+      filenameBase: `inventario-materiais-${new Date().toISOString().slice(0, 10)}`,
+      pdfTitle: "Inventário de materiais",
+      pdfSubtitle: `${selectedMatIds.size} item(ns) selecionado(s) manualmente`,
+    };
+  }, [selectedMatIds, materiaisFiltrados, obras]);
 
   if (!perm.can_view) {
     return (
@@ -622,6 +656,8 @@ function MateriaisPage() {
                   qc.invalidateQueries({ queryKey: ["materiais"] });
                   qc.invalidateQueries({ queryKey: ["dash-mat"] });
                 }}
+                tableSelectedRows={someMatSel ? matSelectedRows.rows : undefined}
+                tableSelectedSpec={someMatSel ? matSelectedRows : undefined}
               />
               {(busca || estoqueInv !== "all" || unidadeInv !== "all" || obraInv !== "all") && (
                 <Button
@@ -637,8 +673,20 @@ function MateriaisPage() {
                   Limpar filtros
                 </Button>
               )}
+              {someMatSel && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSelectedMatIds(new Set())}
+                >
+                  Limpar seleção ({selectedMatIds.size})
+                </Button>
+              )}
               <span className="text-xs text-muted-foreground ml-auto">
-                {materiaisFiltrados.length} de {materiais.length} — o PDF usa o filtro atual
+                {materiaisFiltrados.length} de {materiais.length} —{" "}
+                {someMatSel
+                  ? `${selectedMatIds.size} selecionado(s) para PDF`
+                  : "o PDF usa o filtro atual"}
               </span>
             </div>
           </Card>
@@ -647,6 +695,13 @@ function MateriaisPage() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-10">
+                    <Checkbox
+                      checked={allMatSel}
+                      onCheckedChange={(v) => toggleAllMatSel(v === true)}
+                      aria-label="Selecionar todos"
+                    />
+                  </TableHead>
                   <TableHead>Nome</TableHead>
                   <TableHead>Código</TableHead>
                   <TableHead>Unidade</TableHead>
@@ -660,8 +715,20 @@ function MateriaisPage() {
               <TableBody>
                 {pagMateriais.paged.map((m: any) => {
                   const baixo = Number(m.estoque_atual) < Number(m.estoque_minimo);
+                  const selected = selectedMatIds.has(m.id);
                   return (
-                    <TableRow key={m.id}>
+                    <TableRow
+                      key={m.id}
+                      data-selected={selected}
+                      className={cn(selected && "bg-primary/5")}
+                    >
+                      <TableCell>
+                        <Checkbox
+                          checked={selected}
+                          onCheckedChange={() => toggleMatSel(m.id)}
+                          aria-label={`Selecionar ${m.nome}`}
+                        />
+                      </TableCell>
                       <TableCell className="font-medium">{m.nome}</TableCell>
                       <TableCell>{m.codigo ?? "—"}</TableCell>
                       <TableCell>{m.unidade}</TableCell>

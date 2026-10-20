@@ -28,6 +28,7 @@ import {
   ChevronDown,
   Search,
   Filter,
+  ListChecks,
 } from "lucide-react";
 import { toast } from "sonner";
 import { exportCSV, exportPDF } from "@/lib/exports";
@@ -67,6 +68,13 @@ interface Props {
   /** chamado após importação bem-sucedida (ex.: invalidar queries) */
   onImported?: (stats: { created: number; updated: number }) => void;
   compact?: boolean;
+  /**
+   * Linhas selecionadas diretamente na tabela da página de estoque.
+   * Quando informado e não vazio, exibe o botão "PDF Selecionados" no toolbar.
+   */
+  tableSelectedRows?: (string | number)[][];
+  /** Spec de exportação exclusivo para as linhas selecionadas na tabela */
+  tableSelectedSpec?: Pick<ExportSpec, "headers" | "filenameBase" | "pdfTitle" | "pdfSubtitle">;
 }
 
 interface StagedRow extends ImportRowResult {
@@ -90,6 +98,8 @@ export function InventoryImportExport({
   canImport,
   onImported,
   compact,
+  tableSelectedRows,
+  tableSelectedSpec,
 }: Props) {
   const schema = INVENTORY_SCHEMAS[kind];
   const fileRef = useRef<HTMLInputElement>(null);
@@ -581,9 +591,38 @@ export function InventoryImportExport({
     return schema.columns.filter((c) => detectedColumns.includes(c.key));
   }, [schema.columns, detectedColumns]);
 
+  const doExportTableSelected = () => {
+    if (!tableSelectedRows || tableSelectedRows.length === 0) {
+      toast.error("Nenhum item selecionado na tabela.");
+      return;
+    }
+    const spec = tableSelectedSpec ?? exportSpec;
+    const count = tableSelectedRows.length;
+    const subtitle = `${spec.pdfSubtitle ?? ""} | ${count} selecionado(s) via tabela`.trim().replace(/^\|\s*/, "");
+    exportPDF(
+      `${spec.pdfTitle} — selecionados`,
+      spec.headers,
+      tableSelectedRows,
+      `${spec.filenameBase}-selecionados`,
+      subtitle,
+    );
+  };
+
   return (
     <>
       <div className="flex flex-wrap gap-2 items-center">
+        {tableSelectedRows && tableSelectedRows.length > 0 && (
+          <Button
+            variant="default"
+            size={compact ? "sm" : "sm"}
+            onClick={doExportTableSelected}
+            title={`Exportar PDF com os ${tableSelectedRows.length} item(ns) selecionados na tabela`}
+            className="gap-1 bg-primary text-primary-foreground animate-in fade-in"
+          >
+            <ListChecks className="h-4 w-4" />
+            PDF Selecionados ({tableSelectedRows.length})
+          </Button>
+        )}
         <Button
           variant="outline"
           size={compact ? "sm" : "sm"}
