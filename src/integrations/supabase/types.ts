@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "14.15"
   }
   public: {
     Tables: {
@@ -125,6 +125,56 @@ export type Database = {
             columns: ["obra_id"]
             isOneToOne: false
             referencedRelation: "obras"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      arquivos_enviados: {
+        Row: {
+          created_by: string | null
+          enviado_em: string
+          excluido_em: string | null
+          expira_em: string
+          id: string
+          mime_type: string | null
+          nome_original: string
+          solicitacao_id: string
+          status: string
+          storage_path: string
+          tamanho_bytes: number
+        }
+        Insert: {
+          created_by?: string | null
+          enviado_em?: string
+          excluido_em?: string | null
+          expira_em?: string
+          id?: string
+          mime_type?: string | null
+          nome_original: string
+          solicitacao_id: string
+          status?: string
+          storage_path: string
+          tamanho_bytes: number
+        }
+        Update: {
+          created_by?: string | null
+          enviado_em?: string
+          excluido_em?: string | null
+          expira_em?: string
+          id?: string
+          mime_type?: string | null
+          nome_original?: string
+          solicitacao_id?: string
+          status?: string
+          storage_path?: string
+          tamanho_bytes?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "arquivos_enviados_solicitacao_id_fkey"
+            columns: ["solicitacao_id"]
+            isOneToOne: true
+            referencedRelation: "tarefas_solicitacoes"
             referencedColumns: ["id"]
           },
         ]
@@ -377,6 +427,56 @@ export type Database = {
         }
         Relationships: []
       }
+      compromissos: {
+        Row: {
+          concluido: boolean
+          created_at: string
+          data: string
+          descricao: string | null
+          hora_fim: string | null
+          hora_inicio: string | null
+          id: string
+          tarefa_id: string | null
+          titulo: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          concluido?: boolean
+          created_at?: string
+          data: string
+          descricao?: string | null
+          hora_fim?: string | null
+          hora_inicio?: string | null
+          id?: string
+          tarefa_id?: string | null
+          titulo: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          concluido?: boolean
+          created_at?: string
+          data?: string
+          descricao?: string | null
+          hora_fim?: string | null
+          hora_inicio?: string | null
+          id?: string
+          tarefa_id?: string | null
+          titulo?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "compromissos_tarefa_id_fkey"
+            columns: ["tarefa_id"]
+            isOneToOne: false
+            referencedRelation: "tarefas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contas_financeiras: {
         Row: {
           categoria: string | null
@@ -438,56 +538,6 @@ export type Database = {
             columns: ["obra_id"]
             isOneToOne: false
             referencedRelation: "obras"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      compromissos: {
-        Row: {
-          concluido: boolean
-          created_at: string
-          data: string
-          descricao: string | null
-          hora_fim: string | null
-          hora_inicio: string | null
-          id: string
-          tarefa_id: string | null
-          titulo: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          concluido?: boolean
-          created_at?: string
-          data: string
-          descricao?: string | null
-          hora_fim?: string | null
-          hora_inicio?: string | null
-          id?: string
-          tarefa_id?: string | null
-          titulo: string
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          concluido?: boolean
-          created_at?: string
-          data?: string
-          descricao?: string | null
-          hora_fim?: string | null
-          hora_inicio?: string | null
-          id?: string
-          tarefa_id?: string | null
-          titulo?: string
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "compromissos_tarefa_id_fkey"
-            columns: ["tarefa_id"]
-            isOneToOne: false
-            referencedRelation: "tarefas"
             referencedColumns: ["id"]
           },
         ]
@@ -1007,17 +1057,24 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "frota_abastecimentos_veiculo_id_fkey"
-            columns: ["veiculo_id"]
-            isOneToOne: false
-            referencedRelation: "frota_veiculos"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "frota_abastecimentos_motorista_id_fkey"
             columns: ["motorista_id"]
             isOneToOne: false
             referencedRelation: "frota_motoristas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "frota_abastecimentos_obra_id_fkey"
+            columns: ["obra_id"]
+            isOneToOne: false
+            referencedRelation: "obras"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "frota_abastecimentos_veiculo_id_fkey"
+            columns: ["veiculo_id"]
+            isOneToOne: false
+            referencedRelation: "frota_veiculos"
             referencedColumns: ["id"]
           },
         ]
@@ -1073,6 +1130,20 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "frota_gastos_avulsos_motorista_id_fkey"
+            columns: ["motorista_id"]
+            isOneToOne: false
+            referencedRelation: "frota_motoristas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "frota_gastos_avulsos_obra_id_fkey"
+            columns: ["obra_id"]
+            isOneToOne: false
+            referencedRelation: "obras"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "frota_gastos_avulsos_veiculo_id_fkey"
             columns: ["veiculo_id"]
             isOneToOne: false
@@ -1100,7 +1171,7 @@ export type Database = {
           updated_at: string
           valor_mao_obra: number
           valor_pecas: number
-          valor_total: number
+          valor_total: number | null
           veiculo_id: string
         }
         Insert: {
@@ -1121,7 +1192,7 @@ export type Database = {
           updated_at?: string
           valor_mao_obra?: number
           valor_pecas?: number
-          valor_total?: never
+          valor_total?: number | null
           veiculo_id: string
         }
         Update: {
@@ -1142,10 +1213,17 @@ export type Database = {
           updated_at?: string
           valor_mao_obra?: number
           valor_pecas?: number
-          valor_total?: never
+          valor_total?: number | null
           veiculo_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "frota_manutencoes_obra_id_fkey"
+            columns: ["obra_id"]
+            isOneToOne: false
+            referencedRelation: "obras"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "frota_manutencoes_veiculo_id_fkey"
             columns: ["veiculo_id"]
@@ -1208,7 +1286,7 @@ export type Database = {
           comprovante_url: string | null
           created_at: string
           created_by: string | null
-          data: string
+          data: string | null
           data_hora: string
           forma_pagamento: string
           id: string
@@ -1226,7 +1304,7 @@ export type Database = {
           comprovante_url?: string | null
           created_at?: string
           created_by?: string | null
-          data?: never
+          data?: string | null
           data_hora?: string
           forma_pagamento?: string
           id?: string
@@ -1244,7 +1322,7 @@ export type Database = {
           comprovante_url?: string | null
           created_at?: string
           created_by?: string | null
-          data?: never
+          data?: string | null
           data_hora?: string
           forma_pagamento?: string
           id?: string
@@ -1259,6 +1337,20 @@ export type Database = {
           veiculo_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "frota_pedagios_motorista_id_fkey"
+            columns: ["motorista_id"]
+            isOneToOne: false
+            referencedRelation: "frota_motoristas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "frota_pedagios_obra_id_fkey"
+            columns: ["obra_id"]
+            isOneToOne: false
+            referencedRelation: "obras"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "frota_pedagios_veiculo_id_fkey"
             columns: ["veiculo_id"]
@@ -1307,17 +1399,17 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "frota_termos_veiculo_id_fkey"
-            columns: ["veiculo_id"]
-            isOneToOne: false
-            referencedRelation: "frota_veiculos"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "frota_termos_motorista_id_fkey"
             columns: ["motorista_id"]
             isOneToOne: false
             referencedRelation: "frota_motoristas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "frota_termos_veiculo_id_fkey"
+            columns: ["veiculo_id"]
+            isOneToOne: false
+            referencedRelation: "frota_veiculos"
             referencedColumns: ["id"]
           },
         ]
@@ -1826,30 +1918,78 @@ export type Database = {
       obras: {
         Row: {
           created_at: string
+          data_alvara: string | null
+          data_ltcat: string | null
+          data_outros: string | null
+          data_pcmso: string | null
+          data_pgr: string | null
+          descricao_outros: string | null
           endereco: string | null
           id: string
           nome: string
           observacoes: string | null
           status: string
           updated_at: string
+          validade_meses_alvara: number | null
+          validade_meses_ltcat: number | null
+          validade_meses_outros: number | null
+          validade_meses_pcmso: number | null
+          validade_meses_pgr: number | null
+          vencimento_alvara: string | null
+          vencimento_ltcat: string | null
+          vencimento_outros: string | null
+          vencimento_pcmso: string | null
+          vencimento_pgr: string | null
         }
         Insert: {
           created_at?: string
+          data_alvara?: string | null
+          data_ltcat?: string | null
+          data_outros?: string | null
+          data_pcmso?: string | null
+          data_pgr?: string | null
+          descricao_outros?: string | null
           endereco?: string | null
           id?: string
           nome: string
           observacoes?: string | null
           status?: string
           updated_at?: string
+          validade_meses_alvara?: number | null
+          validade_meses_ltcat?: number | null
+          validade_meses_outros?: number | null
+          validade_meses_pcmso?: number | null
+          validade_meses_pgr?: number | null
+          vencimento_alvara?: string | null
+          vencimento_ltcat?: string | null
+          vencimento_outros?: string | null
+          vencimento_pcmso?: string | null
+          vencimento_pgr?: string | null
         }
         Update: {
           created_at?: string
+          data_alvara?: string | null
+          data_ltcat?: string | null
+          data_outros?: string | null
+          data_pcmso?: string | null
+          data_pgr?: string | null
+          descricao_outros?: string | null
           endereco?: string | null
           id?: string
           nome?: string
           observacoes?: string | null
           status?: string
           updated_at?: string
+          validade_meses_alvara?: number | null
+          validade_meses_ltcat?: number | null
+          validade_meses_outros?: number | null
+          validade_meses_pcmso?: number | null
+          validade_meses_pgr?: number | null
+          vencimento_alvara?: string | null
+          vencimento_ltcat?: string | null
+          vencimento_outros?: string | null
+          vencimento_pcmso?: string | null
+          vencimento_pgr?: string | null
         }
         Relationships: []
       }
@@ -2074,6 +2214,50 @@ export type Database = {
         }
         Relationships: []
       }
+      tarefas_solicitacoes: {
+        Row: {
+          created_at: string
+          descricao: string | null
+          id: string
+          nome_arquivo_esperado: string
+          remetente_id: string
+          solicitante_id: string
+          status: string
+          tarefa_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          nome_arquivo_esperado: string
+          remetente_id: string
+          solicitante_id: string
+          status?: string
+          tarefa_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          nome_arquivo_esperado?: string
+          remetente_id?: string
+          solicitante_id?: string
+          status?: string
+          tarefa_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tarefas_solicitacoes_tarefa_id_fkey"
+            columns: ["tarefa_id"]
+            isOneToOne: false
+            referencedRelation: "tarefas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_custom_roles: {
         Row: {
           created_at: string
@@ -2216,6 +2400,16 @@ export type Database = {
         }
         Returns: string
       }
+      admin_create_user_login: {
+        Args: {
+          _cargo_key?: string
+          _email: string
+          _is_admin?: boolean
+          _nome: string
+          _password: string
+        }
+        Returns: string
+      }
       admin_delete_user: { Args: { _user_id: string }; Returns: undefined }
       admin_list_profile_emails: {
         Args: never
@@ -2244,10 +2438,15 @@ export type Database = {
         Args: {
           _can_delete: boolean
           _can_edit: boolean
+          _can_import?: boolean
           _can_view: boolean
           _module: string
           _role: Database["public"]["Enums"]["app_role"]
         }
+        Returns: undefined
+      }
+      admin_set_user_cargo: {
+        Args: { _cargo_key?: string; _user_id: string }
         Returns: undefined
       }
       admin_update_custom_role: {
@@ -2264,7 +2463,18 @@ export type Database = {
         Returns: boolean
       }
       ensure_profile: { Args: never; Returns: undefined }
+      frota_kpi_por_veiculo: {
+        Args: { _veiculo_id: string }
+        Returns: {
+          custo_por_km: number
+          media_kml: number
+          total_gasto_combustivel: number
+          total_km: number
+          total_litros: number
+        }[]
+      }
       gerar_notificacoes_vencimentos: { Args: never; Returns: number }
+      get_email_by_cpf: { Args: { cpf_input: string }; Returns: string }
       has_obra_access: {
         Args: { _obra_id: string; _user_id: string }
         Returns: boolean
@@ -2320,6 +2530,14 @@ export type Database = {
         Returns: undefined
       }
       promote_to_admin_if_no_admin: { Args: never; Returns: string }
+      purgar_arquivos_expirados: {
+        Args: never
+        Returns: {
+          arquivo_id: string
+          solicitacao_id: string
+          storage_path: string
+        }[]
+      }
       seed_default_perms_for_role: {
         Args: {
           _custom_role_id: string
