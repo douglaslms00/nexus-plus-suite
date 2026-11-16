@@ -2170,6 +2170,7 @@ export type Database = {
           data_vencimento: string | null
           descricao: string | null
           id: string
+          obra_id: string | null
           prioridade: Database["public"]["Enums"]["task_priority"]
           responsavel_id: string | null
           status: Database["public"]["Enums"]["task_status"]
@@ -2188,6 +2189,7 @@ export type Database = {
           data_vencimento?: string | null
           descricao?: string | null
           id?: string
+          obra_id?: string | null
           prioridade?: Database["public"]["Enums"]["task_priority"]
           responsavel_id?: string | null
           status?: Database["public"]["Enums"]["task_status"]
@@ -2206,13 +2208,22 @@ export type Database = {
           data_vencimento?: string | null
           descricao?: string | null
           id?: string
+          obra_id?: string | null
           prioridade?: Database["public"]["Enums"]["task_priority"]
           responsavel_id?: string | null
           status?: Database["public"]["Enums"]["task_status"]
           titulo?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "tarefas_obra_id_fkey"
+            columns: ["obra_id"]
+            isOneToOne: false
+            referencedRelation: "obras"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       tarefas_solicitacoes: {
         Row: {

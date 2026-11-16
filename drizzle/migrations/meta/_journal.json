@@ -15,6 +15,13 @@
       "when": 1794833422724,
       "tag": "0001_tighten_permissive_policies",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794837132867,
+      "tag": "0002_tarefas_obra_id",
+      "breakpoints": true
     }
   ]
 }

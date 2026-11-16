@@ -249,6 +249,13 @@ function TarefasPage() {
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<any>({ prioridade: "media", status: "pendente" });
+  const { data: obrasLista = [] } = useQuery({
+    queryKey: ["obras-lista-min"],
+    queryFn: async () => {
+      const { data } = await supabase.from("obras").select("id, nome").order("nome");
+      return data ?? [];
+    },
+  });
 
   const openCreate = (initialStatus: TaskStatus = "pendente") => {
     setEditingId(null);
@@ -269,6 +276,7 @@ function TarefasPage() {
       status: t.status ?? "pendente",
       data_vencimento: t.data_vencimento ?? "",
       assigned_to: t.assigned_to ?? t.responsavel_id ?? "",
+      obra_id: t.obra_id ?? "",
     });
     setOpen(true);
   };
@@ -296,6 +304,7 @@ function TarefasPage() {
               : original?.concluida_em,
           data_vencimento: form.data_vencimento || null,
           assigned_to: assigned,
+          obra_id: form.obra_id || null,
         };
         if (assignedChanged && assigned) {
           patch.assignment_status = "pendente";
@@ -324,6 +333,7 @@ function TarefasPage() {
           responsavel_id: form.responsavel_id || assigned || user?.id || null,
           data_vencimento: form.data_vencimento || null,
           created_by: user?.id || null,
+          obra_id: form.obra_id || null,
           ...(assigned ? { assigned_to: assigned, assignment_status: "pendente" } : {}),
         } as any);
         if (error) throw error;
@@ -1168,6 +1178,21 @@ function TarefasPage() {
                 value={form.data_vencimento ?? ""}
                 onChange={(e) => setForm({ ...form, data_vencimento: e.target.value })}
               />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Obra</Label>
+              <Select
+                value={form.obra_id || "__geral"}
+                onValueChange={(v) => setForm({ ...form, obra_id: v === "__geral" ? "" : v })}
+              >
+                <SelectTrigger><SelectValue placeholder="Geral" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__geral">Geral (sem obra)</SelectItem>
+                  {(obrasLista as any[]).map((o: any) => (
+                    <SelectItem key={o.id} value={o.id}>{o.nome}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1.5">
               <Label>Atribuir a (envia para aceitar/recusar)</Label>

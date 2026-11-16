@@ -220,6 +220,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     { to: "/funcionarios", label: "Funcionários", icon: Users, module: "funcionarios" },
     { to: "/tarefas", label: "Tarefas", icon: CheckSquare, module: "tarefas" },
     { to: "/obras", label: "Obras", icon: MapPin, module: "obras" },
+    { to: "/painel-obras", label: "Painel por Obra", icon: LayoutDashboard, module: "obras" },
     { to: "/ativos", label: "Ativos", icon: Boxes, module: "ativos" },
     { to: "/ferramentas", label: "Ferramentas", icon: Wrench, module: "ferramentas" },
     { to: "/materiais", label: "Materiais", icon: Package, module: "materiais" },
