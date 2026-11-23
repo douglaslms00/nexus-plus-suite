@@ -283,7 +283,9 @@ function TarefasPage() {
 
   const create = useMutation({
     mutationFn: async () => {
-      const assigned: string | null = null;
+      const assigned: string | null = editingId
+        ? ((tarefas.find((x: any) => x.id === editingId) as any)?.assigned_to ?? null)
+        : null;
       if (editingId) {
         const original = tarefas.find((x: any) => x.id === editingId);
         if (!original || !canEditTask(original)) {
