@@ -283,7 +283,7 @@ function TarefasPage() {
 
   const create = useMutation({
     mutationFn: async () => {
-      const assigned = form.assigned_to || null;
+      const assigned: string | null = null;
       if (editingId) {
         const original = tarefas.find((x: any) => x.id === editingId);
         if (!original || !canEditTask(original)) {
@@ -1194,30 +1194,6 @@ function TarefasPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1.5">
-              <Label>Atribuir a (envia para aceitar/recusar)</Label>
-              <Select
-                value={form.assigned_to ?? ""}
-                onValueChange={(v) => setForm({ ...form, assigned_to: v })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Ninguém (eu mesmo)" />
-                </SelectTrigger>
-                <SelectContent>
-                  {pessoas.map((p: any) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.nome}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {editingId && form.assigned_to && (
-                <p className="text-[11px] text-muted-foreground">
-                  Alterar o destinatário reenvia a tarefa para aceitar/recusar.
-                </p>
-              )}
-            </div>
-
             <DialogFooter className="pt-2">
               <Button
                 type="button"

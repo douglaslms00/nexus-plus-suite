@@ -24,7 +24,6 @@ import { Route as AuthenticatedFrotaRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedFuncionariosRouteImport } from './routes/_authenticated/funcionarios'
 import { Route as AuthenticatedMateriaisRouteImport } from './routes/_authenticated/materiais'
 import { Route as AuthenticatedObrasRouteImport } from './routes/_authenticated/obras'
-import { Route as AuthenticatedPainelObrasRouteImport } from './routes/_authenticated/painel-obras'
 import { Route as AuthenticatedPerfilRouteImport } from './routes/_authenticated/perfil'
 import { Route as AuthenticatedPrestacaoRouteImport } from './routes/_authenticated/prestacao'
 import { Route as AuthenticatedTarefasRouteImport } from './routes/_authenticated/tarefas'
@@ -106,12 +105,6 @@ const AuthenticatedObrasRoute = AuthenticatedObrasRouteImport.update({
   path: '/obras',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedPainelObrasRoute =
-  AuthenticatedPainelObrasRouteImport.update({
-    id: '/painel-obras',
-    path: '/painel-obras',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
 const AuthenticatedPerfilRoute = AuthenticatedPerfilRouteImport.update({
   id: '/perfil',
   path: '/perfil',
@@ -143,7 +136,6 @@ export interface FileRoutesByFullPath {
   '/funcionarios': typeof AuthenticatedFuncionariosRoute
   '/materiais': typeof AuthenticatedMateriaisRoute
   '/obras': typeof AuthenticatedObrasRoute
-  '/painel-obras': typeof AuthenticatedPainelObrasRoute
   '/perfil': typeof AuthenticatedPerfilRoute
   '/prestacao': typeof AuthenticatedPrestacaoRoute
   '/tarefas': typeof AuthenticatedTarefasRoute
@@ -162,7 +154,6 @@ export interface FileRoutesByTo {
   '/funcionarios': typeof AuthenticatedFuncionariosRoute
   '/materiais': typeof AuthenticatedMateriaisRoute
   '/obras': typeof AuthenticatedObrasRoute
-  '/painel-obras': typeof AuthenticatedPainelObrasRoute
   '/perfil': typeof AuthenticatedPerfilRoute
   '/prestacao': typeof AuthenticatedPrestacaoRoute
   '/tarefas': typeof AuthenticatedTarefasRoute
@@ -184,7 +175,6 @@ export interface FileRoutesById {
   '/_authenticated/funcionarios': typeof AuthenticatedFuncionariosRoute
   '/_authenticated/materiais': typeof AuthenticatedMateriaisRoute
   '/_authenticated/obras': typeof AuthenticatedObrasRoute
-  '/_authenticated/painel-obras': typeof AuthenticatedPainelObrasRoute
   '/_authenticated/perfil': typeof AuthenticatedPerfilRoute
   '/_authenticated/prestacao': typeof AuthenticatedPrestacaoRoute
   '/_authenticated/tarefas': typeof AuthenticatedTarefasRoute
@@ -207,7 +197,6 @@ export interface FileRouteTypes {
     | '/funcionarios'
     | '/materiais'
     | '/obras'
-    | '/painel-obras'
     | '/perfil'
     | '/prestacao'
     | '/tarefas'
@@ -226,7 +215,6 @@ export interface FileRouteTypes {
     | '/funcionarios'
     | '/materiais'
     | '/obras'
-    | '/painel-obras'
     | '/perfil'
     | '/prestacao'
     | '/tarefas'
@@ -247,7 +235,6 @@ export interface FileRouteTypes {
     | '/_authenticated/funcionarios'
     | '/_authenticated/materiais'
     | '/_authenticated/obras'
-    | '/_authenticated/painel-obras'
     | '/_authenticated/perfil'
     | '/_authenticated/prestacao'
     | '/_authenticated/tarefas'
@@ -366,13 +353,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedObrasRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/painel-obras': {
-      id: '/_authenticated/painel-obras'
-      path: '/painel-obras'
-      fullPath: '/painel-obras'
-      preLoaderRoute: typeof AuthenticatedPainelObrasRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
     '/_authenticated/perfil': {
       id: '/_authenticated/perfil'
       path: '/perfil'
@@ -410,7 +390,6 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedFuncionariosRoute: typeof AuthenticatedFuncionariosRoute
   AuthenticatedMateriaisRoute: typeof AuthenticatedMateriaisRoute
   AuthenticatedObrasRoute: typeof AuthenticatedObrasRoute
-  AuthenticatedPainelObrasRoute: typeof AuthenticatedPainelObrasRoute
   AuthenticatedPerfilRoute: typeof AuthenticatedPerfilRoute
   AuthenticatedPrestacaoRoute: typeof AuthenticatedPrestacaoRoute
   AuthenticatedTarefasRoute: typeof AuthenticatedTarefasRoute
@@ -431,7 +410,6 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedFuncionariosRoute: AuthenticatedFuncionariosRoute,
   AuthenticatedMateriaisRoute: AuthenticatedMateriaisRoute,
   AuthenticatedObrasRoute: AuthenticatedObrasRoute,
-  AuthenticatedPainelObrasRoute: AuthenticatedPainelObrasRoute,
   AuthenticatedPerfilRoute: AuthenticatedPerfilRoute,
   AuthenticatedPrestacaoRoute: AuthenticatedPrestacaoRoute,
   AuthenticatedTarefasRoute: AuthenticatedTarefasRoute,

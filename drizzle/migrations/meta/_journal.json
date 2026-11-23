@@ -22,6 +22,13 @@
       "when": 1794837132867,
       "tag": "0002_tarefas_obra_id",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1795438893430,
+      "tag": "0003_delete_user_fully",
+      "breakpoints": true
     }
   ]
 }

@@ -1,3 +1,6 @@
+import { PainelObras as PainelObrasBase } from "@/components/PainelObras";
+import { Building2 as Building2Icon } from "lucide-react";
+const PainelObras = PainelObrasBase;
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
@@ -1155,6 +1158,10 @@ function DashboardPage() {
                 Financeiro
               </TabsTrigger>
             )}
+            <TabsTrigger value="obras" className="gap-1.5 text-xs font-medium">
+              <Building2Icon className="h-3.5 w-3.5" />
+              Por obra
+            </TabsTrigger>
             {canSeeEquipamentos && (
               <TabsTrigger value="equipamentos" className="gap-1.5 text-xs font-medium">
                 <Wrench className="h-3.5 w-3.5" />
@@ -2092,6 +2099,10 @@ function DashboardPage() {
         {/* ------------------------------------------------------------- */}
         {/* ABA 6: EQUIPAMENTOS & EMPRÉSTIMOS — só com permissão */}
         {/* ------------------------------------------------------------- */}
+        <TabsContent value="obras" className="space-y-4">
+          <PainelObras />
+        </TabsContent>
+
         {canSeeEquipamentos && (
         <TabsContent value="equipamentos" className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2">

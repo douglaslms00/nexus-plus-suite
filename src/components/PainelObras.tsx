@@ -1,32 +1,13 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { differenceInCalendarDays } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
-import { RequireModulePerm } from "@/components/RequireModulePerm";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Users, FolderOpen, CheckSquare, AlertTriangle, MapPin } from "lucide-react";
 import { safeParseISO } from "@/lib/utils";
-
-export const Route = createFileRoute("/_authenticated/painel-obras")({
-  head: () => ({
-    meta: [
-      { title: "Painel por Obra | GestãoPro" },
-      { name: "description", content: "Acompanhe funcionários, documentos e tarefas de cada obra." },
-      { property: "og:title", content: "Painel por Obra | GestãoPro" },
-      { property: "og:description", content: "Acompanhe funcionários, documentos e tarefas de cada obra." },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary" },
-    ],
-  }),
-  component: () => (
-    <RequireModulePerm module="obras">
-      <PainelObras />
-    </RequireModulePerm>
-  ),
-});
 
 const VENC_FUNC = ["vencimento_aso", "vencimento_treinamento", "vencimento_ferias", "vencimento_ficha_epi", "vencimento_experiencia", "vencimento_folga_campo"];
 
@@ -35,7 +16,7 @@ function dias(d?: string | null) {
   try { return differenceInCalendarDays(safeParseISO(d), new Date()); } catch { return null; }
 }
 
-function PainelObras() {
+export function PainelObras() {
   const [sel, setSel] = useState<string>("todas");
   const { data, isLoading } = useQuery({
     queryKey: ["painel-obras"],
