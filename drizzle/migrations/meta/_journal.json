@@ -29,6 +29,13 @@
       "when": 1795438893430,
       "tag": "0003_delete_user_fully",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1795439134453,
+      "tag": "0004_admin_delete_user_static",
+      "breakpoints": true
     }
   ]
 }
