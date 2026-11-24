@@ -35,6 +35,7 @@ import {
   FolderOpen,
   Receipt,
   Truck,
+  Mail,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -235,6 +236,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     },
     { to: "/documentos", label: "Documentos", icon: FolderOpen, module: "documentos" },
     { to: "/acessos", label: "Acessos", icon: ShieldCheck, module: "acessos" },
+    { to: "/email", label: "E-mail", icon: Mail, module: "acessos" },
   ];
 
   const nav = items.filter(

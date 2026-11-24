@@ -718,6 +718,51 @@ export type Database = {
           },
         ]
       }
+      email_config: {
+        Row: {
+          ativo: boolean
+          email: string
+          id: boolean
+          imap_host: string
+          imap_porta: number
+          nome_remetente: string | null
+          senha: string
+          smtp_host: string
+          smtp_porta: number
+          updated_at: string
+          updated_by: string | null
+          usuario: string
+        }
+        Insert: {
+          ativo?: boolean
+          email: string
+          id?: boolean
+          imap_host?: string
+          imap_porta?: number
+          nome_remetente?: string | null
+          senha: string
+          smtp_host?: string
+          smtp_porta?: number
+          updated_at?: string
+          updated_by?: string | null
+          usuario: string
+        }
+        Update: {
+          ativo?: boolean
+          email?: string
+          id?: boolean
+          imap_host?: string
+          imap_porta?: number
+          nome_remetente?: string | null
+          senha?: string
+          smtp_host?: string
+          smtp_porta?: number
+          updated_at?: string
+          updated_by?: string | null
+          usuario?: string
+        }
+        Relationships: []
+      }
       epi_movimentos: {
         Row: {
           created_at: string

@@ -17,6 +17,7 @@ import { Route as AuthenticatedAtivosRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedDocumentosRouteImport } from './routes/_authenticated/documentos'
 import { Route as AuthenticatedDocumentosObrigatoriosRouteImport } from './routes/_authenticated/documentos-obrigatorios'
+import { Route as AuthenticatedEmailRouteImport } from './routes/_authenticated/email'
 import { Route as AuthenticatedEpisRouteImport } from './routes/_authenticated/epis'
 import { Route as AuthenticatedFerramentasRouteImport } from './routes/_authenticated/ferramentas'
 import { Route as AuthenticatedFinanceiroRouteImport } from './routes/_authenticated/financeiro'
@@ -68,6 +69,11 @@ const AuthenticatedDocumentosObrigatoriosRoute =
     path: '/documentos-obrigatorios',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedEmailRoute = AuthenticatedEmailRouteImport.update({
+  id: '/email',
+  path: '/email',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedEpisRoute = AuthenticatedEpisRouteImport.update({
   id: '/epis',
   path: '/epis',
@@ -129,6 +135,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/documentos': typeof AuthenticatedDocumentosRoute
   '/documentos-obrigatorios': typeof AuthenticatedDocumentosObrigatoriosRoute
+  '/email': typeof AuthenticatedEmailRoute
   '/epis': typeof AuthenticatedEpisRoute
   '/ferramentas': typeof AuthenticatedFerramentasRoute
   '/financeiro': typeof AuthenticatedFinanceiroRoute
@@ -147,6 +154,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/documentos': typeof AuthenticatedDocumentosRoute
   '/documentos-obrigatorios': typeof AuthenticatedDocumentosObrigatoriosRoute
+  '/email': typeof AuthenticatedEmailRoute
   '/epis': typeof AuthenticatedEpisRoute
   '/ferramentas': typeof AuthenticatedFerramentasRoute
   '/financeiro': typeof AuthenticatedFinanceiroRoute
@@ -168,6 +176,7 @@ export interface FileRoutesById {
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/documentos': typeof AuthenticatedDocumentosRoute
   '/_authenticated/documentos-obrigatorios': typeof AuthenticatedDocumentosObrigatoriosRoute
+  '/_authenticated/email': typeof AuthenticatedEmailRoute
   '/_authenticated/epis': typeof AuthenticatedEpisRoute
   '/_authenticated/ferramentas': typeof AuthenticatedFerramentasRoute
   '/_authenticated/financeiro': typeof AuthenticatedFinanceiroRoute
@@ -190,6 +199,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/documentos'
     | '/documentos-obrigatorios'
+    | '/email'
     | '/epis'
     | '/ferramentas'
     | '/financeiro'
@@ -208,6 +218,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/documentos'
     | '/documentos-obrigatorios'
+    | '/email'
     | '/epis'
     | '/ferramentas'
     | '/financeiro'
@@ -228,6 +239,7 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard'
     | '/_authenticated/documentos'
     | '/_authenticated/documentos-obrigatorios'
+    | '/_authenticated/email'
     | '/_authenticated/epis'
     | '/_authenticated/ferramentas'
     | '/_authenticated/financeiro'
@@ -302,6 +314,13 @@ declare module '@tanstack/react-router' {
       path: '/documentos-obrigatorios'
       fullPath: '/documentos-obrigatorios'
       preLoaderRoute: typeof AuthenticatedDocumentosObrigatoriosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/email': {
+      id: '/_authenticated/email'
+      path: '/email'
+      fullPath: '/email'
+      preLoaderRoute: typeof AuthenticatedEmailRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/epis': {
@@ -383,6 +402,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedDocumentosRoute: typeof AuthenticatedDocumentosRoute
   AuthenticatedDocumentosObrigatoriosRoute: typeof AuthenticatedDocumentosObrigatoriosRoute
+  AuthenticatedEmailRoute: typeof AuthenticatedEmailRoute
   AuthenticatedEpisRoute: typeof AuthenticatedEpisRoute
   AuthenticatedFerramentasRoute: typeof AuthenticatedFerramentasRoute
   AuthenticatedFinanceiroRoute: typeof AuthenticatedFinanceiroRoute
@@ -403,6 +423,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDocumentosRoute: AuthenticatedDocumentosRoute,
   AuthenticatedDocumentosObrigatoriosRoute:
     AuthenticatedDocumentosObrigatoriosRoute,
+  AuthenticatedEmailRoute: AuthenticatedEmailRoute,
   AuthenticatedEpisRoute: AuthenticatedEpisRoute,
   AuthenticatedFerramentasRoute: AuthenticatedFerramentasRoute,
   AuthenticatedFinanceiroRoute: AuthenticatedFinanceiroRoute,

@@ -36,6 +36,13 @@
       "when": 1795439134453,
       "tag": "0004_admin_delete_user_static",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1795528028833,
+      "tag": "0005_email_config",
+      "breakpoints": true
     }
   ]
 }
