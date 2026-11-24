@@ -76,7 +76,7 @@ function getQueryClient() {
       defaultOptions: {
         queries: {
           staleTime: 1000 * 60 * 2,
-          gcTime: 1000 * 60 * 15,
+          gcTime: 1000 * 60 * 60 * 24 * 7,
           refetchOnWindowFocus: false,
           retry: 1,
         },
@@ -88,7 +88,7 @@ function getQueryClient() {
       defaultOptions: {
         queries: {
           staleTime: 1000 * 60 * 2,
-          gcTime: 1000 * 60 * 15,
+          gcTime: 1000 * 60 * 60 * 24 * 7,
           refetchOnWindowFocus: false,
           retry: 1,
         },

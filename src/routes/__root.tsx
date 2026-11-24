@@ -1,4 +1,8 @@
-import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
+import { QueryClient, useQueryClient } from "@tanstack/react-query";
+import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
+import { createSyncStoragePersister } from "@tanstack/query-sync-storage-persister";
+import { OfflineBanner } from "@/components/OfflineBanner";
+import { registerAppServiceWorker } from "@/lib/pwa-register";
 import {
   Outlet,
   Link,
@@ -140,24 +144,40 @@ function AuthListener() {
   return null;
 }
 
+let persister: ReturnType<typeof createSyncStoragePersister> | undefined;
+function getPersister() {
+  if (!persister) {
+    persister = createSyncStoragePersister({
+      storage: window.localStorage,
+      key: "gestaopro-offline-cache",
+      throttleTime: 2000,
+    });
+  }
+  return persister;
+}
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   useEffect(() => {
-    // Remove service workers antigos que serviam conteúdo desatualizado.
-    if ("serviceWorker" in navigator) {
-      void navigator.serviceWorker.getRegistrations().then((regs) => {
-        regs.forEach((reg) => {
-          if (reg.active?.scriptURL.endsWith("/sw.js")) void reg.unregister();
-        });
-      });
-    }
+    void registerAppServiceWorker();
   }, []);
   return (
-    <QueryClientProvider client={queryClient}>
+    <PersistQueryClientProvider
+      client={queryClient}
+      persistOptions={{
+        persister: getPersister(),
+        maxAge: 1000 * 60 * 60 * 24 * 7,
+        buster: "v1",
+        dehydrateOptions: {
+          shouldDehydrateQuery: (q) => q.state.status === "success",
+        },
+      }}
+    >
       <AuthListener />
       <SessionInactivityGuard />
       <Outlet />
+      <OfflineBanner />
       <Toaster richColors position="top-right" />
-    </QueryClientProvider>
+    </PersistQueryClientProvider>
   );
 }
