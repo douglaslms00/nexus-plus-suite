@@ -542,6 +542,134 @@ export type Database = {
           },
         ]
       }
+      copilot_actions: {
+        Row: {
+          arguments: Json
+          created_at: string
+          expires_at: string
+          id: string
+          result: Json | null
+          status: string
+          summary: string
+          thread_id: string
+          tool_name: string
+          user_id: string
+        }
+        Insert: {
+          arguments: Json
+          created_at?: string
+          expires_at?: string
+          id?: string
+          result?: Json | null
+          status?: string
+          summary: string
+          thread_id: string
+          tool_name: string
+          user_id: string
+        }
+        Update: {
+          arguments?: Json
+          created_at?: string
+          expires_at?: string
+          id?: string
+          result?: Json | null
+          status?: string
+          summary?: string
+          thread_id?: string
+          tool_name?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "copilot_actions_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "copilot_threads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "copilot_actions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      copilot_messages: {
+        Row: {
+          created_at: string
+          id: string
+          thread_id: string
+          ui_message: Json
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          thread_id: string
+          ui_message: Json
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          thread_id?: string
+          ui_message?: Json
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "copilot_messages_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "copilot_threads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "copilot_messages_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      copilot_threads: {
+        Row: {
+          busy_until: string | null
+          created_at: string
+          id: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          busy_until?: string | null
+          created_at?: string
+          id?: string
+          title?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          busy_until?: string | null
+          created_at?: string
+          id?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "copilot_threads_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       custom_role_module_permissions: {
         Row: {
           can_delete: boolean

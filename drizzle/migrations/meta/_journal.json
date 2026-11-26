@@ -43,6 +43,13 @@
       "when": 1795528028833,
       "tag": "0005_email_config",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1795721577647,
+      "tag": "0006_copilot_private_conversations",
+      "breakpoints": true
     }
   ]
 }

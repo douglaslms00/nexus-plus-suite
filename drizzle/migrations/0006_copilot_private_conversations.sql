@@ -1,0 +1,17 @@
+CREATE TABLE public.copilot_threads (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), user_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE, title text NOT NULL DEFAULT 'Nova conversa', created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), busy_until timestamptz);
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.copilot_threads TO authenticated;
+GRANT ALL ON public.copilot_threads TO service_role;
+ALTER TABLE public.copilot_threads ENABLE ROW LEVEL SECURITY;
+CREATE POLICY copilot_thread_owner ON public.copilot_threads FOR ALL TO authenticated USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+CREATE TABLE public.copilot_messages (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), thread_id uuid NOT NULL REFERENCES public.copilot_threads(id) ON DELETE CASCADE, user_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE, ui_message jsonb NOT NULL, created_at timestamptz NOT NULL DEFAULT now());
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.copilot_messages TO authenticated;
+GRANT ALL ON public.copilot_messages TO service_role;
+ALTER TABLE public.copilot_messages ENABLE ROW LEVEL SECURITY;
+CREATE POLICY copilot_message_owner ON public.copilot_messages FOR ALL TO authenticated USING (user_id = auth.uid() AND EXISTS (SELECT 1 FROM public.copilot_threads t WHERE t.id = thread_id AND t.user_id = auth.uid())) WITH CHECK (user_id = auth.uid() AND EXISTS (SELECT 1 FROM public.copilot_threads t WHERE t.id = thread_id AND t.user_id = auth.uid()));
+CREATE INDEX copilot_messages_thread_created ON public.copilot_messages(thread_id, created_at);
+CREATE TABLE public.copilot_actions (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), thread_id uuid NOT NULL REFERENCES public.copilot_threads(id) ON DELETE CASCADE, user_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE, tool_name text NOT NULL, arguments jsonb NOT NULL, summary text NOT NULL, status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','executing','completed','failed','cancelled')), result jsonb, created_at timestamptz NOT NULL DEFAULT now(), expires_at timestamptz NOT NULL DEFAULT (now() + interval '30 minutes'));
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.copilot_actions TO authenticated;
+GRANT ALL ON public.copilot_actions TO service_role;
+ALTER TABLE public.copilot_actions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY copilot_action_owner ON public.copilot_actions FOR ALL TO authenticated USING (user_id = auth.uid() AND EXISTS (SELECT 1 FROM public.copilot_threads t WHERE t.id = thread_id AND t.user_id = auth.uid())) WITH CHECK (user_id = auth.uid() AND EXISTS (SELECT 1 FROM public.copilot_threads t WHERE t.id = thread_id AND t.user_id = auth.uid()));
+CREATE INDEX copilot_actions_thread ON public.copilot_actions(thread_id, created_at);
