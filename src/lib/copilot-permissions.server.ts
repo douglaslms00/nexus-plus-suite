@@ -32,7 +32,6 @@ function permits(row: PermissionRow | undefined, action: Action): boolean {
   if (action === "view") return !!row.can_view;
   if (action === "edit") return !!row.can_edit;
   if (action === "delete") return !!row.can_delete;
-  // Em bancos anteriores à coluna can_import, a regra legada herda can_edit.
   return typeof row.can_import === "boolean" ? row.can_import : !!row.can_edit;
 }
 
@@ -73,10 +72,7 @@ export async function getCopilotAccessContext(
   const [customRoleResult, customPermissionResult, systemPermissionResult, systemLabelResult] =
     await Promise.all([
       customRoleIds.length
-        ? (supabase as any)
-            .from("custom_roles")
-            .select("id, label")
-            .in("id", customRoleIds)
+        ? (supabase as any).from("custom_roles").select("id, label").in("id", customRoleIds)
         : Promise.resolve({ data: [], error: null }),
       customRoleIds.length
         ? supabase
@@ -124,15 +120,10 @@ export async function getCopilotAccessContext(
         const systemMatches = systemPermissions.filter(
           (row) => roles.includes(row.role) && row.module === module,
         );
-        if (override) {
-          allowed = permits(override, action);
-        } else if (customMatches.length) {
-          allowed = customMatches.some((row) => permits(row, action));
-        } else if (systemMatches.length) {
-          allowed = systemMatches.some((row) => permits(row, action));
-        } else {
-          allowed = fallbackPermission(module, roles, action);
-        }
+        if (override) allowed = permits(override, action);
+        else if (customMatches.length) allowed = customMatches.some((row) => permits(row, action));
+        else if (systemMatches.length) allowed = systemMatches.some((row) => permits(row, action));
+        else allowed = fallbackPermission(module, roles, action);
       }
       if (allowed) permissions.push(`${module}:${action}`);
     }
