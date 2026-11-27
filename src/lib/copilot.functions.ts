@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { buildGestaoProAssistantPrompt } from "@/lib/gestaopro-assistant-prompt";
+import { getCopilotAccessContext } from "@/lib/copilot-permissions.server";
 
 type StoredMessage = { role: "user" | "assistant"; parts: { type: "text"; text: string }[] };
 
@@ -27,29 +28,31 @@ export const askCopilot = createServerFn({ method: "POST" })
       .insert({ thread_id: thread.id, user_id: userId, ui_message: userMsg as never });
     if (insErr) throw new Error("Não foi possível salvar sua mensagem.");
 
-    const { data: rows } = await supabase
+    const { data: rows, error: historyError } = await supabase
       .from("copilot_messages")
       .select("ui_message")
       .eq("thread_id", thread.id)
       .order("created_at", { ascending: false })
       .limit(12);
+    if (historyError) throw new Error("Não foi possível carregar o histórico da conversa.");
     const history = (rows ?? [])
       .reverse()
       .map((r) => r.ui_message as unknown as StoredMessage)
       .map((m) => ({ role: m.role, content: m.parts.map((p) => p.text).join("") }));
 
-    const { data: profile } = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle();
-    const p = profile as Record<string, unknown> | null;
-    const userName = String(p?.["full_name"] ?? p?.["nome"] ?? "Usuário autenticado").slice(0, 100);
+    const [{ data: profile, error: profileError }, access] = await Promise.all([
+      supabase.from("profiles").select("nome").eq("id", userId).maybeSingle(),
+      getCopilotAccessContext(supabase, userId),
+    ]);
+    if (profileError) throw new Error("Não foi possível carregar o perfil do usuário.");
+    const userName = String(profile?.nome ?? "Usuário autenticado").slice(0, 100);
 
-    const instructions =
-      buildGestaoProAssistantPrompt({
-        userName,
-        roleLabel: "não verificado pelo serviço do Copilot",
-        permissions: [],
-        currentDate: new Date().toISOString().slice(0, 10),
-      }) +
-      "\n\n# LIMITES DESTA VERSÃO\nVocê está em modo de orientação geral: não há ferramentas de consulta ou alteração conectadas. Não afirme que leu documentos, consultou estoque, acessou relatórios ou alterou dados. Para informações reais do sistema, oriente o usuário a abrir o módulo correspondente. Não solicite senhas, tokens ou outros segredos.";
+    const instructions = buildGestaoProAssistantPrompt({
+      userName,
+      roleLabel: access.roleLabel,
+      permissions: access.permissions,
+      currentDate: new Date().toISOString().slice(0, 10),
+    });
 
     const { generateResponse, GatewayError, PaymentRequiredError, RateLimitError } = await import(
       "@lovable.dev/ai-gateway"
