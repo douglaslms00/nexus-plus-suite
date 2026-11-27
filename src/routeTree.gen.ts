@@ -14,6 +14,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as AuthenticatedAcessosRouteImport } from './routes/_authenticated/acessos'
 import { Route as AuthenticatedAtivosRouteImport } from './routes/_authenticated/ativos'
+import { Route as AuthenticatedCopilotRouteImport } from './routes/_authenticated/copilot'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedDocumentosRouteImport } from './routes/_authenticated/documentos'
 import { Route as AuthenticatedDocumentosObrigatoriosRouteImport } from './routes/_authenticated/documentos-obrigatorios'
@@ -28,6 +29,8 @@ import { Route as AuthenticatedObrasRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedPerfilRouteImport } from './routes/_authenticated/perfil'
 import { Route as AuthenticatedPrestacaoRouteImport } from './routes/_authenticated/prestacao'
 import { Route as AuthenticatedTarefasRouteImport } from './routes/_authenticated/tarefas'
+import { Route as AuthenticatedCopilotIndexRouteImport } from './routes/_authenticated/copilot.index'
+import { Route as AuthenticatedCopilotThreadIdRouteImport } from './routes/_authenticated/copilot.$threadId'
 
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
   id: '/_authenticated',
@@ -51,6 +54,11 @@ const AuthenticatedAcessosRoute = AuthenticatedAcessosRouteImport.update({
 const AuthenticatedAtivosRoute = AuthenticatedAtivosRouteImport.update({
   id: '/ativos',
   path: '/ativos',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedCopilotRoute = AuthenticatedCopilotRouteImport.update({
+  id: '/copilot',
+  path: '/copilot',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
@@ -126,12 +134,25 @@ const AuthenticatedTarefasRoute = AuthenticatedTarefasRouteImport.update({
   path: '/tarefas',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedCopilotIndexRoute =
+  AuthenticatedCopilotIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedCopilotRoute,
+  } as any)
+const AuthenticatedCopilotThreadIdRoute =
+  AuthenticatedCopilotThreadIdRouteImport.update({
+    id: '/$threadId',
+    path: '/$threadId',
+    getParentRoute: () => AuthenticatedCopilotRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
   '/auth': typeof AuthRoute
   '/acessos': typeof AuthenticatedAcessosRoute
   '/ativos': typeof AuthenticatedAtivosRoute
+  '/copilot': typeof AuthenticatedCopilotRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/documentos': typeof AuthenticatedDocumentosRoute
   '/documentos-obrigatorios': typeof AuthenticatedDocumentosObrigatoriosRoute
@@ -146,6 +167,8 @@ export interface FileRoutesByFullPath {
   '/perfil': typeof AuthenticatedPerfilRoute
   '/prestacao': typeof AuthenticatedPrestacaoRoute
   '/tarefas': typeof AuthenticatedTarefasRoute
+  '/copilot/$threadId': typeof AuthenticatedCopilotThreadIdRoute
+  '/copilot/': typeof AuthenticatedCopilotIndexRoute
 }
 export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
@@ -166,6 +189,8 @@ export interface FileRoutesByTo {
   '/prestacao': typeof AuthenticatedPrestacaoRoute
   '/tarefas': typeof AuthenticatedTarefasRoute
   '/': typeof AuthenticatedIndexRoute
+  '/copilot/$threadId': typeof AuthenticatedCopilotThreadIdRoute
+  '/copilot': typeof AuthenticatedCopilotIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -173,6 +198,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/_authenticated/acessos': typeof AuthenticatedAcessosRoute
   '/_authenticated/ativos': typeof AuthenticatedAtivosRoute
+  '/_authenticated/copilot': typeof AuthenticatedCopilotRouteWithChildren
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/documentos': typeof AuthenticatedDocumentosRoute
   '/_authenticated/documentos-obrigatorios': typeof AuthenticatedDocumentosObrigatoriosRoute
@@ -188,6 +214,8 @@ export interface FileRoutesById {
   '/_authenticated/prestacao': typeof AuthenticatedPrestacaoRoute
   '/_authenticated/tarefas': typeof AuthenticatedTarefasRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
+  '/_authenticated/copilot/$threadId': typeof AuthenticatedCopilotThreadIdRoute
+  '/_authenticated/copilot/': typeof AuthenticatedCopilotIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -196,6 +224,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/acessos'
     | '/ativos'
+    | '/copilot'
     | '/dashboard'
     | '/documentos'
     | '/documentos-obrigatorios'
@@ -210,6 +239,8 @@ export interface FileRouteTypes {
     | '/perfil'
     | '/prestacao'
     | '/tarefas'
+    | '/copilot/$threadId'
+    | '/copilot/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/auth'
@@ -230,12 +261,15 @@ export interface FileRouteTypes {
     | '/prestacao'
     | '/tarefas'
     | '/'
+    | '/copilot/$threadId'
+    | '/copilot'
   id:
     | '__root__'
     | '/_authenticated'
     | '/auth'
     | '/_authenticated/acessos'
     | '/_authenticated/ativos'
+    | '/_authenticated/copilot'
     | '/_authenticated/dashboard'
     | '/_authenticated/documentos'
     | '/_authenticated/documentos-obrigatorios'
@@ -251,6 +285,8 @@ export interface FileRouteTypes {
     | '/_authenticated/prestacao'
     | '/_authenticated/tarefas'
     | '/_authenticated/'
+    | '/_authenticated/copilot/$threadId'
+    | '/_authenticated/copilot/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -293,6 +329,13 @@ declare module '@tanstack/react-router' {
       path: '/ativos'
       fullPath: '/ativos'
       preLoaderRoute: typeof AuthenticatedAtivosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/copilot': {
+      id: '/_authenticated/copilot'
+      path: '/copilot'
+      fullPath: '/copilot'
+      preLoaderRoute: typeof AuthenticatedCopilotRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/dashboard': {
@@ -393,12 +436,40 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedTarefasRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/copilot/': {
+      id: '/_authenticated/copilot/'
+      path: '/'
+      fullPath: '/copilot/'
+      preLoaderRoute: typeof AuthenticatedCopilotIndexRouteImport
+      parentRoute: typeof AuthenticatedCopilotRoute
+    }
+    '/_authenticated/copilot/$threadId': {
+      id: '/_authenticated/copilot/$threadId'
+      path: '/$threadId'
+      fullPath: '/copilot/$threadId'
+      preLoaderRoute: typeof AuthenticatedCopilotThreadIdRouteImport
+      parentRoute: typeof AuthenticatedCopilotRoute
+    }
   }
 }
+
+interface AuthenticatedCopilotRouteChildren {
+  AuthenticatedCopilotThreadIdRoute: typeof AuthenticatedCopilotThreadIdRoute
+  AuthenticatedCopilotIndexRoute: typeof AuthenticatedCopilotIndexRoute
+}
+
+const AuthenticatedCopilotRouteChildren: AuthenticatedCopilotRouteChildren = {
+  AuthenticatedCopilotThreadIdRoute: AuthenticatedCopilotThreadIdRoute,
+  AuthenticatedCopilotIndexRoute: AuthenticatedCopilotIndexRoute,
+}
+
+const AuthenticatedCopilotRouteWithChildren =
+  AuthenticatedCopilotRoute._addFileChildren(AuthenticatedCopilotRouteChildren)
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAcessosRoute: typeof AuthenticatedAcessosRoute
   AuthenticatedAtivosRoute: typeof AuthenticatedAtivosRoute
+  AuthenticatedCopilotRoute: typeof AuthenticatedCopilotRouteWithChildren
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedDocumentosRoute: typeof AuthenticatedDocumentosRoute
   AuthenticatedDocumentosObrigatoriosRoute: typeof AuthenticatedDocumentosObrigatoriosRoute
@@ -419,6 +490,7 @@ interface AuthenticatedRouteRouteChildren {
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAcessosRoute: AuthenticatedAcessosRoute,
   AuthenticatedAtivosRoute: AuthenticatedAtivosRoute,
+  AuthenticatedCopilotRoute: AuthenticatedCopilotRouteWithChildren,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedDocumentosRoute: AuthenticatedDocumentosRoute,
   AuthenticatedDocumentosObrigatoriosRoute:
